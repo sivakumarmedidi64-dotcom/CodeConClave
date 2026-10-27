@@ -24,8 +24,12 @@
   .cnv:hover{background:#1b2030;color:var(--fg)}.cnv.active{background:#223049;color:#eaf1ff}
   .cnv__t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cnv__x{opacity:0;border:none;background:none;color:var(--dim);cursor:pointer;font-size:15px}.cnv:hover .cnv__x{opacity:.7}.cnv__x:hover{color:#ff8a8a;opacity:1}
-  .rail__foot{padding:10px 14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;color:var(--dim);font-size:11.5px}
-  .memlink{color:var(--gold);cursor:pointer;background:none;border:none;font:inherit;font-size:11.5px}
+  .rail__foot{padding:10px;border-top:1px solid var(--line)}
+  .profile{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;color:var(--fg);font:inherit;font-size:14px;font-weight:600;padding:6px;border-radius:9px;cursor:pointer;text-align:left}
+  .profile:hover{background:#1b2030}
+  .avatar{width:30px;height:30px;flex:0 0 auto;border-radius:50%;background:#ff9933;color:#2a1600;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+  .sndrow{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--fg);cursor:pointer;margin-top:12px}
+  #memList{max-height:40vh;overflow:auto;list-style:disc;padding-left:20px;color:var(--fg);font-size:14px}
 
   .main{flex:1;display:flex;flex-direction:column;min-width:0}
   .top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
@@ -99,8 +103,9 @@
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:40;padding:16px}
   .modal.open{display:flex}
   .modalbox{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
-  .modalbox input{width:100%;margin-top:12px;background:#0b0d12;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;font-size:14px}
-  .modalbox input:focus{outline:none;border-color:var(--gold)}
+  .modalbox input[type=password]{width:100%;margin-top:12px;background:#0b0d12;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;font-size:14px}
+  .modalbox input[type=password]:focus{outline:none;border-color:var(--gold)}
+  .sndrow input{width:16px;height:16px;margin:0;accent-color:#ff9933}
   .backdrop{display:none}
   @media(max-width:720px){
     .rail{position:fixed;z-index:20;height:100%;margin-left:-260px}
@@ -115,10 +120,19 @@
     <div class="rail__top"><div class="logo">CODE<b>CON</b>CLAVE</div></div>
     <button class="newbtn" id="newBtn">＋ New chat</button>
     <div class="convos" id="convos"></div>
-    <div class="rail__foot"><span id="footNote">Your own AI</span><button class="memlink" id="memBtn">🧠 Memory</button></div>
+    <div class="rail__foot"><button class="profile" id="meBtn" title="Your profile"><span class="avatar" id="meAvatar">G</span><span id="meName">Guest</span></button></div>
   </aside>
   <div class="backdrop" id="backdrop"></div>
   <div class="toast" id="toast"></div>
+  <div class="modal" id="profModal">
+    <div class="modalbox">
+      <div class="bhead"><span class="avatar" id="profAvatar">G</span><span id="profName">Guest</span><button class="bx" id="profClose" title="Close">×</button></div>
+      <div class="maillbl">What I remember about you</div>
+      <ul id="memList"></ul>
+      <label class="sndrow"><input type="checkbox" id="sndToggle" /> Play the guitar sound when an answer is ready</label>
+      <div class="mailact"><button class="mskip" id="memClear">Clear memory</button></div>
+    </div>
+  </div>
   <div class="modal" id="lockModal">
     <div class="modalbox">
       <div class="bhead" id="lockHead"><span>Unlock your Gmail</span></div>
@@ -161,7 +175,7 @@
 
   function load(){ try{convos=JSON.parse(localStorage.getItem(CKEY)||'[]')||[]}catch{convos=[]} try{memory=JSON.parse(localStorage.getItem(MKEY)||'[]')||[]}catch{memory=[]} }
   function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.slice(0,100)))}catch{} }
-  function saveM(){ try{localStorage.setItem(MKEY,JSON.stringify(memory.slice(0,30)))}catch{} }
+  function saveM(){ try{localStorage.setItem(MKEY,JSON.stringify(memory.slice(0,30)))}catch{} renderProfile(); }
   const current=()=>convos.find(c=>c.id===currentId);
   const uid=()=>'c'+Date.now()+Math.random().toString(36).slice(2,6);
 
@@ -228,10 +242,44 @@
     if(added) saveM();
     return added;
   }
-  function showMemory(){
-    const body = memory.length ? memory.map((x,i)=>(i+1)+'. '+x).join('\n') : '(nothing yet — say "my name is …" or "remember that …")';
-    if(confirm('🧠 What CodeConClave AI remembers about you:\n\n'+body+'\n\nPress OK to CLEAR all memory, or Cancel to keep it.')){ memory=[]; saveM(); }
+  // ---- profile (bottom-left, like Claude): your name + what the AI remembers + the sound switch ----
+  // Name: what you told the AI ("my name is …"), else Saharsh in the owner's unlocked browser, else Guest.
+  function userName(){
+    const f=memory.find(x=>/^User's name is /.test(x));
+    return f ? f.replace(/^User's name is /,'').replace(/\.$/,'') : (ownerKey()?'Saharsh':'Guest');
   }
+  function renderProfile(){ const n=userName(); $('meName').textContent=n; $('meAvatar').textContent=n.charAt(0).toUpperCase(); }
+  function showMemory(){
+    const n=userName(); $('profName').textContent=n; $('profAvatar').textContent=n.charAt(0).toUpperCase();
+    const ul=$('memList'); ul.innerHTML='';
+    if(!memory.length) ul.appendChild(el('li',null,'Nothing yet — tell me “my name is …” or “remember that …”.'));
+    memory.forEach(x=>ul.appendChild(el('li',null,x)));
+    $('sndToggle').checked=soundOn(); $('profModal').classList.add('open');
+  }
+
+  // ---- the guitar cue: plays when an answer is ready (and when important mail is waiting).
+  // If you're looking away it chimes again every 25 s until you come back. ON by default.
+  const SKEY='cc_sound_v1';
+  const soundOn=()=>{ try{ return localStorage.getItem(SKEY)!=='off'; }catch{ return true; } };
+  const looking=()=>document.visibilityState==='visible' && document.hasFocus();
+  let cue=null, repeatT=null, cueBlocked=false;
+  function playCue(){
+    if(!soundOn()) return;
+    if(!cue) cue=new Audio('/sounds/notify.mp3');
+    clearTimeout(playCue._t); clearInterval(playCue._f);
+    try{ cue.pause(); cue.currentTime=0; cue.volume=0.7; }catch{}
+    const p=cue.play(); if(p&&p.catch) p.catch(()=>{ cueBlocked=true; }); // browsers block sound until you touch the page once
+    // The track is long - play the opening ~4.8 s, fading out over the last 0.8 s (as the old app did).
+    playCue._t=setTimeout(()=>{ playCue._f=setInterval(()=>{ cue.volume=Math.max(0,cue.volume-0.07);
+      if(cue.volume<=0.01){ clearInterval(playCue._f); cue.pause(); } },80); },4000);
+  }
+  function notify(){
+    playCue(); clearInterval(repeatT);
+    if(!looking()) repeatT=setInterval(()=>{ if(looking()||!soundOn()){ clearInterval(repeatT); return; } playCue(); }, 25000);
+  }
+  const backHere=()=>{ if(looking()) clearInterval(repeatT); };
+  document.addEventListener('visibilitychange',backHere); window.addEventListener('focus',backHere);
+  ['pointerdown','keydown'].forEach(e=>window.addEventListener(e,()=>{ if(cueBlocked){ cueBlocked=false; playCue(); } }));
 
   async function send(){
     if(busy) return;
@@ -290,7 +338,7 @@
         }
       }
       stepsDone();
-      if(full||msg.card||msg.list){ msg.content=full; c.messages.push(msg); c.updated=Date.now(); saveC(); }
+      if(full||msg.card||msg.list){ msg.content=full; c.messages.push(msg); c.updated=Date.now(); saveC(); notify(); }
       else { aiEl.remove(); }
     }catch{
       aiEl.remove(); wrap.appendChild(el('div','err','Could not reach the server.'));
@@ -316,7 +364,11 @@
   function closeRail(){ document.body.classList.remove('open'); }
   $('newBtn').onclick=newChat; sendBtn.onclick=send;
   $('burger').onclick=()=>document.body.classList.toggle('open'); $('backdrop').onclick=closeRail;
-  $('memBtn').onclick=showMemory;
+  $('meBtn').onclick=showMemory;
+  $('profClose').onclick=()=>$('profModal').classList.remove('open');
+  $('profModal').onclick=(e)=>{ if(e.target===$('profModal')) $('profModal').classList.remove('open'); };
+  $('memClear').onclick=()=>{ memory=[]; saveM(); showMemory(); };
+  $('sndToggle').onchange=(e)=>{ try{ localStorage.setItem(SKEY,e.target.checked?'on':'off'); }catch{} if(e.target.checked) playCue(); };
   function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2600); }
   $('plus').onclick=(e)=>{ e.stopPropagation(); $('menu').classList.toggle('open'); };
   $('addFiles').onclick=()=>{ $('menu').classList.remove('open'); $('fileInput').click(); };
@@ -368,7 +420,7 @@
       const modal=$('lockModal'), inp=$('lockInput');
       if(!$('lockHead').querySelector('.gm')) $('lockHead').insertAdjacentHTML('afterbegin',GMAIL_SVG);
       const done=(ok)=>{ modal.classList.remove('open'); $('lockGo').onclick=$('lockCancel').onclick=inp.onkeydown=null; inp.value=''; resolve(ok); };
-      $('lockGo').onclick=()=>{ const k=inp.value.trim(); if(!k){ inp.focus(); return; } try{ localStorage.setItem(OKEY,k); }catch{} done(true); };
+      $('lockGo').onclick=()=>{ const k=inp.value.trim(); if(!k){ inp.focus(); return; } try{ localStorage.setItem(OKEY,k); }catch{} renderProfile(); done(true); };
       $('lockCancel').onclick=()=>done(false);
       inp.onkeydown=(e)=>{ if(e.key==='Enter') $('lockGo').click(); else if(e.key==='Escape') done(false); };
       modal.classList.add('open'); inp.focus();
@@ -477,7 +529,7 @@
           if(o.configured===false){ if(shown && briefEl===b){ briefEl=null; renderChat(); } if(manual) toast('Gmail isn’t set up on the server yet.'); return; }
           if(o.error) return fail('I couldn’t read your Gmail right now — try /mail again in a minute.');
           if(typeof o.total==='number'){
-            show(); renderSummary(box,o);
+            show(); renderSummary(box,o); if(o.important.length) notify(); // important mail waiting: the guitar cue
             briefText='Today’s mail briefing I gave the user: '+o.total+' mails ('+o.unread+' unread). '+
               (o.important.length?'Important: '+o.important.map(m=>m.fromName+' — '+m.subject).join('; ')+'. ':'None important. ')+
               'Replies are only sent when the user clicks “Send it” or says “send it”; the app sends them, not you.';
@@ -493,7 +545,7 @@
   }
   setTimeout(()=>mailBrief(false), 600); // the AI briefs you when you arrive (owner only)
 
-  load(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
+  load(); renderProfile(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
 </script>
 </body>
 </html>
