@@ -31,13 +31,23 @@
   .top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
   .burger{display:none;border:none;background:none;color:var(--fg);font-size:20px;cursor:pointer}
   .top__title{font-weight:700}.top__title b{color:var(--gold)}
-  .mailbtn{margin-left:auto;border:none;background:none;font-size:18px;cursor:pointer;color:var(--fg)}
-  #mailZone{width:100%;max-width:760px;margin:10px auto 0;padding:0 16px;display:flex;flex-direction:column;gap:10px}
-  .mailcard{background:var(--panel);border:1px solid var(--gold);border-radius:12px;padding:14px;font-size:14px}
-  .mailtop b{color:var(--gold)}
-  .mailsubj{color:var(--dim);font-size:13px;margin:3px 0 8px}
-  .mailsum{line-height:1.55;margin-bottom:10px;white-space:pre-wrap}
-  .maillbl{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+  .brief{white-space:normal;max-width:92%;width:100%}
+  .bhead{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:8px}
+  .bhead .gm{width:22px;height:17px;flex:0 0 auto}
+  .bhead .bx{margin-left:auto;border:none;background:none;color:var(--dim);cursor:pointer;font-size:17px;line-height:1;padding:0 2px}
+  .bhead .bx:hover{color:var(--fg)}
+  .btext{line-height:1.6}
+  .blist{margin:6px 0 4px;padding-left:2px;line-height:1.65;list-style:none}
+  .blist li span{color:var(--dim)}
+  .udot{display:inline-block;width:7px;height:7px;border-radius:50%;background:transparent;margin-right:8px;vertical-align:middle}
+  .udot.on{background:var(--accent)}
+  .bothers{margin:6px 0 2px;color:var(--dim);font-size:13.5px}
+  .bothers summary{cursor:pointer}
+  .bnote{margin-top:12px;line-height:1.6}
+  .mailcard{background:#11141b;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;font-size:14px}
+  .mailcard .bnote{margin-top:0}
+  .mailsubj{color:var(--dim);font-size:13px;margin:4px 0 8px}
+  .mailsum{line-height:1.55;margin-bottom:10px}
   .maildraft{width:100%;min-height:90px;background:#0b0d12;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit;font-size:14px;resize:vertical}
   .mailact{display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap}
   .msend{background:var(--gold);color:#201a08;border:none;border-radius:9px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer}
@@ -79,6 +89,11 @@
   textarea:focus{outline:none}
   .send{flex:0 0 auto;cursor:pointer;border:none;border-radius:10px;padding:0 16px;height:34px;font:inherit;font-weight:700;background:var(--gold);color:#201a08}
   .send:disabled{opacity:.5;cursor:default}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:40;padding:16px}
+  .modal.open{display:flex}
+  .modalbox{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .modalbox input{width:100%;margin-top:12px;background:#0b0d12;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;font-size:14px}
+  .modalbox input:focus{outline:none;border-color:var(--gold)}
   .backdrop{display:none}
   @media(max-width:720px){
     .rail{position:fixed;z-index:20;height:100%;margin-left:-260px}
@@ -97,10 +112,17 @@
   </aside>
   <div class="backdrop" id="backdrop"></div>
   <div class="toast" id="toast"></div>
+  <div class="modal" id="lockModal">
+    <div class="modalbox">
+      <div class="bhead" id="lockHead"><span>Unlock your Gmail</span></div>
+      <div class="btext">Paste your owner key — it’s saved on your PC in <b>D:\cc-llm\owner.key</b>. Only a browser with this key can see or send your mail.</div>
+      <input type="password" id="lockInput" autocomplete="off" placeholder="Owner key" />
+      <div class="mailact"><button class="msend" id="lockGo">Unlock</button><button class="mskip" id="lockCancel">Cancel</button></div>
+    </div>
+  </div>
 
   <div class="main">
-    <div class="top"><button class="burger" id="burger">☰</button><div class="top__title">CODE<b>CON</b>CLAVE AI</div><button class="mailbtn" id="mailBtn" title="Check my mail">📬</button></div>
-    <div id="mailZone"></div>
+    <div class="top"><button class="burger" id="burger">☰</button><div class="top__title">CODE<b>CON</b>CLAVE AI</div></div>
     <div id="chat"></div>
     <div class="barwrap">
       <div class="files" id="files"></div>
@@ -128,6 +150,7 @@
   const chat=$('chat'), input=$('input'), sendBtn=$('send'), convosEl=$('convos'), filesEl=$('files');
   const CKEY='cc_convos_v1', MKEY='cc_memory_v1';
   let convos=[], currentId=null, busy=false, memory=[], pending=[]; // pending = files attached to the next message
+  let briefEl=null, briefChatId=null, briefText=''; // today's mail briefing, shown as the AI's opening message in one chat
 
   function load(){ try{convos=JSON.parse(localStorage.getItem(CKEY)||'[]')||[]}catch{convos=[]} try{memory=JSON.parse(localStorage.getItem(MKEY)||'[]')||[]}catch{memory=[]} }
   function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.slice(0,100)))}catch{} }
@@ -150,9 +173,11 @@
     let node; if(role!=='user'){ const w=document.createElement('span'); w.className='who'; w.textContent='CodeConClave AI'; el.appendChild(w); }
     node=document.createTextNode(text||''); el.appendChild(node); el._text=node; return el; }
   function renderChat(){
-    chat.innerHTML=''; const c=current();
-    if(!c||c.messages.length===0){ const e=document.createElement('div'); e.className='empty'; e.innerHTML='<div class="big">CODE<b>CON</b>CLAVE AI</div><div>Your own AI. Ask me anything, or add a file with ＋.</div>'; chat.appendChild(e); return; }
-    const wrap=document.createElement('div'); wrap.className='wrap'; c.messages.forEach(m=>wrap.appendChild(bubble(m.role,m.content))); chat.appendChild(wrap); chat.scrollTop=chat.scrollHeight;
+    chat.innerHTML=''; const c=current(); const withBrief=briefEl && currentId===briefChatId;
+    if((!c||c.messages.length===0) && !withBrief){ const e=document.createElement('div'); e.className='empty'; e.innerHTML='<div class="big">CODE<b>CON</b>CLAVE AI</div><div>Your own AI. Ask me anything, or add a file with ＋.</div>'; chat.appendChild(e); return; }
+    const wrap=document.createElement('div'); wrap.className='wrap'; if(withBrief) wrap.appendChild(briefEl);
+    (c?.messages||[]).forEach(m=>wrap.appendChild(bubble(m.role,m.content))); chat.appendChild(wrap);
+    chat.scrollTop = c&&c.messages.length ? chat.scrollHeight : 0;
   }
 
   // ---- files ----
@@ -201,6 +226,22 @@
     if(c.title==='New chat'||!c.title) c.title=(text||files[0]?.name||'Chat').slice(0,40);
     c.updated=Date.now(); captureMemory(text); saveC(); renderSidebar(); renderChat();
 
+    // The AI asked "send it like this, or change something?" — "yes / send it" is the owner's
+    // approval; "say I'm busy Friday" rewrites the draft. Anything else goes to the AI as normal.
+    if(currentId===briefChatId && briefEl && !files.length){
+      const cards=[...briefEl.querySelectorAll('.mailcard')].filter(k=>!k.dataset.sent);
+      const yes=SEND_YES.test(text), change=!yes && CHANGE_RE.test(text);
+      if(cards.length && (yes||change)){
+        busy=true; sendBtn.disabled=true;
+        const wrap=chat.querySelector('.wrap'), wait=bubble('ai','');
+        wait.insertAdjacentHTML('beforeend','<span class="dots"><i></i><i></i><i></i></span>'); wrap.appendChild(wait); chat.scrollTop=chat.scrollHeight;
+        const reply = cards.length>1 ? `I have ${cards.length} replies ready — use “Send it” on the one you want, or edit it right in its box.`
+          : yes ? await cards[0]._send() : await cards[0]._redraft(text);
+        c.messages.push({role:'assistant',content:reply}); c.updated=Date.now(); saveC(); renderChat();
+        busy=false; sendBtn.disabled=false; input.focus(); return;
+      }
+    }
+
     busy=true; sendBtn.disabled=true;
     const wrap=chat.querySelector('.wrap')||(()=>{const w=document.createElement('div');w.className='wrap';chat.appendChild(w);return w;})();
     const aiEl=bubble('ai',''); aiEl.querySelector('.who').insertAdjacentHTML('afterend','<span class="dots" id="d"><i></i><i></i><i></i></span>');
@@ -209,6 +250,7 @@
     // messages to send: the real convo (user message without the file-name echo) + file text separately
     const outMsgs=c.messages.map(m=>({role:m.role,content:m.content}));
     outMsgs[outMsgs.length-1]={role:'user',content:text||'(see attached file)'};
+    if(currentId===briefChatId && briefText) outMsgs.unshift({role:'assistant',content:briefText});
     let full='';
     try{
       const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -240,12 +282,17 @@
   $('addFiles').onclick=()=>{ $('menu').classList.remove('open'); $('fileInput').click(); };
   $('addFolder').onclick=()=>{ $('menu').classList.remove('open'); $('folderInput').click(); };
   $('slashCmd').onclick=()=>{ $('menu').classList.remove('open'); input.value='/'; input.focus(); slashRender('/'); };
-  $('connectors').onclick=()=>{ $('menu').classList.remove('open'); toast('Connectors (Gmail, Slack…) — coming next 🙂'); };
+  $('connectors').onclick=async()=>{ $('menu').classList.remove('open');
+    try{ const s=await (await fetch('/api/mail/status',{headers:mailHeaders()})).json();
+      if(!s.configured) return toast('Gmail isn’t set up on the server yet.');
+      if(s.unlocked) return toast('Gmail connected ✓ '+s.account+' — type /mail for today’s mail');
+      if(await unlockMail()) mailBrief(true);
+    }catch{ toast('Could not reach the server.'); } };
   $('addPlugins').onclick=()=>{ $('menu').classList.remove('open'); toast('Plugins — coming next 🙂'); };
   $('fileInput').onchange=(e)=>{ handleFiles(e.target.files); e.target.value=''; };
   $('folderInput').onchange=(e)=>{ handleFiles(e.target.files, true); e.target.value=''; };
   document.addEventListener('click',()=>$('menu').classList.remove('open'));
-  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
+  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
   function slashRender(q){ const el=$('slash'); const list=COMMANDS.filter(c=>c.cmd.startsWith(q.toLowerCase())); el.innerHTML='';
     list.forEach((c,i)=>{ const r=document.createElement('button'); r.className='slashrow'+(i===0?' sel':''); r.dataset.cmd=c.cmd;
       const b=document.createElement('b'); b.textContent=c.cmd; const s=document.createElement('span'); s.textContent=c.desc; r.append(b,s); r.onclick=()=>runCommand(c.cmd); el.appendChild(r); });
@@ -255,7 +302,8 @@
     if(c==='/new') newChat();
     else if(c==='/clear'){ const cur=current(); if(cur){cur.messages=[]; cur.title='New chat'; saveC(); renderSidebar(); renderChat();} }
     else if(c==='/memory') showMemory();
-    else toast('Commands:  /new   /clear   /memory'); }
+    else if(c==='/mail') mailBrief(true);
+    else toast('Commands:  /new   /mail   /clear   /memory'); }
   input.addEventListener('keydown',(e)=>{ const open=$('slash').classList.contains('open');
     if(e.key==='Escape'){ slashHide(); return; }
     if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault();
@@ -264,58 +312,140 @@
   input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px';
     const v=input.value; if(v.startsWith('/')&&!v.includes(' ')) slashRender(v); else slashHide(); });
 
-  // ---- mail (mom's idea): check new mail → show summary + drafted reply → send on approval ----
-  function mailCard(m){
-    const el=document.createElement('div'); el.className='mailcard';
-    el.innerHTML='<div class="mailtop">📬 You got a mail from <b></b></div><div class="mailsubj"></div><div class="mailsum"></div><div class="maillbl">The reply I drafted — edit it if you like:</div><textarea class="maildraft"></textarea><div class="mailact"><button class="msend">Send reply</button><button class="mskip">Skip</button><span class="mstatus"></span></div>';
-    el.querySelector('.mailtop b').textContent=m.from;
-    el.querySelector('.mailsubj').textContent=m.subject;
-    el.querySelector('.mailsum').textContent=m.summary||'(no summary)';
-    const ta=el.querySelector('.maildraft'); ta.value=m.draft||'';
-    const status=el.querySelector('.mstatus');
-    el.querySelector('.mskip').onclick=()=>el.remove();
-    el.querySelector('.msend').onclick=async(e)=>{
-      const btn=e.target; if(!m.replyTo){ status.textContent='No reply address on this mail.'; return; }
-      btn.disabled=true; status.textContent='Sending…';
-      try{ const r=await fetch('/api/mail/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:m.replyTo,subject:'Re: '+m.subject,body:ta.value})});
-        const d=await r.json(); if(d.ok){ status.textContent='✅ Sent to '+m.replyTo; btn.remove(); ta.disabled=true; el.querySelector('.mskip').textContent='Close'; }
-        else { status.textContent=d.error||'Could not send.'; btn.disabled=false; } }
-      catch{ status.textContent='Could not reach the server.'; btn.disabled=false; }
-    };
-    return el;
+  // ---- mail (mom's idea): when you open the app, the AI tells you how many mails came today,
+  // which are important (Gmail's own Important label), and shows a reply it already drafted.
+  // You approve ("Send it" or just "yes, send it") and it sends. Owner-only: locked by a key.
+  const OKEY='cc_mail_owner_v1';
+  const GMAIL_SVG='<svg class="gm" viewBox="52 42 88 66" aria-label="Gmail"><path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/><path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/><path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/><path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/><path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/></svg>';
+  const SEND_YES=/^\s*(?:(?:yes|yeah|yep|ok(?:ay)?|sure)\b[\s,!.]*)?(?:please\s+)?(?:send(?:\s+(?:it|that|this|the\s+reply))?(?:\s+now)?|yes(?:\s+please)?|ok(?:ay)?|sure)[\s.!]*$/i;
+  const CHANGE_RE=/^\s*(?:please\s+)?(?:change|make|rewrite|edit|redo|reword|rephrase|say|tell\s+(?:him|her|them)|add|remove|mention|shorten|shorter|longer|more\s|less\s|be\s|sound|don'?t|do\s+not|instead|i'?m\s|i\s+am\s|i\s+(?:can|can'?t|cannot|will|won'?t|already|have|paid|sent))|\b(?:the|this|that|my)\s+(?:reply|draft|mail|email)\b/i;
+  const ownerKey=()=>{ try{ return localStorage.getItem(OKEY)||''; }catch{ return ''; } };
+  const mailHeaders=(extra)=>({...(extra||{}),'x-owner-key':ownerKey()});
+  function el(tag,cls,text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+  // In-page unlock box (browser prompt() popups are blocked in some in-app browsers).
+  function unlockMail(){
+    return new Promise((resolve)=>{
+      const modal=$('lockModal'), inp=$('lockInput');
+      if(!$('lockHead').querySelector('.gm')) $('lockHead').insertAdjacentHTML('afterbegin',GMAIL_SVG);
+      const done=(ok)=>{ modal.classList.remove('open'); $('lockGo').onclick=$('lockCancel').onclick=inp.onkeydown=null; inp.value=''; resolve(ok); };
+      $('lockGo').onclick=()=>{ const k=inp.value.trim(); if(!k){ inp.focus(); return; } try{ localStorage.setItem(OKEY,k); }catch{} done(true); };
+      $('lockCancel').onclick=()=>done(false);
+      inp.onkeydown=(e)=>{ if(e.key==='Enter') $('lockGo').click(); else if(e.key==='Escape') done(false); };
+      modal.classList.add('open'); inp.focus();
+    });
   }
-  async function checkMail(manual){
-    const zone=$('mailZone');
-    if(manual){ zone.innerHTML='<div class="mailcard">📬 Checking your mail…</div>'; }
-    let cleared=!manual, statusEl=null, any=false;
-    const clearOnce=()=>{ if(!cleared){ zone.innerHTML=''; cleared=true; } };
+  function mailLi(m){ const li=el('li'); const d=el('span','udot'+(m.unread?' on':'')); if(m.unread) d.title='Unread'; li.appendChild(d);
+    li.appendChild(el('b',null,m.fromName)); li.appendChild(el('span',null,' — '+m.subject)); return li; }
+
+  function draftCard(m){
+    const card=el('div','mailcard');
+    const lead=el('div','bnote');
+    if(m.drafted){ lead.append('✍️ I already drafted a reply to '); lead.appendChild(el('b',null,m.fromName)); lead.append('. Want me to send it like this, or change something?'); }
+    else { lead.append('I couldn’t draft a reply to '); lead.appendChild(el('b',null,m.fromName)); lead.append(' right now (my model is busy or offline). Write one here and I’ll send it.'); }
+    const subject=/^re:/i.test(m.subject)?m.subject:'Re: '+m.subject;
+    card.append(lead, el('div','mailsubj',subject));
+    if(m.summary){ const s=el('div','mailsum'); s.appendChild(el('b',null,'What they said: ')); s.append(m.summary); card.appendChild(s); }
+    if(m.drafted && m.asks){ const w=el('div','mailsum'); w.append('⚠️ '+m.fromName.split(/\s+/)[0]+' asked you something — check the reply says what you want. Fill in any [your answer], or just tell me what to change.'); card.appendChild(w); }
+    const ta=el('textarea','maildraft'); ta.value=m.draft||''; card.appendChild(ta);
+    const fit=()=>{ ta.rows=Math.min(18,Math.max(5,ta.value.split('\n').reduce((n,l)=>n+Math.max(1,Math.ceil(l.length/44)),0)+1)); }; fit(); ta.addEventListener('input',fit);
+    const act=el('div','mailact'), sendB=el('button','msend','Send it'), skipB=el('button','mskip','Skip'), status=el('span','mstatus');
+    act.append(sendB,skipB,status); card.appendChild(act);
+    skipB.onclick=()=>{ card.dataset.sent='skip'; card.remove(); };
+    card._send=async()=>{
+      if(!ta.value.trim()){ status.textContent='Write a reply first.'; return 'The reply is empty — write something in the box first.'; }
+      sendB.disabled=true; status.textContent='Sending…';
+      try{ const r=await fetch('/api/mail/send',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
+          body:JSON.stringify({to:m.replyTo,subject,body:ta.value,inReplyTo:m.messageId})});
+        const d=await r.json();
+        if(d.ok){ card.dataset.sent='1'; status.textContent='✅ Sent to '+m.replyTo; sendB.remove(); ta.disabled=true; skipB.textContent='Close'; return '✅ Sent your reply to '+m.fromName+' ('+m.replyTo+').'; }
+        sendB.disabled=false; status.textContent=d.error||'Could not send.'; return 'I couldn’t send it: '+(d.error||'unknown error');
+      }catch{ sendB.disabled=false; status.textContent='Could not reach the server.'; return 'I couldn’t reach the server to send it.'; }
+    };
+    sendB.onclick=()=>card._send();
+    card._redraft=async(instruction)=>{
+      status.textContent='Rewriting…'; ta.disabled=true;
+      try{ const r=await fetch('/api/mail/redraft',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
+          body:JSON.stringify({draft:ta.value,instruction,fromName:m.fromName,summary:m.summary})});
+        const d=await r.json(); ta.disabled=false;
+        if(d.draft){ ta.value=d.draft; fit(); status.textContent='Updated ✓'; return 'Done — I changed the reply to '+m.fromName+'. Have a look; want me to send it now?'; }
+        status.textContent=''; return 'I couldn’t change it: '+(d.error||'unknown error');
+      }catch{ ta.disabled=false; status.textContent=''; return 'I couldn’t reach the server to change it.'; }
+    };
+    return card;
+  }
+
+  // Show the briefing in an empty chat (reuse one, or start one) so it's the first thing you see.
+  function openBriefChat(){
+    const c=current();
+    if(!(c && c.messages.length===0)){
+      const empty=convos.find(x=>x.messages.length===0);
+      if(empty) currentId=empty.id;
+      else { currentId=uid(); convos.unshift({id:currentId,title:'New chat',messages:[],updated:Date.now()}); saveC(); }
+      renderSidebar();
+    }
+    briefChatId=currentId;
+  }
+
+  function renderSummary(box,o){
+    box.innerHTML='';
+    if(!o.total){ box.textContent='No new mail today so far 📭'; return; }
+    const p=el('div'); const n=o.important.length;
+    p.append('You got '); p.appendChild(el('b',null,o.total+' mail'+(o.total===1?'':'s'))); p.append(' today'+(o.unread?' ('+o.unread+' unread)':'')+'. ');
+    if(n){ p.appendChild(el('b',null,n+(n===1?' looks':' look')+' important')); p.append(':'); } else p.append('None of them look important.');
+    box.appendChild(p);
+    if(n){ const ul=el('ul','blist'); o.important.forEach(m=>ul.appendChild(mailLi(m))); box.appendChild(ul); }
+    if(o.othersCount){ const d=el('details','bothers');
+      d.appendChild(el('summary',null,(n?o.othersCount+' other mail'+(o.othersCount===1?'':'s'):'See all '+o.othersCount)));
+      const ul=el('ul','blist'); o.others.forEach(m=>ul.appendChild(mailLi(m)));
+      if(o.othersCount>o.others.length) ul.appendChild(el('li',null,'…and '+(o.othersCount-o.others.length)+' more'));
+      d.appendChild(ul); box.appendChild(d); }
+    if(n && !o.drafting) box.appendChild(el('div','bnote','The important ones are automatic notices (no-reply senders), so there’s nothing to reply to.'));
+  }
+
+  async function mailBrief(manual){
+    if(!ownerKey() && !(manual && await unlockMail())) return; // visitors never see the owner's mail
+    const b=el('div','msg ai brief'); b.appendChild(el('span','who','CodeConClave AI'));
+    const head=el('div','bhead'); head.innerHTML=GMAIL_SVG; head.appendChild(el('span',null,'Today’s mail'));
+    const x=el('button','bx','×'); x.title='Hide'; x.onclick=()=>{ if(briefEl===b){ briefEl=null; briefChatId=null; briefText=''; renderChat(); } };
+    head.appendChild(x); b.appendChild(head);
+    const box=el('div','btext'); box.innerHTML='<span class="dots"><i></i><i></i><i></i></span> Checking your Gmail…'; b.appendChild(box);
+    const drafts=el('div'); b.appendChild(drafts);
+    let shown=false, working=null;
+    const show=()=>{ if(shown) return; shown=true; openBriefChat(); briefEl=b; briefText=''; renderChat(); };
+    const fail=(msg)=>{ if(shown){ box.textContent=msg; } else if(manual) toast(msg); };
+    if(manual) show();
     try{
-      const r=await fetch('/api/mail/check');
-      if(!r.ok||!r.body){ clearOnce(); if(manual) toast('Could not check mail.'); return; }
+      const r=await fetch('/api/mail/brief',{headers:mailHeaders()});
+      if(!r.ok||!r.body) return fail('I couldn’t reach your Gmail right now.');
       const reader=r.body.getReader(), dec=new TextDecoder(); let buf='';
       while(true){
         const {value,done}=await reader.read(); if(done) break;
         buf+=dec.decode(value,{stream:true});
         const parts=buf.split('\n\n'); buf=parts.pop();
-        for(const p of parts){
-          const line=p.trim(); if(!line.startsWith('data:')) continue;
+        for(const part of parts){
+          const line=part.trim(); if(!line.startsWith('data:')) continue;
           let o; try{ o=JSON.parse(line.slice(5).trim()); }catch{ continue; }
-          if(o.configured===false){ clearOnce(); if(manual) toast('Mail isn’t connected yet.'); return; }
-          if(o.count===0){ clearOnce(); if(manual) toast('No new mail 📭'); return; }
-          if(o.working){ clearOnce(); if(statusEl) statusEl.remove();
-            statusEl=document.createElement('div'); statusEl.className='mailcard';
-            statusEl.textContent=`✍️ Reading your mail from ${o.from} and drafting a reply… (${o.working}/${o.of})`;
-            zone.appendChild(statusEl); }
-          if(o.mail){ clearOnce(); if(statusEl){ statusEl.remove(); statusEl=null; } zone.appendChild(mailCard(o.mail)); any=true; }
-          if(o.error){ clearOnce(); if(manual) toast('Could not check mail.'); }
-          if(o.done){ if(statusEl){ statusEl.remove(); statusEl=null; } }
+          if(o.locked){ try{ localStorage.removeItem(OKEY); }catch{}
+            if(shown && briefEl===b){ briefEl=null; briefChatId=null; renderChat(); }
+            if(manual) toast('That key didn’t work. Try again from ＋ → Connectors.'); return; }
+          if(o.configured===false){ if(shown && briefEl===b){ briefEl=null; renderChat(); } if(manual) toast('Gmail isn’t set up on the server yet.'); return; }
+          if(o.error) return fail('I couldn’t read your Gmail right now — try /mail again in a minute.');
+          if(typeof o.total==='number'){
+            show(); renderSummary(box,o);
+            briefText='Today’s mail briefing I gave the user: '+o.total+' mails ('+o.unread+' unread). '+
+              (o.important.length?'Important: '+o.important.map(m=>m.fromName+' — '+m.subject).join('; ')+'. ':'None important. ')+
+              'Replies are only sent when the user clicks “Send it” or says “send it”; the app sends them, not you.';
+          }
+          if(o.working){ working=el('div','bnote'); working.innerHTML='<span class="dots"><i></i><i></i><i></i></span> Drafting a reply to <b></b>…';
+            working.querySelector('b').textContent=o.working; drafts.appendChild(working); }
+          if(o.mail){ if(working){ working.remove(); working=null; } drafts.appendChild(draftCard(o.mail));
+            if(o.mail.drafted) briefText+=' Drafted a reply to '+o.mail.fromName+(o.mail.summary?' (they said: '+o.mail.summary+')':'')+'.'; }
         }
       }
-      if(!any && manual) toast('No new mail 📭');
-    }catch{ clearOnce(); if(manual) toast('Could not check mail.'); }
+      if(working) working.remove();
+    }catch{ fail('I couldn’t reach your Gmail right now.'); }
   }
-  $('mailBtn').onclick=()=>checkMail(true);
-  setTimeout(()=>checkMail(false), 1000); // proactive check when you arrive
+  setTimeout(()=>mailBrief(false), 600); // the AI briefs you when you arrive (owner only)
 
   load(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
 </script>
