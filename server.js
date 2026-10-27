@@ -1,21 +1,19 @@
 // CodeConClave AI — clean build. Talks ONLY to our own tuned model, grounded by
-// Agent Sai's real live data. No coworker. No outside AI providers. If our model
-// is down, we say so honestly — we never fake an answer and never fall back to
-// someone else's AI.
+// Agent Sai's real live data, with memory + file reading. No coworker, no outside
+// AI providers. If our model is down, we say so honestly — never fake, never
+// fall back to someone else's AI.
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '8mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Our tuned model (OpenAI-compatible). Set in the host.
 const BASE = (process.env.RESIDENT_OPENAI_BASE_URL || '').replace(/\/+$/, '');
 const MODEL = process.env.RESIDENT_MODEL || 'codeconclave-coder-lite';
 const KEY = process.env.RESIDENT_API_KEY || '';
-// Agent Sai edge worker (has the live connectors; not rate-limited like a cloud host).
 const EDGE = (process.env.SAI_EDGE_URL || 'https://codeconclave-007.sivakumarmedidi64.workers.dev').replace(/\/+$/, '');
 
 const SYSTEM = [
@@ -24,14 +22,14 @@ const SYSTEM = [
   'mention or compare yourself to any other AI or company.',
   'Be warm, clear and direct. Lead with the answer. No fluff.',
   'You remember this conversation; use what was said earlier.',
-  'When a message gives you LIVE DATA, you DO have that real-time information —',
-  'use it directly in your answer. NEVER say you cannot access real-time or live data.',
+  'When a message gives you LIVE DATA or an attached file, you DO have that',
+  'information — use it directly. NEVER say you cannot access real-time data or files.',
   'If you are unsure, say so honestly instead of guessing.',
 ].join(' ');
 
 const MAX_TURNS = 24;
 
-// ---- Agent Sai: map a message to one live data source, fetch it, ground the answer ----
+// ---- Agent Sai (live data via the edge worker) ----
 function place(s) {
   return s.trim()
     .replace(/\s+(?:today|now|right now|currently|please|for me|this (?:morning|evening|afternoon|week|weekend))\b.*$/i, '')
@@ -67,17 +65,12 @@ async function agentSai(message) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 15000);
   try {
-    const u = `${EDGE}/fetch?source=${encodeURIComponent(hit.sourceId)}&q=${encodeURIComponent(hit.query)}`;
-    const r = await fetch(u, { signal: ctl.signal });
+    const r = await fetch(`${EDGE}/fetch?source=${encodeURIComponent(hit.sourceId)}&q=${encodeURIComponent(hit.query)}`, { signal: ctl.signal });
     if (!r.ok) return null;
     const body = await r.json();
     const ev = body?.ok ? body.evidence : null;
-    return ev && ev.summary ? ev : null; // honest: no data → null, never faked
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(t);
-  }
+    return ev && ev.summary ? ev : null;
+  } catch { return null; } finally { clearTimeout(t); }
 }
 
 app.post('/api/chat', async (req, res) => {
@@ -85,48 +78,91 @@ app.post('/api/chat', async (req, res) => {
   if (Array.isArray(req.body?.messages)) {
     convo = req.body.messages
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-      .map((m) => ({ role: m.role, content: String(m.content).slice(0, 8000) }))
+      .map((m) => ({ role: m.role, content: String(m.content).slice(0, 12000) }))
       .slice(-MAX_TURNS);
   } else {
-    const single = String(req.body?.message || '').slice(0, 8000).trim();
+    const single = String(req.body?.message || '').slice(0, 12000).trim();
     if (single) convo = [{ role: 'user', content: single }];
   }
   if (!convo.length) return res.status(400).json({ error: 'Say something first.' });
   if (!BASE) return res.status(503).json({ error: 'CodeConClave AI is not connected yet (no model endpoint set).' });
 
-  // Ground on real data when the latest question needs it (best-effort, never blocks).
+  // Memory the user asked us to keep (sent from the browser).
+  const memory = typeof req.body?.memory === 'string' ? req.body.memory.slice(0, 2000).trim() : '';
+  const sys = memory ? `${SYSTEM}\n\nWhat you know about this user (remember and use it):\n${memory}` : SYSTEM;
+
+  // Attached files (already turned to text in the browser).
+  const files = Array.isArray(req.body?.files) ? req.body.files.slice(0, 5) : [];
+  const fileBlock = files
+    .filter((f) => f && typeof f.text === 'string' && f.text.trim())
+    .map((f) => `[Attached file: ${String(f.name || 'file').slice(0, 120)}]\n${String(f.text).slice(0, 20000)}`)
+    .join('\n\n');
+
+  const messages = [{ role: 'system', content: sys }, ...convo];
+  // The latest user turn: attach file text + live data right where the model reads it.
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') {
+      let content = messages[i].content;
+      if (fileBlock) content = `${fileBlock}\n\n${content}`;
+      messages[i] = { role: 'user', content };
+      break;
+    }
+  }
   const lastUser = [...convo].reverse().find((m) => m.role === 'user')?.content || '';
   const ev = await agentSai(lastUser);
-  const messages = [{ role: 'system', content: SYSTEM }, ...convo];
   if (ev) {
-    // Put the live data right INSIDE the latest question — small models use it
-    // far more reliably there than in a separate system message.
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'user') {
         messages[i] = {
           role: 'user',
           content:
             `[LIVE DATA you have been given — use it, do NOT say you lack real-time access:\n${ev.summary}\n(Source: ${ev.source})]\n\n` +
-            `Answer using the live data above, and end your reply with "📊 Source: ${ev.source}".\n\nQuestion: ${messages[i].content}`,
+            `Answer using the live data above, and end your reply with "📊 Source: ${ev.source}".\n\n${messages[i].content}`,
         };
         break;
       }
     }
   }
 
+  // Stream the answer back (words appear as they are generated).
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.write(`data: ${JSON.stringify({ meta: { grounded: Boolean(ev) } })}\n\n`);
+
   try {
     const r = await fetch(`${BASE}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(KEY ? { Authorization: `Bearer ${KEY}` } : {}) },
-      body: JSON.stringify({ model: MODEL, messages, temperature: 0.7, max_tokens: 1024 }),
+      body: JSON.stringify({ model: MODEL, messages, temperature: 0.7, max_tokens: 1024, stream: true }),
     });
-    if (!r.ok) throw new Error(`model HTTP ${r.status}`);
-    const data = await r.json();
-    const answer = data?.choices?.[0]?.message?.content?.trim() || '';
-    if (!answer) throw new Error('empty answer');
-    res.json({ answer, grounded: Boolean(ev) });
+    if (!r.ok || !r.body) throw new Error(`model HTTP ${r.status}`);
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '', any = false;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (payload === '[DONE]') { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); return res.end(); }
+        try {
+          const d = JSON.parse(payload)?.choices?.[0]?.delta?.content || '';
+          if (d) { any = true; res.write(`data: ${JSON.stringify({ delta: d })}\n\n`); }
+        } catch { /* ignore keepalive/partial */ }
+      }
+    }
+    if (!any) res.write(`data: ${JSON.stringify({ error: 'empty answer' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
   } catch {
-    res.status(502).json({ error: 'CodeConClave AI is offline right now — your tuned model is not reachable.' });
+    res.write(`data: ${JSON.stringify({ error: 'CodeConClave AI is offline right now — your tuned model is not reachable.' })}\n\n`);
+    res.end();
   }
 });
 

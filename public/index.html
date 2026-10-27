@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>CodeConClave AI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
     --bg:#0f1115; --panel:#161922; --rail:#12141b; --line:#262b36; --fg:#e8ebf2; --dim:#9aa3b2;
@@ -13,51 +14,51 @@
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
   body{background:var(--bg);color:var(--fg);font-family:var(--sans);display:flex;height:100vh;overflow:hidden}
-
-  /* ---- sidebar ---- */
-  .rail{width:260px;flex:0 0 260px;background:var(--rail);border-right:1px solid var(--line);
-        display:flex;flex-direction:column;transition:margin-left .2s}
+  .rail{width:260px;flex:0 0 260px;background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;transition:margin-left .2s}
   .rail__top{padding:16px 14px 10px}
-  .logo{font-size:15px;font-weight:800;letter-spacing:1.5px}
-  .logo b{color:var(--gold)}
-  .newbtn{margin:10px 14px;padding:10px;border:1px solid var(--line);background:#1b2030;color:var(--fg);
-          border-radius:10px;cursor:pointer;font:inherit;font-weight:600;display:flex;gap:8px;align-items:center;justify-content:center}
+  .logo{font-size:15px;font-weight:800;letter-spacing:1.5px}.logo b{color:var(--gold)}
+  .newbtn{margin:10px 14px;padding:10px;border:1px solid var(--line);background:#1b2030;color:var(--fg);border-radius:10px;cursor:pointer;font:inherit;font-weight:600;display:flex;gap:8px;align-items:center;justify-content:center}
   .newbtn:hover{border-color:var(--gold)}
   .convos{flex:1;overflow-y:auto;padding:6px 8px}
   .cnv{display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:9px;cursor:pointer;color:var(--dim);font-size:13.5px}
-  .cnv:hover{background:#1b2030;color:var(--fg)}
-  .cnv.active{background:#223049;color:#eaf1ff}
+  .cnv:hover{background:#1b2030;color:var(--fg)}.cnv.active{background:#223049;color:#eaf1ff}
   .cnv__t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .cnv__x{opacity:0;border:none;background:none;color:var(--dim);cursor:pointer;font-size:15px;padding:0 2px}
-  .cnv:hover .cnv__x{opacity:.7}
-  .cnv__x:hover{color:#ff8a8a;opacity:1}
-  .rail__foot{padding:10px 14px;border-top:1px solid var(--line);color:var(--dim);font-size:11.5px}
+  .cnv__x{opacity:0;border:none;background:none;color:var(--dim);cursor:pointer;font-size:15px}.cnv:hover .cnv__x{opacity:.7}.cnv__x:hover{color:#ff8a8a;opacity:1}
+  .rail__foot{padding:10px 14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;color:var(--dim);font-size:11.5px}
+  .memlink{color:var(--gold);cursor:pointer;background:none;border:none;font:inherit;font-size:11.5px}
 
-  /* ---- main ---- */
   .main{flex:1;display:flex;flex-direction:column;min-width:0}
   .top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
   .burger{display:none;border:none;background:none;color:var(--fg);font-size:20px;cursor:pointer}
   .top__title{font-weight:700}.top__title b{color:var(--gold)}
-  #chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding:18px 16px}
+  #chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;padding:18px 16px}
   .wrap{width:100%;max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
   .msg{padding:11px 14px;border-radius:12px;max-width:85%;line-height:1.55;font-size:15px;white-space:pre-wrap;word-wrap:break-word}
   .me{align-self:flex-end;background:#223049;color:#eaf1ff;border-bottom-right-radius:4px}
   .ai{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
   .ai .who{color:var(--gold);font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px;display:block}
   .err{align-self:center;color:#ff8a8a;font-size:13px;text-align:center}
-  .empty{margin:auto;text-align:center;color:var(--dim)}
-  .empty .big{font-size:20px;color:var(--fg);font-weight:700;margin-bottom:6px}
-  .empty .big b{color:var(--gold)}
-  .barwrap{padding:10px 16px 18px}
-  .bar{width:100%;max-width:760px;margin:0 auto;display:flex;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px}
-  textarea{flex:1;min-width:0;resize:none;background:transparent;color:var(--fg);border:none;font:inherit;font-size:15px;padding:8px;max-height:150px}
-  textarea:focus{outline:none}
-  .send{cursor:pointer;border:none;border-radius:10px;padding:0 16px;font:inherit;font-weight:700;background:var(--gold);color:#201a08}
-  .send:disabled{opacity:.5;cursor:default}
+  .empty{margin:auto;text-align:center;color:var(--dim)}.empty .big{font-size:20px;color:var(--fg);font-weight:700;margin-bottom:6px}.empty .big b{color:var(--gold)}
   .dots i{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--gold);animation:b 1.2s infinite}
   .dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
   @keyframes b{0%,60%,100%{opacity:.3}30%{opacity:1}}
 
+  .barwrap{padding:8px 16px 18px}
+  .files{width:100%;max-width:760px;margin:0 auto 6px;display:flex;flex-wrap:wrap;gap:6px}
+  .chip{display:flex;align-items:center;gap:6px;background:#1b2030;border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12.5px;color:var(--fg)}
+  .chip b{color:var(--gold);font-weight:600}.chip button{border:none;background:none;color:var(--dim);cursor:pointer;font-size:14px}
+  .bar{width:100%;max-width:760px;margin:0 auto;display:flex;gap:6px;align-items:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 8px;position:relative}
+  .plus{flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:none;background:#1b2030;color:var(--fg);font-size:20px;cursor:pointer}
+  .plus:hover{color:var(--gold)}
+  .menu{position:absolute;bottom:48px;left:6px;background:#1b2030;border:1px solid var(--line);border-radius:10px;padding:6px;min-width:210px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;z-index:5}
+  .menu.open{display:block}
+  .menu button{width:100%;text-align:left;display:flex;align-items:center;gap:10px;background:none;border:none;color:var(--fg);font:inherit;font-size:14px;padding:9px 10px;border-radius:8px;cursor:pointer}
+  .menu button:hover{background:#223049}.menu button:disabled{color:var(--dim);cursor:default}.menu button:disabled:hover{background:none}
+  .menu .soon{margin-left:auto;font-size:10px;color:var(--dim)}
+  textarea{flex:1;min-width:0;resize:none;background:transparent;color:var(--fg);border:none;font:inherit;font-size:15px;padding:8px;max-height:150px}
+  textarea:focus{outline:none}
+  .send{flex:0 0 auto;cursor:pointer;border:none;border-radius:10px;padding:0 16px;height:34px;font:inherit;font-weight:700;background:var(--gold);color:#201a08}
+  .send:disabled{opacity:.5;cursor:default}
   .backdrop{display:none}
   @media(max-width:720px){
     .rail{position:fixed;z-index:20;height:100%;margin-left:-260px}
@@ -72,18 +73,24 @@
     <div class="rail__top"><div class="logo">CODE<b>CON</b>CLAVE</div></div>
     <button class="newbtn" id="newBtn">＋ New chat</button>
     <div class="convos" id="convos"></div>
-    <div class="rail__foot">Your own AI · chats saved on this device</div>
+    <div class="rail__foot"><span id="footNote">Your own AI</span><button class="memlink" id="memBtn">🧠 Memory</button></div>
   </aside>
   <div class="backdrop" id="backdrop"></div>
 
   <div class="main">
-    <div class="top">
-      <button class="burger" id="burger">☰</button>
-      <div class="top__title">CODE<b>CON</b>CLAVE AI</div>
-    </div>
+    <div class="top"><button class="burger" id="burger">☰</button><div class="top__title">CODE<b>CON</b>CLAVE AI</div></div>
     <div id="chat"></div>
     <div class="barwrap">
+      <div class="files" id="files"></div>
       <div class="bar">
+        <button class="plus" id="plus" title="Add files">＋</button>
+        <div class="menu" id="menu">
+          <button id="addFiles">📎 Add files or photos</button>
+          <button disabled>🗂️ Add folder <span class="soon">soon</span></button>
+          <button disabled>⌘ Slash commands <span class="soon">soon</span></button>
+          <button disabled>🔌 Connectors <span class="soon">soon</span></button>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.pdf,.log,.xml,.yml,.yaml,image/*" style="display:none" />
         <textarea id="input" rows="1" placeholder="Ask anything…"></textarea>
         <button class="send" id="send">Send</button>
       </div>
@@ -91,115 +98,119 @@
   </div>
 
 <script>
+  try { if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch{}
   const $ = (id) => document.getElementById(id);
-  const chat = $('chat'), input = $('input'), sendBtn = $('send'), convosEl = $('convos');
-  const KEY = 'cc_convos_v1';
-  let convos = [];      // [{id,title,messages:[{role,content}],updated}]
-  let currentId = null;
-  let busy = false;
+  const chat=$('chat'), input=$('input'), sendBtn=$('send'), convosEl=$('convos'), filesEl=$('files');
+  const CKEY='cc_convos_v1', MKEY='cc_memory_v1';
+  let convos=[], currentId=null, busy=false, memory=[], pending=[]; // pending = files attached to the next message
 
-  function load(){ try{ convos = JSON.parse(localStorage.getItem(KEY) || '[]') || []; }catch{ convos=[]; } }
-  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(convos.slice(0,100))); }catch{} }
-  function current(){ return convos.find(c => c.id === currentId); }
-  function uid(){ return 'c' + Date.now() + Math.random().toString(36).slice(2,6); }
+  function load(){ try{convos=JSON.parse(localStorage.getItem(CKEY)||'[]')||[]}catch{convos=[]} try{memory=JSON.parse(localStorage.getItem(MKEY)||'[]')||[]}catch{memory=[]} }
+  function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.slice(0,100)))}catch{} }
+  function saveM(){ try{localStorage.setItem(MKEY,JSON.stringify(memory.slice(0,30)))}catch{} }
+  const current=()=>convos.find(c=>c.id===currentId);
+  const uid=()=>'c'+Date.now()+Math.random().toString(36).slice(2,6);
 
-  function newChat(){
-    currentId = uid();
-    convos.unshift({ id: currentId, title: 'New chat', messages: [], updated: Date.now() });
-    save(); renderSidebar(); renderChat(); input.focus(); closeRail();
-  }
-  function selectChat(id){ currentId = id; renderSidebar(); renderChat(); closeRail(); }
-  function deleteChat(id, e){
-    e.stopPropagation();
-    convos = convos.filter(c => c.id !== id);
-    if (currentId === id){ currentId = convos[0]?.id || null; if(!currentId) newChat(); }
-    save(); renderSidebar(); renderChat();
-  }
+  function newChat(){ currentId=uid(); convos.unshift({id:currentId,title:'New chat',messages:[],updated:Date.now()}); saveC(); renderSidebar(); renderChat(); input.focus(); closeRail(); }
+  function selectChat(id){ currentId=id; renderSidebar(); renderChat(); closeRail(); }
+  function deleteChat(id,e){ e.stopPropagation(); convos=convos.filter(c=>c.id!==id); if(currentId===id){currentId=convos[0]?.id||null; if(!currentId)newChat();} saveC(); renderSidebar(); renderChat(); }
 
   function renderSidebar(){
-    convosEl.innerHTML = '';
-    convos.forEach(c => {
-      const row = document.createElement('div');
-      row.className = 'cnv' + (c.id === currentId ? ' active' : '');
-      row.onclick = () => selectChat(c.id);
-      const t = document.createElement('div'); t.className='cnv__t'; t.textContent = c.title || 'New chat';
-      const x = document.createElement('button'); x.className='cnv__x'; x.textContent='×'; x.title='Delete';
-      x.onclick = (e) => deleteChat(c.id, e);
-      row.appendChild(t); row.appendChild(x); convosEl.appendChild(row);
-    });
+    convosEl.innerHTML='';
+    convos.forEach(c=>{ const row=document.createElement('div'); row.className='cnv'+(c.id===currentId?' active':''); row.onclick=()=>selectChat(c.id);
+      const t=document.createElement('div'); t.className='cnv__t'; t.textContent=c.title||'New chat';
+      const x=document.createElement('button'); x.className='cnv__x'; x.textContent='×'; x.title='Delete'; x.onclick=(e)=>deleteChat(c.id,e);
+      row.append(t,x); convosEl.appendChild(row); });
   }
-
-  function bubble(role, text){
-    const el = document.createElement('div');
-    el.className = 'msg ' + (role === 'user' ? 'me' : 'ai');
-    if (role !== 'user'){ const w=document.createElement('span'); w.className='who'; w.textContent='CodeConClave AI'; el.appendChild(w); }
-    el.appendChild(document.createTextNode(text));
-    return el;
-  }
-
+  function bubble(role,text){ const el=document.createElement('div'); el.className='msg '+(role==='user'?'me':'ai');
+    let node; if(role!=='user'){ const w=document.createElement('span'); w.className='who'; w.textContent='CodeConClave AI'; el.appendChild(w); }
+    node=document.createTextNode(text||''); el.appendChild(node); el._text=node; return el; }
   function renderChat(){
-    chat.innerHTML = '';
-    const c = current();
-    if (!c || c.messages.length === 0){
-      const e = document.createElement('div'); e.className='empty';
-      e.innerHTML = '<div class="big">CODE<b>CON</b>CLAVE AI</div><div>Your own AI. Ask me anything.</div>';
-      chat.appendChild(e); return;
+    chat.innerHTML=''; const c=current();
+    if(!c||c.messages.length===0){ const e=document.createElement('div'); e.className='empty'; e.innerHTML='<div class="big">CODE<b>CON</b>CLAVE AI</div><div>Your own AI. Ask me anything, or add a file with ＋.</div>'; chat.appendChild(e); return; }
+    const wrap=document.createElement('div'); wrap.className='wrap'; c.messages.forEach(m=>wrap.appendChild(bubble(m.role,m.content))); chat.appendChild(wrap); chat.scrollTop=chat.scrollHeight;
+  }
+
+  // ---- files ----
+  function renderFiles(){ filesEl.innerHTML=''; pending.forEach((f,i)=>{ const c=document.createElement('span'); c.className='chip'; c.innerHTML='📄 <b></b>'; c.querySelector('b').textContent=f.name;
+    const x=document.createElement('button'); x.textContent='×'; x.onclick=()=>{ pending.splice(i,1); renderFiles(); }; c.appendChild(x); filesEl.appendChild(c); }); }
+  async function readFile(file){
+    const isImg=/^image\//.test(file.type);
+    if(isImg) return {name:file.name, text:`(An image "${file.name}" was attached. Note: I can read text and PDFs, but I can't see images yet.)`};
+    if(/\.pdf$/i.test(file.name) && window.pdfjsLib){
+      try{ const buf=await file.arrayBuffer(); const pdf=await pdfjsLib.getDocument({data:buf}).promise; let t='';
+        for(let p=1;p<=Math.min(pdf.numPages,30);p++){ const pg=await pdf.getPage(p); const tc=await pg.getTextContent(); t+=tc.items.map(i=>i.str).join(' ')+'\n'; }
+        return {name:file.name, text:t.slice(0,40000)}; }catch{ return {name:file.name, text:'(Could not read this PDF.)'}; }
     }
-    const wrap = document.createElement('div'); wrap.className='wrap';
-    c.messages.forEach(m => wrap.appendChild(bubble(m.role, m.content)));
-    chat.appendChild(wrap);
-    chat.scrollTop = chat.scrollHeight;
+    try{ const t=await file.text(); return {name:file.name, text:t.slice(0,40000)}; }catch{ return {name:file.name, text:'(Could not read this file.)'}; }
+  }
+  async function handleFiles(list){ for(const f of Array.from(list).slice(0,5)){ const r=await readFile(f); pending.push(r); } renderFiles(); }
+
+  // ---- memory ----
+  function captureMemory(text){
+    let m, added=false;
+    if((m=text.match(/\bmy name is ([A-Z][a-zA-Z'’\-]{1,30})/i))){ const f=`User's name is ${m[1]}.`; if(!memory.includes(f)){memory.push(f);added=true;} }
+    const re=/\b(?:remember that|remember to|note that|keep in mind that)\s+(.{3,120})/ig; let r2;
+    while((r2=re.exec(text))){ const f=r2[1].replace(/[.!]+$/,'').trim(); const line='Remember: '+f; if(f && !memory.includes(line)){memory.push(line);added=true;} }
+    if(added) saveM();
+  }
+  function showMemory(){
+    const body = memory.length ? memory.map((x,i)=>(i+1)+'. '+x).join('\n') : '(nothing yet — say "my name is …" or "remember that …")';
+    if(confirm('🧠 What CodeConClave AI remembers about you:\n\n'+body+'\n\nPress OK to CLEAR all memory, or Cancel to keep it.')){ memory=[]; saveM(); }
   }
 
   async function send(){
-    if (busy) return;
-    const text = input.value.trim(); if (!text) return;
-    let c = current(); if (!c){ newChat(); c = current(); }
+    if(busy) return;
+    const text=input.value.trim(); if(!text && pending.length===0) return;
+    let c=current(); if(!c){ newChat(); c=current(); }
+    const files=pending.slice(); pending=[]; renderFiles();
+    const shown = text + (files.length?('\n'+files.map(f=>'📄 '+f.name).join('\n')):'');
     input.value=''; input.style.height='auto';
-    c.messages.push({ role:'user', content:text });
-    if (c.title === 'New chat' || !c.title) c.title = text.slice(0,40);
-    c.updated = Date.now(); save(); renderSidebar(); renderChat();
+    c.messages.push({role:'user',content:shown});
+    if(c.title==='New chat'||!c.title) c.title=(text||files[0]?.name||'Chat').slice(0,40);
+    c.updated=Date.now(); captureMemory(text); saveC(); renderSidebar(); renderChat();
 
-    busy = true; sendBtn.disabled = true;
-    const wrap = chat.querySelector('.wrap') || (()=>{ const w=document.createElement('div'); w.className='wrap'; chat.appendChild(w); return w; })();
-    const thinking = document.createElement('div'); thinking.className='msg ai';
-    thinking.innerHTML = '<span class="who">CodeConClave AI</span><span class="dots"><i></i><i></i><i></i></span>';
-    wrap.appendChild(thinking); chat.scrollTop = chat.scrollHeight;
+    busy=true; sendBtn.disabled=true;
+    const wrap=chat.querySelector('.wrap')||(()=>{const w=document.createElement('div');w.className='wrap';chat.appendChild(w);return w;})();
+    const aiEl=bubble('ai',''); aiEl.querySelector('.who').insertAdjacentHTML('afterend','<span class="dots" id="d"><i></i><i></i><i></i></span>');
+    wrap.appendChild(aiEl); chat.scrollTop=chat.scrollHeight;
 
+    // messages to send: the real convo (user message without the file-name echo) + file text separately
+    const outMsgs=c.messages.map(m=>({role:m.role,content:m.content}));
+    outMsgs[outMsgs.length-1]={role:'user',content:text||'(see attached file)'};
+    let full='';
     try{
-      const r = await fetch('/api/chat', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ messages: c.messages.map(m => ({ role:m.role, content:m.content })) })
-      });
-      const data = await r.json();
-      thinking.remove();
-      if (r.ok && data.answer){
-        c.messages.push({ role:'assistant', content:data.answer });
-        c.updated = Date.now(); save();
-      } else {
-        const e=document.createElement('div'); e.className='err'; e.textContent = data.error || 'Something went wrong.'; wrap.appendChild(e);
+      const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text})), memory:memory.join('\n')})});
+      if(!resp.body) throw new Error('no stream');
+      const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
+      const dots=aiEl.querySelector('#d');
+      while(true){ const {done,value}=await reader.read(); if(done)break; buf+=dec.decode(value,{stream:true});
+        let idx; while((idx=buf.indexOf('\n\n'))>=0){ const block=buf.slice(0,idx); buf=buf.slice(idx+2);
+          const dl=block.split('\n').find(l=>l.startsWith('data:')); if(!dl)continue; let j; try{j=JSON.parse(dl.slice(5).trim());}catch{continue;}
+          if(j.delta){ if(dots){dots.remove();} full+=j.delta; aiEl._text.nodeValue=full; chat.scrollTop=chat.scrollHeight; }
+          else if(j.error){ if(dots)dots.remove(); aiEl._text.nodeValue=''; const e=document.createElement('div'); e.className='err'; e.textContent=j.error; wrap.appendChild(e); }
+        }
       }
+      if(full){ c.messages.push({role:'assistant',content:full}); c.updated=Date.now(); saveC(); }
+      else { aiEl.remove(); }
     }catch{
-      thinking.remove();
-      const e=document.createElement('div'); e.className='err'; e.textContent='Could not reach the server.'; wrap.appendChild(e);
+      aiEl.remove(); const e=document.createElement('div'); e.className='err'; e.textContent='Could not reach the server.'; wrap.appendChild(e);
     }
-    renderChat();
-    busy=false; sendBtn.disabled=false; input.focus();
+    busy=false; sendBtn.disabled=false; chat.scrollTop=chat.scrollHeight; input.focus();
   }
 
   function closeRail(){ document.body.classList.remove('open'); }
+  $('newBtn').onclick=newChat; sendBtn.onclick=send;
+  $('burger').onclick=()=>document.body.classList.toggle('open'); $('backdrop').onclick=closeRail;
+  $('memBtn').onclick=showMemory;
+  $('plus').onclick=(e)=>{ e.stopPropagation(); $('menu').classList.toggle('open'); };
+  $('addFiles').onclick=()=>{ $('menu').classList.remove('open'); $('fileInput').click(); };
+  $('fileInput').onchange=(e)=>{ handleFiles(e.target.files); e.target.value=''; };
+  document.addEventListener('click',()=>$('menu').classList.remove('open'));
+  input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
+  input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px'; });
 
-  // wire up
-  $('newBtn').onclick = newChat;
-  sendBtn.onclick = send;
-  $('burger').onclick = () => document.body.classList.toggle('open');
-  $('backdrop').onclick = closeRail;
-  input.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
-  input.addEventListener('input', ()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px'; });
-
-  load();
-  currentId = convos[0]?.id || null;
-  if (!currentId) newChat(); else { renderSidebar(); renderChat(); }
+  load(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
 </script>
 </body>
 </html>
