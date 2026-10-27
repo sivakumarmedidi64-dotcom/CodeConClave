@@ -5,6 +5,9 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { ImapFlow } from 'imapflow';
+import { simpleParser } from 'mailparser';
+import nodemailer from 'nodemailer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -15,6 +18,10 @@ const BASE = (process.env.RESIDENT_OPENAI_BASE_URL || '').replace(/\/+$/, '');
 const MODEL = process.env.RESIDENT_MODEL || 'codeconclave-coder-lite';
 const KEY = process.env.RESIDENT_API_KEY || '';
 const EDGE = (process.env.SAI_EDGE_URL || 'https://codeconclave-007.sivakumarmedidi64.workers.dev').replace(/\/+$/, '');
+// Gmail connection (the user's own mailbox, via an app password — set server-side only).
+const GUSER = (process.env.GMAIL_USER || '').trim();
+const GPASS = (process.env.GMAIL_APP_PASSWORD || '').trim();
+const mailOn = Boolean(GUSER && GPASS);
 
 const SYSTEM = [
   'You are CodeConClave AI.',
@@ -163,6 +170,90 @@ app.post('/api/chat', async (req, res) => {
   } catch {
     res.write(`data: ${JSON.stringify({ error: 'CodeConClave AI is offline right now — your tuned model is not reachable.' })}\n\n`);
     res.end();
+  }
+});
+
+// ---- Email (mom's idea): read new mail → our model summarizes + drafts a reply → user approves → send ----
+async function callModel(messages, maxTokens = 700) {
+  const r = await fetch(`${BASE}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(KEY ? { Authorization: `Bearer ${KEY}` } : {}) },
+    body: JSON.stringify({ model: MODEL, messages, temperature: 0.6, max_tokens: maxTokens }),
+  });
+  if (!r.ok) throw new Error(`model HTTP ${r.status}`);
+  const d = await r.json();
+  return d?.choices?.[0]?.message?.content?.trim() || '';
+}
+
+async function fetchUnread(limit = 3) {
+  const client = new ImapFlow({ host: 'imap.gmail.com', port: 993, secure: true, auth: { user: GUSER, pass: GPASS }, logger: false });
+  await client.connect();
+  const out = [];
+  const lock = await client.getMailboxLock('INBOX');
+  try {
+    const uids = (await client.search({ seen: false })) || [];
+    const recent = uids.slice(-limit).reverse();
+    for (const uid of recent) {
+      const m = await client.fetchOne(uid, { source: true }, { uid: true });
+      if (!m || !m.source) continue;
+      const p = await simpleParser(m.source);
+      out.push({
+        from: p.from?.text || 'unknown',
+        replyTo: p.from?.value?.[0]?.address || '',
+        subject: p.subject || '(no subject)',
+        text: (p.text || '').replace(/\s+\n/g, '\n').slice(0, 3000),
+      });
+    }
+  } finally {
+    lock.release();
+  }
+  await client.logout();
+  return out;
+}
+
+// GET /api/mail/check — new mail + an AI summary and drafted reply for each (never sends).
+app.get('/api/mail/check', async (_req, res) => {
+  if (!mailOn) return res.json({ configured: false, mails: [] });
+  if (!BASE) return res.status(503).json({ error: 'model offline' });
+  try {
+    const mails = await fetchUnread(3);
+    const result = [];
+    for (const mail of mails) {
+      let summary = '', draft = '';
+      try {
+        const ans = await callModel([
+          { role: 'system', content: "You are CodeConClave AI, helping with the user's email." },
+          { role: 'user', content:
+            `A new email arrived.\nFrom: ${mail.from}\nSubject: ${mail.subject}\nBody:\n${mail.text}\n\n` +
+            `Do two things, using EXACTLY this format:\nSUMMARY: <one or two short sentences>\nREPLY:\n<a polite, helpful reply the user can send — just the reply body, no subject line>` },
+        ]);
+        const mS = ans.match(/SUMMARY:\s*([\s\S]*?)\n\s*REPLY:/i);
+        const mR = ans.match(/REPLY:\s*([\s\S]*)$/i);
+        summary = (mS?.[1] || '').trim();
+        draft = (mR?.[1] || '').trim();
+        if (!summary && !draft) draft = ans.trim();
+      } catch { summary = '(could not summarize right now)'; }
+      result.push({ from: mail.from, replyTo: mail.replyTo, subject: mail.subject, summary, draft });
+    }
+    res.json({ configured: true, mails: result });
+  } catch (e) {
+    res.status(502).json({ error: 'Could not read mail: ' + String(e?.message || 'error').slice(0, 120) });
+  }
+});
+
+// POST /api/mail/send — only when the user approves (this is the consequential action).
+app.post('/api/mail/send', async (req, res) => {
+  if (!mailOn) return res.status(400).json({ error: 'Mail is not connected.' });
+  const to = String(req.body?.to || '').slice(0, 200).trim();
+  const subject = String(req.body?.subject || '').slice(0, 300);
+  const body = String(req.body?.body || '').slice(0, 10000);
+  if (!to || !body) return res.status(400).json({ error: 'Need a recipient and a message.' });
+  try {
+    const tx = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GUSER, pass: GPASS } });
+    await tx.sendMail({ from: GUSER, to, subject, text: body });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(502).json({ error: 'Could not send: ' + String(e?.message || 'error').slice(0, 120) });
   }
 });
 
