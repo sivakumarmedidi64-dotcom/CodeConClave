@@ -201,7 +201,7 @@ async function fetchUnread(limit = 3) {
         from: p.from?.text || 'unknown',
         replyTo: p.from?.value?.[0]?.address || '',
         subject: p.subject || '(no subject)',
-        text: (p.text || '').replace(/\s+\n/g, '\n').slice(0, 3000),
+        text: (p.text || '').replace(/\s+\n/g, '\n').slice(0, 1800),
       });
     }
   } finally {
@@ -211,14 +211,22 @@ async function fetchUnread(limit = 3) {
   return out;
 }
 
-// GET /api/mail/check — new mail + an AI summary and drafted reply for each (never sends).
+// GET /api/mail/check — streams each new mail with an AI summary + drafted reply as soon as it's ready (never sends).
 app.get('/api/mail/check', async (_req, res) => {
-  if (!mailOn) return res.json({ configured: false, mails: [] });
-  if (!BASE) return res.status(503).json({ error: 'model offline' });
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+  const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+  if (!mailOn) { send({ configured: false, count: 0 }); send({ done: true }); return res.end(); }
+  if (!BASE) { send({ error: 'model offline' }); return res.end(); }
   try {
     const mails = await fetchUnread(3);
-    const result = [];
+    send({ configured: true, count: mails.length });
+    let i = 0;
     for (const mail of mails) {
+      i++;
+      send({ working: i, of: mails.length, from: mail.from, subject: mail.subject });
       let summary = '', draft = '';
       try {
         const ans = await callModel([
@@ -226,18 +234,20 @@ app.get('/api/mail/check', async (_req, res) => {
           { role: 'user', content:
             `A new email arrived.\nFrom: ${mail.from}\nSubject: ${mail.subject}\nBody:\n${mail.text}\n\n` +
             `Do two things, using EXACTLY this format:\nSUMMARY: <one or two short sentences>\nREPLY:\n<a polite, helpful reply the user can send — just the reply body, no subject line>` },
-        ]);
+        ], 320);
         const mS = ans.match(/SUMMARY:\s*([\s\S]*?)\n\s*REPLY:/i);
         const mR = ans.match(/REPLY:\s*([\s\S]*)$/i);
         summary = (mS?.[1] || '').trim();
         draft = (mR?.[1] || '').trim();
         if (!summary && !draft) draft = ans.trim();
       } catch { summary = '(could not summarize right now)'; }
-      result.push({ from: mail.from, replyTo: mail.replyTo, subject: mail.subject, summary, draft });
+      send({ mail: { from: mail.from, replyTo: mail.replyTo, subject: mail.subject, summary, draft } });
     }
-    res.json({ configured: true, mails: result });
+    send({ done: true });
+    res.end();
   } catch (e) {
-    res.status(502).json({ error: 'Could not read mail: ' + String(e?.message || 'error').slice(0, 120) });
+    send({ error: 'Could not read mail: ' + String(e?.message || 'error').slice(0, 120) });
+    res.end();
   }
 });
 

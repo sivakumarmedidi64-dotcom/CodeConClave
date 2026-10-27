@@ -287,13 +287,32 @@
   async function checkMail(manual){
     const zone=$('mailZone');
     if(manual){ zone.innerHTML='<div class="mailcard">📬 Checking your mail…</div>'; }
+    let cleared=!manual, statusEl=null, any=false;
+    const clearOnce=()=>{ if(!cleared){ zone.innerHTML=''; cleared=true; } };
     try{
-      const r=await fetch('/api/mail/check'); const d=await r.json();
-      zone.innerHTML='';
-      if(!d.configured){ if(manual) toast('Mail isn’t connected yet.'); return; }
-      if(!d.mails||d.mails.length===0){ if(manual) toast('No new mail 📭'); return; }
-      d.mails.forEach(m=>zone.appendChild(mailCard(m)));
-    }catch{ zone.innerHTML=''; if(manual) toast('Could not check mail.'); }
+      const r=await fetch('/api/mail/check');
+      if(!r.ok||!r.body){ clearOnce(); if(manual) toast('Could not check mail.'); return; }
+      const reader=r.body.getReader(), dec=new TextDecoder(); let buf='';
+      while(true){
+        const {value,done}=await reader.read(); if(done) break;
+        buf+=dec.decode(value,{stream:true});
+        const parts=buf.split('\n\n'); buf=parts.pop();
+        for(const p of parts){
+          const line=p.trim(); if(!line.startsWith('data:')) continue;
+          let o; try{ o=JSON.parse(line.slice(5).trim()); }catch{ continue; }
+          if(o.configured===false){ clearOnce(); if(manual) toast('Mail isn’t connected yet.'); return; }
+          if(o.count===0){ clearOnce(); if(manual) toast('No new mail 📭'); return; }
+          if(o.working){ clearOnce(); if(statusEl) statusEl.remove();
+            statusEl=document.createElement('div'); statusEl.className='mailcard';
+            statusEl.textContent=`✍️ Reading your mail from ${o.from} and drafting a reply… (${o.working}/${o.of})`;
+            zone.appendChild(statusEl); }
+          if(o.mail){ clearOnce(); if(statusEl){ statusEl.remove(); statusEl=null; } zone.appendChild(mailCard(o.mail)); any=true; }
+          if(o.error){ clearOnce(); if(manual) toast('Could not check mail.'); }
+          if(o.done){ if(statusEl){ statusEl.remove(); statusEl=null; } }
+        }
+      }
+      if(!any && manual) toast('No new mail 📭');
+    }catch{ clearOnce(); if(manual) toast('Could not check mail.'); }
   }
   $('mailBtn').onclick=()=>checkMail(true);
   setTimeout(()=>checkMail(false), 1000); // proactive check when you arrive
