@@ -58,6 +58,11 @@
   .menu button svg{width:17px;height:17px;flex:0 0 auto;color:var(--dim)}
   .toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:#223049;border:1px solid var(--line);color:var(--fg);padding:9px 14px;border-radius:10px;font-size:13px;z-index:30;opacity:0;pointer-events:none;transition:opacity .2s}
   .toast.show{opacity:1}
+  .slash{position:absolute;bottom:48px;left:46px;right:10px;background:#1b2030;border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;z-index:6}
+  .slash.open{display:block}
+  .slashrow{width:100%;text-align:left;display:flex;gap:10px;align-items:baseline;background:none;border:none;color:var(--fg);font:inherit;font-size:14px;padding:8px 10px;border-radius:8px;cursor:pointer}
+  .slashrow:hover,.slashrow.sel{background:#223049}
+  .slashrow b{color:var(--gold);font-weight:600}.slashrow span{color:var(--dim);font-size:12.5px}
   textarea{flex:1;min-width:0;resize:none;background:transparent;color:var(--fg);border:none;font:inherit;font-size:15px;padding:8px;max-height:150px}
   textarea:focus{outline:none}
   .send{flex:0 0 auto;cursor:pointer;border:none;border-radius:10px;padding:0 16px;height:34px;font:inherit;font-weight:700;background:var(--gold);color:#201a08}
@@ -97,6 +102,7 @@
         </div>
         <input type="file" id="fileInput" multiple accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.pdf,.log,.xml,.yml,.yaml,image/*" style="display:none" />
         <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none" />
+        <div class="slash" id="slash"></div>
         <textarea id="input" rows="1" placeholder="Ask anything…"></textarea>
         <button class="send" id="send">Send</button>
       </div>
@@ -220,14 +226,30 @@
   $('plus').onclick=(e)=>{ e.stopPropagation(); $('menu').classList.toggle('open'); };
   $('addFiles').onclick=()=>{ $('menu').classList.remove('open'); $('fileInput').click(); };
   $('addFolder').onclick=()=>{ $('menu').classList.remove('open'); $('folderInput').click(); };
-  $('slashCmd').onclick=()=>{ $('menu').classList.remove('open'); toast('Slash commands — coming next 🙂'); };
+  $('slashCmd').onclick=()=>{ $('menu').classList.remove('open'); input.value='/'; input.focus(); slashRender('/'); };
   $('connectors').onclick=()=>{ $('menu').classList.remove('open'); toast('Connectors (Gmail, Slack…) — coming next 🙂'); };
   $('addPlugins').onclick=()=>{ $('menu').classList.remove('open'); toast('Plugins — coming next 🙂'); };
   $('fileInput').onchange=(e)=>{ handleFiles(e.target.files); e.target.value=''; };
   $('folderInput').onchange=(e)=>{ handleFiles(e.target.files, true); e.target.value=''; };
   document.addEventListener('click',()=>$('menu').classList.remove('open'));
-  input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
-  input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px'; });
+  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
+  function slashRender(q){ const el=$('slash'); const list=COMMANDS.filter(c=>c.cmd.startsWith(q.toLowerCase())); el.innerHTML='';
+    list.forEach((c,i)=>{ const r=document.createElement('button'); r.className='slashrow'+(i===0?' sel':''); r.dataset.cmd=c.cmd;
+      const b=document.createElement('b'); b.textContent=c.cmd; const s=document.createElement('span'); s.textContent=c.desc; r.append(b,s); r.onclick=()=>runCommand(c.cmd); el.appendChild(r); });
+    el.classList.toggle('open', list.length>0); }
+  function slashHide(){ $('slash').classList.remove('open'); }
+  function runCommand(c){ input.value=''; slashHide();
+    if(c==='/new') newChat();
+    else if(c==='/clear'){ const cur=current(); if(cur){cur.messages=[]; cur.title='New chat'; saveC(); renderSidebar(); renderChat();} }
+    else if(c==='/memory') showMemory();
+    else toast('Commands:  /new   /clear   /memory'); }
+  input.addEventListener('keydown',(e)=>{ const open=$('slash').classList.contains('open');
+    if(e.key==='Escape'){ slashHide(); return; }
+    if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault();
+      if(open){ const first=$('slash').querySelector('.slashrow'); if(first){ runCommand(first.dataset.cmd); return; } }
+      send(); } });
+  input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px';
+    const v=input.value; if(v.startsWith('/')&&!v.includes(' ')) slashRender(v); else slashHide(); });
 
   load(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
 </script>
