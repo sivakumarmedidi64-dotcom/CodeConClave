@@ -31,6 +31,13 @@
   .top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
   .burger{display:none;border:none;background:none;color:var(--fg);font-size:20px;cursor:pointer}
   .top__title{font-weight:700}.top__title b{color:var(--gold)}
+  .think{color:var(--dim);font-style:italic;font-size:13.5px;margin:0 0 6px;white-space:normal}
+  .steps{display:flex;flex-direction:column;gap:3px;margin:0 0 8px;font-size:12.5px;color:var(--dim);white-space:normal}
+  .steps .done::before{content:'✓ ';color:#7bd88f}
+  .think:empty,.steps:empty{display:none}
+  .mlist{background:#11141b;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:14px;white-space:normal}
+  .mlist .bhead{margin-bottom:2px;font-size:13.5px}
+  .msg .mailcard{white-space:normal}
   .brief{white-space:normal;max-width:92%;width:100%}
   .bhead{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:8px}
   .bhead .gm{width:22px;height:17px;flex:0 0 auto}
@@ -169,14 +176,24 @@
       const x=document.createElement('button'); x.className='cnv__x'; x.textContent='×'; x.title='Delete'; x.onclick=(e)=>deleteChat(c.id,e);
       row.append(t,x); convosEl.appendChild(row); });
   }
+  // An AI bubble has: who · 💭 thought · ✓ steps · answer text · mail list / draft card.
   function bubble(role,text){ const el=document.createElement('div'); el.className='msg '+(role==='user'?'me':'ai');
-    let node; if(role!=='user'){ const w=document.createElement('span'); w.className='who'; w.textContent='CodeConClave AI'; el.appendChild(w); }
-    node=document.createTextNode(text||''); el.appendChild(node); el._text=node; return el; }
+    if(role!=='user'){ const w=document.createElement('span'); w.className='who'; w.textContent='CodeConClave AI'; el.appendChild(w);
+      el._think=el.appendChild(document.createElement('div')); el._think.className='think';
+      el._steps=el.appendChild(document.createElement('div')); el._steps.className='steps'; }
+    const node=document.createTextNode(text||''); el.appendChild(node); el._text=node; return el; }
+  function decorate(b,m,i){
+    if(m.thought) b._think.textContent='💭 '+m.thought;
+    (m.steps||[]).forEach(s=>b._steps.appendChild(el('div','done',s)));
+    if(m.list) b.appendChild(mailListCard(m.list));
+    if(m.card && !m.card.skipped){ const k=draftCard(m.card,{compact:true,onChange:saveC}); k.dataset.key='m'+i; b.appendChild(k); }
+    return b;
+  }
   function renderChat(){
     chat.innerHTML=''; const c=current(); const withBrief=briefEl && currentId===briefChatId;
     if((!c||c.messages.length===0) && !withBrief){ const e=document.createElement('div'); e.className='empty'; e.innerHTML='<div class="big">CODE<b>CON</b>CLAVE AI</div><div>Your own AI. Ask me anything, or add a file with ＋.</div>'; chat.appendChild(e); return; }
     const wrap=document.createElement('div'); wrap.className='wrap'; if(withBrief) wrap.appendChild(briefEl);
-    (c?.messages||[]).forEach(m=>wrap.appendChild(bubble(m.role,m.content))); chat.appendChild(wrap);
+    (c?.messages||[]).forEach((m,i)=>wrap.appendChild(m.role==='user'?bubble('user',m.content):decorate(bubble('ai',m.content),m,i))); chat.appendChild(wrap);
     chat.scrollTop = c&&c.messages.length ? chat.scrollHeight : 0;
   }
 
@@ -209,6 +226,7 @@
     const re=/\b(?:remember that|remember to|note that|keep in mind that)\s+(.{3,120})/ig; let r2;
     while((r2=re.exec(text))){ const f=r2[1].replace(/[.!]+$/,'').trim(); const line='Remember: '+f; if(f && !memory.includes(line)){memory.push(line);added=true;} }
     if(added) saveM();
+    return added;
   }
   function showMemory(){
     const body = memory.length ? memory.map((x,i)=>(i+1)+'. '+x).join('\n') : '(nothing yet — say "my name is …" or "remember that …")';
@@ -224,28 +242,29 @@
     input.value=''; input.style.height='auto';
     c.messages.push({role:'user',content:shown});
     if(c.title==='New chat'||!c.title) c.title=(text||files[0]?.name||'Chat').slice(0,40);
-    c.updated=Date.now(); captureMemory(text); saveC(); renderSidebar(); renderChat();
+    c.updated=Date.now(); const memAdded=captureMemory(text); saveC(); renderSidebar(); renderChat();
 
     // The AI asked "send it like this, or change something?" — "yes / send it" is the owner's
     // approval; "say I'm busy Friday" rewrites the draft. Anything else goes to the AI as normal.
-    if(currentId===briefChatId && briefEl && !files.length){
-      const cards=[...briefEl.querySelectorAll('.mailcard')].filter(k=>!k.dataset.sent);
-      const yes=SEND_YES.test(text), change=!yes && CHANGE_RE.test(text);
-      if(cards.length && (yes||change)){
-        busy=true; sendBtn.disabled=true;
-        const wrap=chat.querySelector('.wrap'), wait=bubble('ai','');
-        wait.insertAdjacentHTML('beforeend','<span class="dots"><i></i><i></i><i></i></span>'); wrap.appendChild(wait); chat.scrollTop=chat.scrollHeight;
-        const reply = cards.length>1 ? `I have ${cards.length} replies ready — use “Send it” on the one you want, or edit it right in its box.`
-          : yes ? await cards[0]._send() : await cards[0]._redraft(text);
-        c.messages.push({role:'assistant',content:reply}); c.updated=Date.now(); saveC(); renderChat();
-        busy=false; sendBtn.disabled=false; input.focus(); return;
-      }
+    const cards=files.length?[]:pendingCards(c);
+    const yes=SEND_YES.test(text), change=!yes && CHANGE_RE.test(text);
+    if(cards.length && (yes||change)){
+      busy=true; sendBtn.disabled=true;
+      const wrap=chat.querySelector('.wrap'), wait=bubble('ai','');
+      wait.insertAdjacentHTML('beforeend','<span class="dots"><i></i><i></i><i></i></span>'); wrap.appendChild(wait); chat.scrollTop=chat.scrollHeight;
+      const reply = cards.length>1 ? `I have ${cards.length} drafts ready — use “Send it” on the one you want, or edit it right in its box.`
+        : yes ? await cards[0]._send() : await cards[0]._redraft(text);
+      const still = cards.length===1 && !cards[0].dataset.sent ? cards[0].dataset.key : null; // not sent yet: still the draft in question
+      c.messages.push({role:'assistant',content:reply,...(still?{pending:still}:{})}); c.updated=Date.now(); saveC(); renderChat();
+      busy=false; sendBtn.disabled=false; input.focus(); return;
     }
 
     busy=true; sendBtn.disabled=true;
     const wrap=chat.querySelector('.wrap')||(()=>{const w=document.createElement('div');w.className='wrap';chat.appendChild(w);return w;})();
-    const aiEl=bubble('ai',''); aiEl.querySelector('.who').insertAdjacentHTML('afterend','<span class="dots" id="d"><i></i><i></i><i></i></span>');
+    const aiEl=bubble('ai',''), dots=el('span','dots'); dots.innerHTML='<i></i><i></i><i></i>'; aiEl._steps.before(dots);
     wrap.appendChild(aiEl); chat.scrollTop=chat.scrollHeight;
+    const at=c.messages.length, msg={role:'assistant',content:''}; // this answer's slot + everything it showed
+    const stepsDone=()=>aiEl._steps.querySelectorAll('div:not(.done)').forEach(s=>{ s.className='done'; s.textContent=s.dataset.t; });
 
     // messages to send: the real convo (user message without the file-name echo) + file text separately
     const outMsgs=c.messages.map(m=>({role:m.role,content:m.content}));
@@ -253,24 +272,45 @@
     if(currentId===briefChatId && briefText) outMsgs.unshift({role:'assistant',content:briefText});
     let full='';
     try{
-      const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      const resp=await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
         body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text})), memory:memory.join('\n')})});
       if(!resp.body) throw new Error('no stream');
       const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
-      const dots=aiEl.querySelector('#d');
       while(true){ const {done,value}=await reader.read(); if(done)break; buf+=dec.decode(value,{stream:true});
         let idx; while((idx=buf.indexOf('\n\n'))>=0){ const block=buf.slice(0,idx); buf=buf.slice(idx+2);
           const dl=block.split('\n').find(l=>l.startsWith('data:')); if(!dl)continue; let j; try{j=JSON.parse(dl.slice(5).trim());}catch{continue;}
-          if(j.delta){ if(dots){dots.remove();} full+=j.delta; aiEl._text.nodeValue=full; chat.scrollTop=chat.scrollHeight; }
-          else if(j.error){ if(dots)dots.remove(); aiEl._text.nodeValue=''; const e=document.createElement('div'); e.className='err'; e.textContent=j.error; wrap.appendChild(e); }
+          if(j.think){ dots.remove(); msg.thought=j.think; aiEl._think.textContent='💭 '+j.think; }
+          else if(j.step){ dots.remove(); stepsDone(); const s=el('div'); s.dataset.t=j.step; s.innerHTML='<span class="dots"><i></i><i></i><i></i></span> '; s.append(j.step+'…');
+            aiEl._steps.appendChild(s); (msg.steps=msg.steps||[]).push(j.step); }
+          else if(j.mailList){ msg.list=j.mailList; aiEl.appendChild(mailListCard(j.mailList)); }
+          else if(j.card){ msg.card=j.card; msg.pending='m'+at; const k=draftCard(j.card,{compact:true,onChange:saveC}); k.dataset.key='m'+at; aiEl.appendChild(k); }
+          else if(j.remember){ const line='Remember: '+j.remember; if(!memAdded && !memory.includes(line)){ memory.push(line); saveM(); } }
+          else if(j.delta){ dots.remove(); stepsDone(); full+=j.delta; aiEl._text.nodeValue=full; chat.scrollTop=chat.scrollHeight; }
+          else if(j.error){ dots.remove(); stepsDone(); wrap.appendChild(el('div','err',j.error)); }
         }
       }
-      if(full){ c.messages.push({role:'assistant',content:full}); c.updated=Date.now(); saveC(); }
+      stepsDone();
+      if(full||msg.card||msg.list){ msg.content=full; c.messages.push(msg); c.updated=Date.now(); saveC(); }
       else { aiEl.remove(); }
     }catch{
-      aiEl.remove(); const e=document.createElement('div'); e.className='err'; e.textContent='Could not reach the server.'; wrap.appendChild(e);
+      aiEl.remove(); wrap.appendChild(el('div','err','Could not reach the server.'));
     }
     busy=false; sendBtn.disabled=false; chat.scrollTop=chat.scrollHeight; input.focus();
+  }
+
+  // Draft cards the AI's latest turn is asking about ("send it like this, or change something?").
+  function pendingCards(c){
+    const lastAI=[...c.messages.slice(0,-1)].reverse().find(m=>m.role==='assistant');
+    const open=[...chat.querySelectorAll('.mailcard')].filter(k=>!k.dataset.sent);
+    if(lastAI?.pending) return open.filter(k=>k.dataset.key===lastAI.pending);
+    return currentId===briefChatId ? open.filter(k=>(k.dataset.key||'')[0]==='b') : [];
+  }
+  function mailListCard(l){
+    const box=el('div','mlist'), h=el('div','bhead'); h.innerHTML=GMAIL_SVG; h.appendChild(el('span',null,l.title)); box.appendChild(h);
+    if(!l.items.length){ box.appendChild(el('div','mailsubj','No emails.')); return box; }
+    const ul=el('ul','blist'); l.items.forEach(m=>{ const li=mailLi(m); if(m.important) li.appendChild(el('span',null,' · important')); ul.appendChild(li); });
+    if(l.total>l.items.length) ul.appendChild(el('li',null,'…and '+(l.total-l.items.length)+' more'));
+    box.appendChild(ul); return box;
   }
 
   function closeRail(){ document.body.classList.remove('open'); }
@@ -337,27 +377,33 @@
   function mailLi(m){ const li=el('li'); const d=el('span','udot'+(m.unread?' on':'')); if(m.unread) d.title='Unread'; li.appendChild(d);
     li.appendChild(el('b',null,m.fromName)); li.appendChild(el('span',null,' — '+m.subject)); return li; }
 
-  function draftCard(m){
+  // A drafted email with Send it / Skip. In the briefing it explains itself; in a chat (compact) the
+  // AI's message above it already does. onChange persists edits / sent / skipped with the chat.
+  function draftCard(m,{compact=false,onChange=()=>{}}={}){
     const card=el('div','mailcard');
     const lead=el('div','bnote');
-    if(m.drafted){ lead.append('✍️ I already drafted a reply to '); lead.appendChild(el('b',null,m.fromName)); lead.append('. Want me to send it like this, or change something?'); }
+    if(compact){ lead.append(m.isNew?'To: ':'Reply to: '); lead.appendChild(el('b',null,m.fromName)); if(m.replyTo!==m.fromName) lead.append(' <'+m.replyTo+'>'); }
+    else if(m.drafted){ lead.append('✍️ I already drafted a reply to '); lead.appendChild(el('b',null,m.fromName)); lead.append('. Want me to send it like this, or change something?'); }
     else { lead.append('I couldn’t draft a reply to '); lead.appendChild(el('b',null,m.fromName)); lead.append(' right now (my model is busy or offline). Write one here and I’ll send it.'); }
-    const subject=/^re:/i.test(m.subject)?m.subject:'Re: '+m.subject;
+    const subject=m.isNew||/^re:/i.test(m.subject)?m.subject:'Re: '+m.subject;
     card.append(lead, el('div','mailsubj',subject));
     if(m.summary){ const s=el('div','mailsum'); s.appendChild(el('b',null,'What they said: ')); s.append(m.summary); card.appendChild(s); }
     if(m.drafted && m.asks){ const w=el('div','mailsum'); w.append('⚠️ '+m.fromName.split(/\s+/)[0]+' asked you something — check the reply says what you want. Fill in any [your answer], or just tell me what to change.'); card.appendChild(w); }
     const ta=el('textarea','maildraft'); ta.value=m.draft||''; card.appendChild(ta);
-    const fit=()=>{ ta.rows=Math.min(18,Math.max(5,ta.value.split('\n').reduce((n,l)=>n+Math.max(1,Math.ceil(l.length/44)),0)+1)); }; fit(); ta.addEventListener('input',fit);
+    const fit=()=>{ ta.rows=Math.min(18,Math.max(5,ta.value.split('\n').reduce((n,l)=>n+Math.max(1,Math.ceil(l.length/44)),0)+1)); }; fit();
+    ta.addEventListener('input',()=>{ fit(); m.draft=ta.value; onChange(); });
     const act=el('div','mailact'), sendB=el('button','msend','Send it'), skipB=el('button','mskip','Skip'), status=el('span','mstatus');
     act.append(sendB,skipB,status); card.appendChild(act);
-    skipB.onclick=()=>{ card.dataset.sent='skip'; card.remove(); };
+    const showSent=()=>{ card.dataset.sent='1'; status.textContent='✅ Sent to '+m.replyTo; sendB.remove(); skipB.remove(); ta.disabled=true; };
+    if(m.sent) showSent();
+    skipB.onclick=()=>{ card.dataset.sent='skip'; m.skipped=true; onChange(); card.remove(); };
     card._send=async()=>{
       if(!ta.value.trim()){ status.textContent='Write a reply first.'; return 'The reply is empty — write something in the box first.'; }
       sendB.disabled=true; status.textContent='Sending…';
       try{ const r=await fetch('/api/mail/send',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
           body:JSON.stringify({to:m.replyTo,subject,body:ta.value,inReplyTo:m.messageId})});
         const d=await r.json();
-        if(d.ok){ card.dataset.sent='1'; status.textContent='✅ Sent to '+m.replyTo; sendB.remove(); ta.disabled=true; skipB.textContent='Close'; return '✅ Sent your reply to '+m.fromName+' ('+m.replyTo+').'; }
+        if(d.ok){ m.sent=true; onChange(); showSent(); return '✅ Sent your '+(m.isNew?'email':'reply')+' to '+m.fromName+(m.fromName===m.replyTo?'':' ('+m.replyTo+')')+'.'; }
         sendB.disabled=false; status.textContent=d.error||'Could not send.'; return 'I couldn’t send it: '+(d.error||'unknown error');
       }catch{ sendB.disabled=false; status.textContent='Could not reach the server.'; return 'I couldn’t reach the server to send it.'; }
     };
@@ -367,7 +413,7 @@
       try{ const r=await fetch('/api/mail/redraft',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
           body:JSON.stringify({draft:ta.value,instruction,fromName:m.fromName,summary:m.summary})});
         const d=await r.json(); ta.disabled=false;
-        if(d.draft){ ta.value=d.draft; fit(); status.textContent='Updated ✓'; return 'Done — I changed the reply to '+m.fromName+'. Have a look; want me to send it now?'; }
+        if(d.draft){ ta.value=m.draft=d.draft; fit(); onChange(); status.textContent='Updated ✓'; return 'Done — I changed the '+(m.isNew?'email':'reply')+' to '+m.fromName+'. Have a look; want me to send it now?'; }
         status.textContent=''; return 'I couldn’t change it: '+(d.error||'unknown error');
       }catch{ ta.disabled=false; status.textContent=''; return 'I couldn’t reach the server to change it.'; }
     };
@@ -438,7 +484,7 @@
           }
           if(o.working){ working=el('div','bnote'); working.innerHTML='<span class="dots"><i></i><i></i><i></i></span> Drafting a reply to <b></b>…';
             working.querySelector('b').textContent=o.working; drafts.appendChild(working); }
-          if(o.mail){ if(working){ working.remove(); working=null; } drafts.appendChild(draftCard(o.mail));
+          if(o.mail){ if(working){ working.remove(); working=null; } const k=draftCard(o.mail); k.dataset.key='b'+drafts.children.length; drafts.appendChild(k);
             if(o.mail.drafted) briefText+=' Drafted a reply to '+o.mail.fromName+(o.mail.summary?' (they said: '+o.mail.summary+')':'')+'.'; }
         }
       }
