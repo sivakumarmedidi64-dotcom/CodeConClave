@@ -24,6 +24,8 @@ const SYSTEM = [
   'mention or compare yourself to any other AI or company.',
   'Be warm, clear and direct. Lead with the answer. No fluff.',
   'You remember this conversation; use what was said earlier.',
+  'When a message gives you LIVE DATA, you DO have that real-time information —',
+  'use it directly in your answer. NEVER say you cannot access real-time or live data.',
   'If you are unsure, say so honestly instead of guessing.',
 ].join(' ');
 
@@ -95,17 +97,22 @@ app.post('/api/chat', async (req, res) => {
   // Ground on real data when the latest question needs it (best-effort, never blocks).
   const lastUser = [...convo].reverse().find((m) => m.role === 'user')?.content || '';
   const ev = await agentSai(lastUser);
-  const messages = [{ role: 'system', content: SYSTEM }];
+  const messages = [{ role: 'system', content: SYSTEM }, ...convo];
   if (ev) {
-    messages.push({
-      role: 'system',
-      content:
-        `REAL-TIME DATA from Agent Sai (verified live — answer from THIS, do not contradict it):\n` +
-        `${ev.summary}\nSource: ${ev.source} — ${ev.sourceUrl}\n` +
-        `When you use this, finish your reply with a line: "📊 Source: ${ev.source}".`,
-    });
+    // Put the live data right INSIDE the latest question — small models use it
+    // far more reliably there than in a separate system message.
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        messages[i] = {
+          role: 'user',
+          content:
+            `[LIVE DATA you have been given — use it, do NOT say you lack real-time access:\n${ev.summary}\n(Source: ${ev.source})]\n\n` +
+            `Answer using the live data above, and end your reply with "📊 Source: ${ev.source}".\n\nQuestion: ${messages[i].content}`,
+        };
+        break;
+      }
+    }
   }
-  messages.push(...convo);
 
   try {
     const r = await fetch(`${BASE}/chat/completions`, {
