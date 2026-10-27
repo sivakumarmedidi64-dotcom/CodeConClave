@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CodeConClave AI</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161922; --line:#262b36; --fg:#e8ebf2; --dim:#9aa3b2;
+    --gold:#d9b25a; --accent:#6ea8fe; --radius:14px;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);
+       display:flex;flex-direction:column;align-items:center}
+  header{width:100%;text-align:center;padding:22px 16px 10px}
+  .logo{font-size:22px;font-weight:800;letter-spacing:2px}
+  .logo b{color:var(--gold)}
+  .tag{color:var(--dim);font-size:13px;margin-top:4px}
+  main{width:100%;max-width:760px;flex:1;display:flex;flex-direction:column;
+       padding:8px 16px 0;min-height:0}
+  #chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:12px 0}
+  .msg{padding:11px 14px;border-radius:12px;max-width:85%;line-height:1.55;
+       font-size:15px;white-space:pre-wrap;word-wrap:break-word}
+  .me{align-self:flex-end;background:#223049;color:#eaf1ff;border-bottom-right-radius:4px}
+  .ai{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
+  .ai .who{color:var(--gold);font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px;display:block}
+  .err{align-self:center;color:#ff8a8a;font-size:13px}
+  .barwrap{width:100%;max-width:760px;padding:10px 16px 20px}
+  .bar{display:flex;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px}
+  textarea{flex:1;min-width:0;resize:none;background:transparent;color:var(--fg);border:none;
+           font:inherit;font-size:15px;padding:8px;max-height:140px}
+  textarea:focus{outline:none}
+  button{cursor:pointer;border:none;border-radius:10px;padding:0 16px;font:inherit;font-weight:700;
+         background:var(--gold);color:#201a08}
+  button:disabled{opacity:.5;cursor:default}
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo">CODE<b>CON</b>CLAVE</div>
+    <div class="tag">your own AI</div>
+  </header>
+  <main>
+    <div id="chat">
+      <div class="msg ai"><span class="who">CodeConClave AI</span>Hi — I'm your own AI. Ask me anything.</div>
+    </div>
+  </main>
+  <div class="barwrap">
+    <div class="bar">
+      <textarea id="input" rows="1" placeholder="Ask anything…"></textarea>
+      <button id="send">Send</button>
+    </div>
+  </div>
+
+<script>
+  const chat = document.getElementById('chat');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+  let busy = false;
+
+  function add(text, who){
+    const el = document.createElement('div');
+    el.className = 'msg ' + (who === 'me' ? 'me' : 'ai');
+    if (who === 'ai'){ const w = document.createElement('span'); w.className='who'; w.textContent='CodeConClave AI'; el.appendChild(w); }
+    el.appendChild(document.createTextNode(text));
+    chat.appendChild(el); chat.scrollTop = chat.scrollHeight;
+    return el;
+  }
+  function addErr(text){ const el=document.createElement('div'); el.className='err'; el.textContent=text; chat.appendChild(el); chat.scrollTop=chat.scrollHeight; }
+
+  async function send(){
+    if (busy) return;
+    const text = input.value.trim(); if (!text) return;
+    input.value=''; input.style.height='auto'; add(text,'me');
+    busy=true; sendBtn.disabled=true;
+    const thinking = add('…','ai');
+    try{
+      const r = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
+      const data = await r.json();
+      if (r.ok && data.answer){ thinking.lastChild.nodeValue = data.answer; }
+      else { thinking.remove(); addErr(data.error || 'Something went wrong.'); }
+    }catch{ thinking.remove(); addErr('Could not reach the server.'); }
+    busy=false; sendBtn.disabled=false; chat.scrollTop=chat.scrollHeight; input.focus();
+  }
+
+  sendBtn.addEventListener('click', send);
+  input.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
+  input.addEventListener('input', ()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,140)+'px'; });
+</script>
+</body>
+</html>

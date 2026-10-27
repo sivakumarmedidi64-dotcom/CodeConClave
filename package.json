@@ -1,0 +1,13 @@
+{
+  "name": "codeconclave-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CodeConClave AI — clean build. Only our own tuned model. No coworker, no outside AI providers.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
