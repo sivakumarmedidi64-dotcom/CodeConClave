@@ -103,8 +103,11 @@
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:40;padding:16px}
   .modal.open{display:flex}
   .modalbox{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
-  .modalbox input:is([type=password],[type=search],[type=text]){width:100%;margin-top:12px;background:#0b0d12;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;font-size:14px}
-  .modalbox input:is([type=password],[type=search],[type=text]):focus{outline:none;border-color:var(--gold)}
+  .modalbox input:is([type=password],[type=search],[type=text],[type=email]){width:100%;margin-top:12px;background:#0b0d12;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;font-size:14px}
+  .modalbox input:is([type=password],[type=search],[type=text],[type=email]):focus{outline:none;border-color:var(--gold)}
+  .gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;padding:10px;border-radius:9px;border:1px solid #dadce0;background:#fff;color:#3c4043;font:inherit;font-weight:600;cursor:pointer}
+  .autherr{color:#ff8a8a;font-size:13px;min-height:18px;margin-top:8px}
+  .acctrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--dim);margin:2px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
   .fsbox{max-width:820px}
   .fsbox .bhead .mstatus{font-weight:400;margin-left:4px}
   #fsRows{max-height:52vh;overflow:auto;margin:8px 0}
@@ -136,6 +139,7 @@
   <div class="modal" id="profModal">
     <div class="modalbox">
       <div class="bhead"><span class="avatar" id="profAvatar">G</span><span id="profName">Guest</span><button class="bx" id="profClose" title="Close">×</button></div>
+      <div class="acctrow"><span id="acctText"></span><button class="mskip" id="acctBtn"></button></div>
       <div class="maillbl">What I remember about you</div>
       <ul id="memList"></ul>
       <label class="sndrow"><input type="checkbox" id="sndToggle" /> Play the guitar sound when an answer is ready</label>
@@ -155,6 +159,18 @@
         <textarea id="fsText" class="maildraft" spellcheck="false"></textarea>
         <div class="mailact"><button class="msend" id="fsSave">Save</button><button class="mskip" id="fsBack">Back</button><button class="mskip" id="fsAsk">Ask AI about it</button><span class="mstatus" id="fsStatus"></span></div>
       </div>
+    </div>
+  </div>
+  <div class="modal" id="authModal">
+    <div class="modalbox">
+      <div class="bhead"><span id="authTitle">Sign in to CodeConClave AI</span><button class="bx" id="authClose" title="Close">×</button></div>
+      <button class="gbtn" id="authGoogle" style="display:none"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Continue with Google</button>
+      <input type="text" id="authName" placeholder="Your name" autocomplete="name" style="display:none" />
+      <input type="email" id="authEmail" placeholder="Email" autocomplete="email" />
+      <input type="password" id="authPass" placeholder="Password (at least 8 characters)" autocomplete="current-password" />
+      <div class="autherr" id="authErr"></div>
+      <div class="mailact"><button class="msend" id="authGo">Sign in</button><button class="mskip" id="authSwitch">Create an account</button></div>
+      <div class="mailsubj" style="margin-top:10px">Your chats and memory are saved to your account, and this device keeps a copy too.</div>
     </div>
   </div>
   <div class="modal" id="lockModal">
@@ -199,14 +215,15 @@
   let briefEl=null, briefChatId=null, briefText=''; // today's mail briefing, shown as the AI's opening message in one chat
 
   function load(){ try{convos=JSON.parse(localStorage.getItem(CKEY)||'[]')||[]}catch{convos=[]} try{memory=JSON.parse(localStorage.getItem(MKEY)||'[]')||[]}catch{memory=[]} }
-  function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.slice(0,100)))}catch{} }
-  function saveM(){ try{localStorage.setItem(MKEY,JSON.stringify(memory.slice(0,30)))}catch{} renderProfile(); }
+  function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.slice(0,100)))}catch{} scheduleSync(); }
+  function saveM(){ try{localStorage.setItem(MKEY,JSON.stringify(memory.slice(0,30)))}catch{} renderProfile(); pushMemory(); }
   const current=()=>convos.find(c=>c.id===currentId);
   const uid=()=>'c'+Date.now()+Math.random().toString(36).slice(2,6);
 
   function newChat(){ currentId=uid(); convos.unshift({id:currentId,title:'New chat',messages:[],updated:Date.now()}); saveC(); renderSidebar(); renderChat(); input.focus(); closeRail(); }
   function selectChat(id){ currentId=id; renderSidebar(); renderChat(); closeRail(); }
-  function deleteChat(id,e){ e.stopPropagation(); convos=convos.filter(c=>c.id!==id); if(currentId===id){currentId=convos[0]?.id||null; if(!currentId)newChat();} saveC(); renderSidebar(); renderChat(); }
+  function deleteChat(id,e){ e.stopPropagation(); convos=convos.filter(c=>c.id!==id); pushed.delete(id);
+    if(me) fetch('/api/chats/'+encodeURIComponent(id),{method:'DELETE'}).catch(()=>{}); if(currentId===id){currentId=convos[0]?.id||null; if(!currentId)newChat();} saveC(); renderSidebar(); renderChat(); }
 
   function renderSidebar(){
     convosEl.innerHTML='';
@@ -413,14 +430,17 @@
   // Name: what you told the AI ("my name is …"), else Saharsh in the owner's unlocked browser, else Guest.
   function userName(){
     const f=memory.find(x=>/^User's name is /.test(x));
+    if(me) return me.name||me.email;
     return f ? f.replace(/^User's name is /,'').replace(/\.$/,'') : (ownerKey()?'Saharsh':'Guest');
   }
-  function renderProfile(){ const n=userName(); $('meName').textContent=n; $('meAvatar').textContent=n.charAt(0).toUpperCase(); }
+  function renderProfile(){ const n=userName(), guest=!me&&n==='Guest'; $('meName').textContent=guest?'Sign in':n; $('meAvatar').textContent=guest?'?':n.charAt(0).toUpperCase(); }
   function showMemory(){
     const n=userName(); $('profName').textContent=n; $('profAvatar').textContent=n.charAt(0).toUpperCase();
     const ul=$('memList'); ul.innerHTML='';
     if(!memory.length) ul.appendChild(el('li',null,'Nothing yet — tell me “my name is …” or “remember that …”.'));
     memory.forEach(x=>ul.appendChild(el('li',null,x)));
+    $('acctText').textContent=me?'Signed in as '+me.email+(me.role==='owner'?' · owner':''):authInfo.accounts?'Sign in to keep your chats on every device.':'Accounts are not available right now.';
+    $('acctBtn').textContent=me?'Sign out':'Sign in'; $('acctBtn').style.display=me||authInfo.accounts?'':'none';
     $('sndToggle').checked=soundOn(); $('profModal').classList.add('open');
   }
 
@@ -544,7 +564,13 @@
   function closeRail(){ document.body.classList.remove('open'); }
   $('newBtn').onclick=newChat; sendBtn.onclick=send;
   $('burger').onclick=()=>document.body.classList.toggle('open'); $('backdrop').onclick=closeRail;
-  $('meBtn').onclick=showMemory;
+  $('meBtn').onclick=()=>(!me && authInfo.accounts && !memory.length && !ownerKey()) ? showAuth(false) : showMemory();
+  $('acctBtn').onclick=()=>me?signOut():showAuth(false);
+  $('authClose').onclick=()=>$('authModal').classList.remove('open');
+  $('authSwitch').onclick=()=>showAuth(!signup);
+  $('authGo').onclick=doAuth;
+  [$('authEmail'),$('authPass'),$('authName')].forEach(i=>i.addEventListener('keydown',(e)=>{ if(e.key==='Enter') doAuth(); }));
+  $('authGoogle').onclick=()=>{ location.href='/api/auth/google'; };
   $('profClose').onclick=()=>$('profModal').classList.remove('open');
   $('profModal').onclick=(e)=>{ if(e.target===$('profModal')) $('profModal').classList.remove('open'); };
   $('memClear').onclick=()=>{ memory=[]; saveM(); showMemory(); };
@@ -692,7 +718,7 @@
   }
 
   async function mailBrief(manual){
-    if(!ownerKey() && !(manual && await unlockMail())) return; // visitors never see the owner's mail
+    if(!ownerKey() && me?.role!=='owner' && !(manual && await unlockMail())) return; // visitors never see the owner's mail
     const b=el('div','msg ai brief'); b.appendChild(el('span','who','CodeConClave AI'));
     const head=el('div','bhead'); head.innerHTML=GMAIL_SVG; head.appendChild(el('span',null,'Today’s mail'));
     const x=el('button','bx','×'); x.title='Hide'; x.onclick=()=>{ if(briefEl===b){ briefEl=null; briefChatId=null; briefText=''; renderChat(); } };
@@ -734,7 +760,62 @@
       if(working) working.remove();
     }catch{ fail('I couldn’t reach your Gmail right now.'); }
   }
-  setTimeout(()=>mailBrief(false), 600); // the AI briefs you when you arrive (owner only)
+  // ---- accounts: sign in to keep your chats and memory on your account; this device keeps a copy too ----
+  let me=null, authInfo={accounts:false, google:false}, signup=false;
+  const pushed=new Map(); // chat id -> what your account already has (so only changes are sent)
+  let syncT=null, memT=null;
+  function scheduleSync(){ if(!me) return; clearTimeout(syncT); syncT=setTimeout(pushChanges,800); }
+  async function pushChanges(){
+    for(const c of convos){ if(!me) return; if(!c.messages.length) continue; const j=JSON.stringify(c); if(pushed.get(c.id)===j) continue;
+      try{ const r=await fetch('/api/chats/'+encodeURIComponent(c.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:c.title,messages:c.messages,updated:c.updated||Date.now()})});
+        if(r.ok) pushed.set(c.id,j); else if(r.status===401){ me=null; renderProfile(); return; } }catch{ return; } }
+  }
+  function pushMemory(){ if(!me) return; clearTimeout(memT); memT=setTimeout(()=>fetch('/api/memory',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:memory})}).catch(()=>{}),800); }
+  // Merge your account's chats with this device's (the newest copy of each wins); chats made here
+  // before signing in are uploaded by the next save.
+  async function syncDown(){
+    try{
+      const d=await (await fetch('/api/sync')).json(); if(!Array.isArray(d.chats)) return;
+      const byId=new Map(convos.map(c=>[c.id,c]));
+      for(const sc of d.chats){ const local=byId.get(sc.id), c={id:sc.id,title:sc.title,messages:sc.messages,updated:sc.updated};
+        if(!local || (sc.updated||0)>=(local.updated||0)) byId.set(sc.id,c); pushed.set(sc.id,JSON.stringify(c)); }
+      convos=[...byId.values()].sort((a,b)=>(b.updated||0)-(a.updated||0));
+      memory=[...new Set([...(d.memory||[]),...memory])].slice(0,30);
+      if(!convos.some(c=>c.id===currentId)) currentId=convos[0]?.id||null;
+      saveC(); saveM(); if(!currentId) newChat(); else { renderSidebar(); renderChat(); }
+    }catch{}
+  }
+  async function loadMe(){
+    try{ const d=await (await fetch('/api/auth/me',{headers:mailHeaders()})).json(); me=d.user; authInfo=d; }catch{ me=null; }
+    renderProfile(); if(me) await syncDown();
+    const why=new URLSearchParams(location.search).get('signin');
+    if(why){ history.replaceState(null,'','/'); toast(why==='password'?'That email already has an account — sign in with your password.':'Google sign-in did not work — please try again.'); }
+  }
+  function showAuth(isSignup){
+    signup=Boolean(isSignup); $('authTitle').textContent=signup?'Create your CodeConClave account':'Sign in to CodeConClave AI';
+    $('authName').style.display=signup?'':'none'; $('authGo').textContent=signup?'Create account':'Sign in';
+    $('authSwitch').textContent=signup?'I have an account':'Create an account'; $('authPass').autocomplete=signup?'new-password':'current-password';
+    $('authGoogle').style.display=authInfo.google?'':'none'; $('authErr').textContent='';
+    $('profModal').classList.remove('open'); $('authModal').classList.add('open'); (signup?$('authName'):$('authEmail')).focus();
+  }
+  async function doAuth(){
+    $('authGo').disabled=true; $('authErr').textContent='';
+    try{
+      const r=await fetch(signup?'/api/auth/signup':'/api/auth/login',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
+        body:JSON.stringify({email:$('authEmail').value.trim(),password:$('authPass').value,name:$('authName').value.trim()})});
+      const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not sign in.');
+      me=d.user; $('authPass').value=''; $('authModal').classList.remove('open');
+      await syncDown(); renderProfile(); toast((signup?'Account created — ':'Signed in as ')+me.email); mailBrief(false);
+    }catch(e){ $('authErr').textContent=e.message; }
+    finally{ $('authGo').disabled=false; }
+  }
+  // Signing out also clears this device's copy (your account keeps everything) - safer on a shared computer.
+  async function signOut(){
+    await fetch('/api/auth/logout',{method:'POST'}).catch(()=>{});
+    me=null; pushed.clear(); convos=[]; memory=[]; currentId=null; briefEl=null; briefChatId=null;
+    saveM(); newChat(); $('profModal').classList.remove('open'); toast('Signed out — your chats stay safe on your account.');
+  }
+  loadMe().then(()=>mailBrief(false)); // then the AI briefs you on your mail (owner only)
 
   load(); renderProfile(); reconnectFolder(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
 </script>

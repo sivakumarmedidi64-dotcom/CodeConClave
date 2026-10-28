@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
+import { openStore, hashPassword, checkPassword, newToken, tokenHash } from './store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -26,10 +27,155 @@ const mailOn = Boolean(GUSER && GPASS);
 // The site is public, so mail is locked to the owner: only a browser that sends this
 // secret (x-owner-key) can read or send mail. If it isn't set, mail stays locked.
 const OWNER = (process.env.MAIL_OWNER_KEY || '').trim();
-function ownerOk(req) {
+function keyOk(req) {
   const k = String(req.get('x-owner-key') || '');
   return Boolean(OWNER) && k.length === OWNER.length && crypto.timingSafeEqual(Buffer.from(k), Buffer.from(OWNER));
 }
+// The owner = this browser holds the owner key, or is signed in to the owner's account.
+const ownerOk = (req) => keyOk(req) || req.user?.role === 'owner';
+
+// ---- Accounts ----
+// Data lives in Neon (DATABASE_URL, the live site) or in local files (./data, on your own PC).
+// If the store can't open, the app still runs - only accounts are switched off.
+let store = null;
+try { store = await openStore(); console.log(`Accounts: stored in ${store.kind}`); }
+catch (e) { console.error('Accounts are OFF:', e.message); }
+const COOKIE = 'cc_session';
+const SESSION_DAYS = 30;
+const SECURE_COOKIE = Boolean(process.env.RENDER) || process.env.NODE_ENV === 'production'; // https only on the live site
+const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://codeconclave-ww5x.onrender.com').replace(/\/+$/, '');
+const GOOGLE_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+const GOOGLE_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
+
+const readCookie = (req, name) => decodeURIComponent((String(req.headers.cookie || '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`)) || [])[1] || '');
+const cookie = (name, value, maxAge, p = '/') => `${name}=${value}; Path=${p}; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${SECURE_COOKIE ? '; Secure' : ''}`;
+// Express 4 does not catch errors from async handlers - this passes them to the error handler below.
+const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
+
+// Who is asking? (the session cookie -> a user, or nobody)
+app.use(wrap(async (req, _res, next) => {
+  req.user = null;
+  const t = store && readCookie(req, COOKIE);
+  if (t) { try { req.user = await store.sessionUser(tokenHash(t)); } catch { /* treat as signed out */ } }
+  next();
+}));
+
+async function startSession(req, res, user) {
+  // Owner: only a browser holding the owner key can make an account the owner's. Never by email
+  // alone - there is no email check, so anyone could sign up with the founder's address.
+  if (keyOk(req) && user.role !== 'owner') { await store.setRole(user.id, 'owner'); user.role = 'owner'; }
+  const t = newToken();
+  await store.createSession(tokenHash(t), user.id, Date.now() + SESSION_DAYS * 86400000);
+  res.append('Set-Cookie', cookie(COOKIE, t, SESSION_DAYS * 86400));
+  const { passHash, ...safe } = user;
+  return safe;
+}
+// A simple brake on password guessing: 20 tries per 15 minutes per address.
+const tries = new Map();
+function tooMany(req) {
+  const now = Date.now();
+  const list = (tries.get(req.ip) || []).filter((t) => now - t < 15 * 60000);
+  list.push(now); tries.set(req.ip, list);
+  return list.length > 20;
+}
+const needStore = (res) => { if (!store) { res.status(503).json({ error: 'Accounts are not available right now.' }); return true; } return false; };
+const needUser = (req, res) => { if (!req.user) { res.status(401).json({ error: 'Sign in first.' }); return true; } return false; };
+
+app.get('/api/auth/me', (req, res) => res.json({ user: req.user, accounts: Boolean(store), google: Boolean(store && GOOGLE_ID && GOOGLE_SECRET) }));
+
+app.post('/api/auth/signup', wrap(async (req, res) => {
+  if (needStore(res)) return;
+  if (tooMany(req)) return res.status(429).json({ error: 'Too many tries — wait a few minutes.' });
+  const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 200);
+  const password = String(req.body?.password || '');
+  const name = String(req.body?.name || '').trim().slice(0, 60) || email.split('@')[0];
+  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+  if (password.length < 8 || password.length > 200) return res.status(400).json({ error: 'Use a password of at least 8 characters.' });
+  let user;
+  try { user = await store.createUser({ email, name, passHash: hashPassword(password) }); }
+  catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'That email already has an account — sign in instead.' });
+    throw e;
+  }
+  res.json({ user: await startSession(req, res, user) });
+}));
+
+app.post('/api/auth/login', wrap(async (req, res) => {
+  if (needStore(res)) return;
+  if (tooMany(req)) return res.status(429).json({ error: 'Too many tries — wait a few minutes.' });
+  const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 200);
+  const user = await store.userByEmail(email);
+  if (!user || !user.passHash || !checkPassword(String(req.body?.password || ''), user.passHash)) {
+    return res.status(401).json({ error: user && !user.passHash ? 'This account uses Google — sign in with Google.' : 'Wrong email or password.' });
+  }
+  res.json({ user: await startSession(req, res, user) });
+}));
+
+app.post('/api/auth/logout', wrap(async (req, res) => {
+  const t = readCookie(req, COOKIE);
+  if (t && store) await store.deleteSession(tokenHash(t));
+  res.append('Set-Cookie', cookie(COOKIE, '', 0));
+  res.json({ ok: true });
+}));
+
+// Google sign-in (switched on once GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are set).
+const GOOGLE_BACK = `${PUBLIC_URL}/api/auth/google/callback`;
+app.get('/api/auth/google', (req, res) => {
+  if (!store || !GOOGLE_ID || !GOOGLE_SECRET) return res.redirect('/');
+  const state = newToken();
+  res.append('Set-Cookie', cookie('cc_gstate', state, 600, '/api/auth'));
+  const q = new URLSearchParams({ client_id: GOOGLE_ID, redirect_uri: GOOGLE_BACK, response_type: 'code', scope: 'openid email profile', state, prompt: 'select_account' });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${q}`);
+});
+app.get('/api/auth/google/callback', wrap(async (req, res) => {
+  const state = readCookie(req, 'cc_gstate');
+  res.append('Set-Cookie', cookie('cc_gstate', '', 0, '/api/auth'));
+  if (!store || !GOOGLE_ID || !state || state !== req.query.state || !req.query.code) return res.redirect('/?signin=failed');
+  const tok = await (await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ code: String(req.query.code), client_id: GOOGLE_ID, client_secret: GOOGLE_SECRET, redirect_uri: GOOGLE_BACK, grant_type: 'authorization_code' }),
+  })).json();
+  if (!tok.id_token) return res.redirect('/?signin=failed');
+  // Google checks its own token here; we check it was issued to us and the email is verified.
+  const info = await (await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(tok.id_token)}`)).json();
+  if (info.aud !== GOOGLE_ID || String(info.email_verified) !== 'true' || !info.email || !info.sub) return res.redirect('/?signin=failed');
+  const email = String(info.email).toLowerCase();
+  let user = await store.userByGoogle(info.sub);
+  if (!user) {
+    // An existing password account with this email is not taken over automatically.
+    if (await store.userByEmail(email)) return res.redirect('/?signin=password');
+    user = await store.createUser({ email, name: String(info.name || email.split('@')[0]).slice(0, 60), googleSub: info.sub });
+  }
+  await startSession(req, res, user);
+  res.redirect('/');
+}));
+
+// Your chats and memory, kept on your account (this device also keeps its own copy).
+app.get('/api/sync', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  res.json({ chats: await store.listChats(req.user.id), memory: await store.getMemory(req.user.id) });
+}));
+app.put('/api/chats/:id', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const id = String(req.params.id);
+  const messages = Array.isArray(req.body?.messages) ? req.body.messages : null;
+  if (!/^[\w-]{1,64}$/.test(id) || !messages) return res.status(400).json({ error: 'Bad chat.' });
+  if (JSON.stringify(messages).length > 2_000_000) return res.status(413).json({ error: 'This chat is too big to save.' });
+  await store.putChat(req.user.id, { id, title: String(req.body?.title || 'New chat').slice(0, 120), messages, updated: Number(req.body?.updated) || Date.now() });
+  res.json({ ok: true });
+}));
+app.delete('/api/chats/:id', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  await store.deleteChat(req.user.id, String(req.params.id).slice(0, 64));
+  res.json({ ok: true });
+}));
+app.put('/api/memory', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const items = (Array.isArray(req.body?.items) ? req.body.items : []).filter((x) => typeof x === 'string').map((x) => x.slice(0, 300)).slice(0, 30);
+  await store.putMemory(req.user.id, items);
+  res.json({ ok: true });
+}));
 
 const SYSTEM = [
   'You are CodeConClave AI, created by your founder Saharsh Medidi.',
@@ -850,6 +996,12 @@ app.post('/api/mail/send', async (req, res) => {
   } catch (e) {
     res.status(502).json({ error: 'Could not send: ' + String(e?.message || 'error').slice(0, 120) });
   }
+});
+
+// Last stop for errors from wrapped handlers: a plain message, never a stack trace.
+app.use((err, _req, res, _next) => {
+  console.error('Request failed:', err?.message || err);
+  if (!res.headersSent) res.status(500).json({ error: 'Something went wrong — please try again.' });
 });
 
 const PORT = process.env.PORT || 3000;
