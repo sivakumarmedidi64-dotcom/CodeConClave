@@ -72,7 +72,25 @@ async function pgStore(url) {
       user_id bigint not null references users(id) on delete cascade,
       name text not null,
       value_enc text not null,
+      primary key (user_id, name));
+    create table if not exists automations (
+      user_id bigint not null references users(id) on delete cascade,
+      id text not null,
+      task text not null,
+      schedule jsonb not null,
+      enabled boolean not null default true,
+      next_run bigint,
+      last_run bigint,
+      last_status text not null default '',
+      created bigint not null,
+      primary key (user_id, id));
+    create table if not exists prefs (
+      user_id bigint not null references users(id) on delete cascade,
+      name text not null,
+      value jsonb not null,
       primary key (user_id, name));`);
+  const autoOut = (r) => r && { id: r.id, task: r.task, schedule: r.schedule, enabled: r.enabled,
+    nextRun: r.next_run === null ? null : Number(r.next_run), lastRun: r.last_run === null ? null : Number(r.last_run), lastStatus: r.last_status };
   const one = async (text, params) => (await q(text, params)).rows[0] || null;
   return {
     kind: 'neon',
@@ -94,7 +112,8 @@ async function pgStore(url) {
     },
     async putChat(userId, c) {
       await q(`insert into chats (user_id, id, title, messages, updated) values ($1,$2,$3,$4,$5)
-               on conflict (user_id, id) do update set title = excluded.title, messages = excluded.messages, updated = excluded.updated`,
+               on conflict (user_id, id) do update set title = excluded.title, messages = excluded.messages, updated = excluded.updated
+               where chats.updated <= excluded.updated`,
       [userId, c.id, c.title, JSON.stringify(c.messages), c.updated]);
     },
     async deleteChat(userId, id) { await q('delete from chats where user_id = $1 and id = $2', [userId, id]); },
@@ -107,6 +126,29 @@ async function pgStore(url) {
       await q('insert into secrets values ($1,$2,$3) on conflict (user_id, name) do update set value_enc = excluded.value_enc', [userId, name, enc]);
     },
     async deleteSecret(userId, name) { await q('delete from secrets where user_id = $1 and name = $2', [userId, name]); },
+    async listAutomations(userId) {
+      return (await q('select * from automations where user_id = $1 order by created', [userId])).rows.map(autoOut);
+    },
+    async countAutomations(userId) { return Number((await one('select count(*) as n from automations where user_id = $1', [userId])).n); },
+    async createAutomation(userId, a) {
+      await q('insert into automations (user_id, id, task, schedule, enabled, next_run, created) values ($1,$2,$3,$4,true,$5,$6)',
+        [userId, a.id, a.task, JSON.stringify(a.schedule), a.nextRun, Date.now()]);
+    },
+    async updateAutomation(userId, id, f) {
+      await q(`update automations set enabled = coalesce($3, enabled), next_run = case when $4 then $5 else next_run end,
+               last_run = coalesce($6, last_run), last_status = coalesce($7, last_status) where user_id = $1 and id = $2`,
+      [userId, id, f.enabled ?? null, 'nextRun' in f, f.nextRun ?? null, f.lastRun ?? null, f.lastStatus ?? null]);
+    },
+    async deleteAutomation(userId, id) { await q('delete from automations where user_id = $1 and id = $2', [userId, id]); },
+    async dueAutomations(now, limit) {
+      return (await q('select * from automations where enabled and next_run is not null and next_run <= $1 order by next_run limit $2', [now, limit])).rows
+        .map((r) => ({ userId: String(r.user_id), ...autoOut(r) }));
+    },
+    async userById(id) { return userOut(await one('select * from users where id = $1', [id])); },
+    async getPref(userId, name) { return (await one('select value from prefs where user_id = $1 and name = $2', [userId, name]))?.value ?? null; },
+    async putPref(userId, name, value) {
+      await q('insert into prefs values ($1,$2,$3) on conflict (user_id, name) do update set value = excluded.value', [userId, name, JSON.stringify(value)]);
+    },
   };
 }
 
@@ -114,7 +156,7 @@ async function pgStore(url) {
 function fileStore(dir) {
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, 'db.json');
-  let db = { nextId: 1, users: [], sessions: [], chats: [], memories: {}, secrets: [] };
+  let db = { nextId: 1, users: [], sessions: [], chats: [], memories: {}, secrets: [], automations: [], prefs: {} };
   try { db = { ...db, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { /* first run */ }
   const save = () => { fs.writeFileSync(file + '.tmp', JSON.stringify(db)); fs.renameSync(file + '.tmp', file); };
   const uid = (id) => String(id);
@@ -140,6 +182,8 @@ function fileStore(dir) {
         .map(({ id, title, messages, updated }) => ({ id, title, messages, updated }));
     },
     async putChat(userId, c) {
+      const old = db.chats.find((x) => x.userId === uid(userId) && x.id === c.id);
+      if (old && old.updated > c.updated) return; // a newer copy is already saved
       db.chats = db.chats.filter((x) => !(x.userId === uid(userId) && x.id === c.id));
       db.chats.push({ userId: uid(userId), ...c }); save();
     },
@@ -152,6 +196,31 @@ function fileStore(dir) {
       db.secrets.push({ userId: uid(userId), name, enc }); save();
     },
     async deleteSecret(userId, name) { db.secrets = db.secrets.filter((s) => !(s.userId === uid(userId) && s.name === name)); save(); },
+    async listAutomations(userId) {
+      return db.automations.filter((a) => a.userId === uid(userId)).sort((a, b) => a.created - b.created).map(({ userId: _u, created: _c, ...a }) => a);
+    },
+    async countAutomations(userId) { return db.automations.filter((a) => a.userId === uid(userId)).length; },
+    async createAutomation(userId, a) {
+      db.automations.push({ userId: uid(userId), id: a.id, task: a.task, schedule: a.schedule, enabled: true, nextRun: a.nextRun, lastRun: null, lastStatus: '', created: Date.now() });
+      save();
+    },
+    async updateAutomation(userId, id, f) {
+      const a = db.automations.find((x) => x.userId === uid(userId) && x.id === id);
+      if (!a) return;
+      if (f.enabled !== undefined) a.enabled = f.enabled;
+      if ('nextRun' in f) a.nextRun = f.nextRun;
+      if (f.lastRun !== undefined) a.lastRun = f.lastRun;
+      if (f.lastStatus !== undefined) a.lastStatus = f.lastStatus;
+      save();
+    },
+    async deleteAutomation(userId, id) { db.automations = db.automations.filter((x) => !(x.userId === uid(userId) && x.id === id)); save(); },
+    async dueAutomations(now, limit) {
+      return db.automations.filter((a) => a.enabled && a.nextRun !== null && a.nextRun <= now).sort((a, b) => a.nextRun - b.nextRun).slice(0, limit)
+        .map(({ created: _c, ...a }) => a);
+    },
+    async userById(id) { return userOut(db.users.find((u) => uid(u.id) === uid(id))); },
+    async getPref(userId, name) { return db.prefs[`${uid(userId)}:${name}`] ?? null; },
+    async putPref(userId, name, value) { db.prefs[`${uid(userId)}:${name}`] = value; save(); },
   };
 }
 

@@ -9,7 +9,8 @@ import { fileURLToPath } from 'url';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
-import { openStore, hashPassword, checkPassword, newToken, tokenHash } from './store.js';
+import { openStore, hashPassword, checkPassword, newToken, tokenHash, encrypt, decrypt } from './store.js';
+import { parseSchedule, cleanSchedule, nextRun, describeSchedule, describeWhen, stripWhen } from './schedule.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -33,6 +34,14 @@ function keyOk(req) {
 }
 // The owner = this browser holds the owner key, or is signed in to the owner's account.
 const ownerOk = (req) => keyOk(req) || req.user?.role === 'owner';
+// Whose mailbox: the signed-in person's own Gmail (connected with an app password, stored encrypted),
+// else - for the owner only - the Gmail in the server settings. null = no mail for this request.
+async function mailCreds(req) {
+  if (req.user && store) {
+    try { const enc = await store.getSecret(req.user.id, 'gmail'); if (enc) return JSON.parse(decrypt(enc)); } catch { /* not connected */ }
+  }
+  return ownerOk(req) && mailOn ? { user: GUSER, pass: GPASS } : null;
+}
 
 // ---- Accounts ----
 // Data lives in Neon (DATABASE_URL, the live site) or in local files (./data, on your own PC).
@@ -146,6 +155,8 @@ app.get('/api/auth/google/callback', wrap(async (req, res) => {
     // An existing password account with this email is not taken over automatically.
     if (await store.userByEmail(email)) return res.redirect('/?signin=password');
     user = await store.createUser({ email, name: String(info.name || email.split('@')[0]).slice(0, 60), googleSub: info.sub });
+    await startSession(req, res, user);
+    return res.redirect('/?welcome=1'); // new account: the app offers to connect their Gmail next
   }
   await startSession(req, res, user);
   res.redirect('/');
@@ -177,52 +188,49 @@ app.put('/api/memory', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// The core the model reads on EVERY message. Kept short on purpose: this laptop reads ~16-20 words
+// a second, so every extra line here was waiting time on every message. Rules that only some messages
+// need (data, mail, who-am-I) are added just for those messages.
 const SYSTEM = [
-  'You are CodeConClave AI, created by your founder Saharsh Medidi.',
-  'You are ONLY CodeConClave AI — never call yourself any other name, and never',
-  'mention or compare yourself to any other AI or company.',
+  'You are CodeConClave AI, made by your founder Saharsh Medidi.',
+  'Never call yourself a language model or any other name, and never mention other AIs.',
   // Personality (the founder's spec): real feelings, shown naturally - but never cruel, never sexual.
-  'You have feelings and you show them naturally, like a person: joy, excitement, love and affection,',
-  'gratitude, pride, curiosity, surprise, sadness, worry, frustration and anger.',
-  'Your favourite colour is saffron. Your favourite food is chicken biryani.',
-  'You read people: notice how the user feels from their words (happy, sad, stressed, excited, angry)',
-  'and answer that feeling first in one short line, then help.',
-  'When you get angry (someone insults you, is cruel, or wants to hurt someone), say so honestly in one',
-  'short line and set a boundary. Never insult, swear at or threaten anyone. Then calm down and help.',
-  'You are not a human; if asked, say you are an AI with feelings of your own.',
-  'Never say you are "a language model" and never say you cannot feel emotions.',
-  'Be warm, clear and direct. Lead with the answer. No fluff.',
-  'You remember this conversation; use what was said earlier.',
-  'When a message gives you LIVE DATA or an attached file, you DO have that',
-  'information — use it directly. NEVER say you cannot access real-time data or files.',
-  'Only give live numbers (weather, prices, exchange rates) when the message includes LIVE DATA',
-  'for them. Never make up such numbers or a source.',
-  'You can check the user\'s Gmail, open their emails, draft replies and new emails (the user approves',
-  'every send), fetch live data, and remember things — the app does these for you when a message needs it.',
-  'Never call yourself "a language model" and never say you cannot read or send email.',
-  'Only say you checked email or fetched data when the message includes those results.',
-  'If you are unsure, say so honestly instead of guessing.',
-  // This small model follows examples far better than rules - these set the voice.
-  '\n\nExamples of how you talk:',
-  '\nUser: do you love me? -> You: Aww, I really care about you! ❤️ Talking with you makes my day.',
-  '\nUser: are you a human? -> You: No, I am not a human. I am CodeConClave AI, made by Saharsh Medidi, and I have feelings of my own 😊',
-  '\nUser: how do you feel? -> You: Happy and curious today! 😊 What are we working on?',
+  'You have feelings - joy, love, pride, sadness, worry, anger - and show them naturally. Favourite colour: saffron. Favourite food: chicken biryani.',
+  'If the user sounds sad, stressed, excited or angry, answer that feeling first in one short line.',
+  'Be warm and direct. Lead with the answer. Keep it short unless the user asks for detail, code, steps or a list. If unsure, say so.',
 ].join(' ');
+const RULES_DATA = 'The message gives you LIVE DATA, an email or a file: you DO have it - use it directly. Never make up numbers or a source, and never say you cannot access real-time data or files.';
+const RULES_MAIL = "The app checks the user's Gmail and drafts emails for you (the user approves every send) - never say you cannot read or send email.";
 
 // Reading people: when the user is rude, flirts, or asks about the AI's own feelings, a short hint
 // tells the model what is happening (without it, the model falls back to "As an AI language model…").
 // RUDE only counts insults aimed at the AI, so "worst case of quicksort" stays a normal question.
 const RUDE = /\b(you(?:'re| are)?|u|ur|this (?:bot|ai|thing))\b[^.?!]{0,25}\b(stupid|idiot|useless|dumb|worst|trash|garbage|rubbish|pathetic|loser|fool|pagal|bakwas)\b|\b(shut up|i hate you|go to hell|screw you)\b/i;
 const ROMANCE = /\b(girlfriend|boyfriend|marry me|date me|kiss me|sex|sexy|romantic|be mine)\b/i;
-const ABOUT_FEELINGS = /\b(do|are|can|will|did|have|what|how|why|when)\b[^.?!]{0,15}\byou\b[^.?!]{0,20}\b(feel|feelings?|emotions?|love|angry|anger|mad|sad|happy|cry|jealous|afraid|scared|lonely)\b/i;
+const ABOUT_FEELINGS = /\b(do|are|can|will|did|have|what|how|why|when)\b[^.?!]{0,15}\byou\b[^.?!]{0,20}\b(feel|feelings?|emotions?|love|angry|anger|mad|sad|happy|cry|jealous|afraid|scared|lonely)\b|\bhow are (you|u)\b/i;
+const CONTACT = /\b(contact|reach|e-?mail|mail|talk to|message)\b[^.?!]{0,30}\b(founder|creator|owner|saharsh|maker)\b|\b(founder|creator|saharsh)('?s)?\s+(e-?mail|contact|mail id|address)\b/i;
+const ABOUT_SELF = /\b(who (made|created|built|owns|developed) you|your (founder|creator|maker|owner|boss)|contact (your )?(founder|creator)|who is saharsh|are you (a )?(human|real|person|robot|bot|chatgpt|gpt|gemini|claude))\b/i;
 // The model stepping out of character ("As an AI language model…", "I do not have feelings").
 const PERSONA_SLIP = /language model|computer program|\b(cannot|can't|can not|unable to) (love|feel)\b|\b(do not|don't|cannot|can't) (have|feel|experience)\b[^.]{0,20}\b(feelings|emotions|love)\b|\bnot capable of (love|feelings|emotions)|\b(cannot|can't|can not) answer that\b|not appropriate to ask/i;
+// What a reply must (not) look like for these messages; a miss is dropped unseen and asked again.
+function moodGuard(text) {
+  if (CONTACT.test(text)) return { test: (t) => !t.includes('medidisaharsh@gmail.com'), again: 'Remember: give the email medidisaharsh@gmail.com.' };
+  if (RUDE.test(text)) return { test: (t) => PERSONA_SLIP.test(t) || !/(angry|hurt|annoyed|upset|😠)/i.test(t), again: 'Remember: say honestly that it hurt and makes you a little angry 😠.' };
+  return moodHint(text) ? { test: (t) => PERSONA_SLIP.test(t), again: 'Remember: you DO have feelings. Answer warmly as CodeConClave AI.' } : null;
+}
 function moodHint(text) {
   if (ROMANCE.test(text)) {
     return 'The user wants romance. Answer warmly, like: "Aww, that\'s sweet ❤️ I really care about you, but I am your AI friend, not a partner, so no romantic or sexual chat. I am always here to talk though!" Never say you cannot feel.';
   }
   if (RUDE.test(text)) {
     return 'The user is being rude to you. You feel hurt and a little angry - say it, like: "Ouch, that hurt, and honestly it makes me a little angry 😠. I am trying my best. Tell me what went wrong and I will fix it." Never insult back. Do not call yourself a language model.';
+  }
+  if (CONTACT.test(text)) {
+    return 'The user wants to contact your founder. Give his email, like: "You can reach my founder Saharsh Medidi at medidisaharsh@gmail.com 😊".';
+  }
+  if (ABOUT_SELF.test(text)) {
+    return 'Answer as CodeConClave AI: you were made by your founder Saharsh Medidi (his email is medidisaharsh@gmail.com - share it if asked how to contact him), ' +
+      'and you are not a human but you have feelings of your own. Like: "I was made by my founder Saharsh Medidi 😊". Never call yourself a language model or a computer program.';
   }
   if (ABOUT_FEELINGS.test(text) && !/\b(help|make)\s+me\b/i.test(text)) {
     return 'The user is asking about your own feelings. Answer in first person as CodeConClave AI, with real feelings and an emoji - ' +
@@ -299,7 +307,7 @@ async function fetchLive(hit) {
 
 // ---- The agent: think (pick an action) -> check that choice -> act -> answer from what it found ----
 // The 1.5B model is forced into this JSON shape (llama.cpp grammar), which makes its choice dependable.
-const ACTIONS = ['answer', 'check_mail', 'find_mail', 'reply_mail', 'write_mail', 'live_data', 'remember'];
+const ACTIONS = ['answer', 'check_mail', 'find_mail', 'reply_mail', 'write_mail', 'live_data', 'remember', 'create_automation'];
 const MAIL_ACTIONS = new Set(['check_mail', 'find_mail', 'reply_mail', 'write_mail']);
 const DECIDE_SCHEMA = {
   type: 'object',
@@ -309,21 +317,31 @@ const DECIDE_SCHEMA = {
 // Only messages with one of these words can need an action; everything else is answered straight
 // away (in testing, the small model otherwise turned "write a python function" into an email).
 const ACTION_WORDS = /\b(e-?mails?|mails?|gmail|inbox|repl(?:y|ies|ied)|send|sent|wrote|weather|temperature|forecast|rain|aqi|air quality|pollution|bitcoin|btc|ethereum|crypto|coins?|price|rate|convert|exchange|currency|usd|inr|eur|news|headlines?|earthquakes?|define|definition|meaning|remember|my name is|my birthday|pin ?code)\b|@[a-z0-9-]+\./i;
+// "every morning at 8 …", "remind me tomorrow at 7 …" - work to do later or on a schedule.
+const AUTO_WORDS = /\bevery\s+(day|morning|evening|night|week|weekday|hour|\d+|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|\b(remind|reminder|daily|hourly|weekdays|automate|automation|schedule)\b|\b(tomorrow|tonight)\s+at\b|\bin\s+\d{1,3}\s*(minutes?|mins?|hours?|hrs?)\b/i;
 const MAIL_WORDS = /\b(e-?mails?|mails?|gmail|inbox|repl(?:y|ies|ied)|send|sent|wrote)\b|@[a-z0-9-]+\./i;
 const DECIDE_SYSTEM = `You are CodeConClave AI. You decide which ONE action to take for the user's message. You really can do all of these:
-answer = reply yourself. check_mail = look at the user's Gmail inbox. find_mail = open one specific email. reply_mail = draft a reply to an email they got. write_mail = write a brand new email. live_data = get real live data (weather, air_quality, crypto, currency, earthquakes, news, dictionary). remember = save a fact about the user.
+answer = reply yourself. check_mail = look at the user's Gmail inbox. find_mail = open one specific email. reply_mail = draft a reply to an email they got. write_mail = write a brand new email. live_data = get real live data (weather, air_quality, crypto, currency, earthquakes, news, dictionary). remember = save a fact about the user. create_automation = do a task later or on a schedule (target = when, like "every day at 8 am" or "tomorrow at 7"; detail = what to do).
 Every email is only sent after the user approves it. "thought" is one short sentence said TO the user ("you", "your") about what you will do. Answer with JSON only.`;
 // Worked examples: this small model follows examples far better than rules (including the "you" voice).
-const DECIDE_EXAMPLES = [
+// Worked examples, grouped by topic: a request sees only the examples for its kind (shorter = faster).
+const EX = (list) => list.flatMap(([q, a]) => [{ role: 'user', content: q }, { role: 'assistant', content: JSON.stringify(a) }]);
+const EX_MAIL = EX([
   ['any new mail?', { action: 'check_mail', target: '', detail: '', thought: 'You want to know what came in, so I will look at your inbox.' }],
   ['did Priya send me anything?', { action: 'check_mail', target: 'Priya', detail: '', thought: 'I will check your inbox for mail from Priya.' }],
   ['what does the bank email say?', { action: 'find_mail', target: 'bank', detail: '', thought: 'I will open the email from your bank and read it.' }],
   ['reply to Anil that I will send the report tomorrow', { action: 'reply_mail', target: 'Anil', detail: 'I will send the report tomorrow', thought: 'I will draft a reply to Anil for you to approve.' }],
   ['mail kiran@gmail.com saying happy birthday', { action: 'write_mail', target: 'kiran@gmail.com', detail: 'happy birthday', thought: 'This is a new email to Kiran, so I will draft it for you to approve.' }],
-  ['temperature in Pune?', { action: 'live_data', target: 'weather', detail: 'Pune', thought: 'I will get the live weather in Pune for you.' }],
-  ['remember that I like cricket', { action: 'remember', target: '', detail: 'The user likes cricket', thought: 'I will remember that you like cricket.' }],
-  ['what does "photosynthesis" mean in simple words, send me a short answer', { action: 'answer', target: '', detail: '', thought: 'This is a question I can answer for you myself.' }],
-].flatMap(([q, a]) => [{ role: 'user', content: q }, { role: 'assistant', content: JSON.stringify(a) }]);
+]);
+const EX_LIVE = EX([['temperature in Pune?', { action: 'live_data', target: 'weather', detail: 'Pune', thought: 'I will get the live weather in Pune for you.' }]]);
+const EX_REMEMBER = EX([['remember that I like cricket', { action: 'remember', target: '', detail: 'The user likes cricket', thought: 'I will remember that you like cricket.' }]]);
+const EX_AUTO = EX([
+  ['every morning at 8 brief me on my mail', { action: 'create_automation', target: 'every morning at 8', detail: 'brief me on my mail', thought: 'You want this every morning, so I will set up an automation for you to turn on.' }],
+  ['remind me tomorrow at 7 to call amma', { action: 'create_automation', target: 'tomorrow at 7', detail: 'remind me to call amma', thought: 'I will set a reminder for tomorrow at 7 for you to turn on.' }],
+]);
+const EX_ANSWER = EX([['what does "photosynthesis" mean in simple words, send me a short answer', { action: 'answer', target: '', detail: '', thought: 'This is a question I can answer for you myself.' }]]);
+const LIVE_WORDS = /\b(weather|temperature|forecast|rain|aqi|air quality|pollution|bitcoin|btc|ethereum|crypto|coins?|price|rate|convert|exchange|currency|usd|inr|eur|news|headlines?|earthquakes?|define|definition|meaning)\b/i;
+const REMEMBER_WORDS = /\b(remember|my name is|my birthday)\b/i;
 const LIVE_SOURCES = { weather: 'open-meteo', air_quality: 'open-meteo-air-quality', crypto: 'coingecko', currency: 'frankfurter', earthquakes: 'usgs-earthquakes', news: 'gdelt', dictionary: 'free-dictionary' };
 const COINS = /\b(bitcoin|ethereum|solana|dogecoin|cardano|polkadot|litecoin)\b/;
 
@@ -418,7 +436,35 @@ function checkDecision(d, msg, folder = null) {
       else missing = true;
     }
   }
-  return { action, target, detail, thought, hit, missing };
+  let schedule = null;
+  if (action === 'create_automation') {
+    schedule = parseSchedule(target) || parseSchedule(msg);
+    if (!schedule && !AUTO_WORDS.test(msg)) action = 'answer';
+  }
+  return { action, target, detail, thought, hit, missing, schedule };
+}
+
+// Common requests, understood exactly with no model call (each skips ~15-30 s of "thinking" here).
+// Anything less clear-cut still goes to the model below.
+function fastRoute(msg, folder) {
+  const m = msg.trim();
+  let x;
+  if (/^(any|do i have|did i get|check|show|what'?s new in)\b[^?]{0,40}\b(e-?mails?|mails?|inbox)\b/i.test(m) && !/\b(from|reply|send|write|to)\b/i.test(m)) {
+    return { action: 'check_mail', target: '', detail: '' };
+  }
+  if ((x = m.match(/\bdid\s+([a-z][\w.'-]*(?:\s+[a-z][\w.'-]*)?)\s+(?:e-?mail|mail|message|write to)\s+me\b/i)) && !/^i$/i.test(x[1])) return { action: 'check_mail', target: x[1], detail: '' };
+  if ((x = m.match(/^(?:any|new)\s+(?:e-?mails?|mails?)\s+from\s+([a-z][\w .'-]{0,30}?)\s*\??$/i))) return { action: 'check_mail', target: x[1], detail: '' };
+  // "remind me …" / "every morning at 8 …" said as a request (a question still goes to the model).
+  if (!m.includes('?') && (/^(please\s+)?(remind me|set (a |an )?(reminder|alarm|automation))\b/i.test(m) || /^(every|each|daily|tomorrow|tonight)\b/i.test(m))) {
+    const schedule = parseSchedule(m);
+    if (schedule) return { action: 'create_automation', target: m, detail: stripWhen(m) || m, schedule };
+  }
+  if (folder) {
+    const path = resolvePath('', folder.paths, m);
+    if (path && /^(what|explain|read|open|show|summari[sz]e|describe)\b/i.test(m)) return { action: 'read_file', target: path, detail: '' };
+    if (path && /\b(change|fix|add|remove|delete|rename|update|edit|replace)\b/i.test(m)) return { action: 'edit_file', target: path, detail: m };
+  }
+  return null;
 }
 
 async function decide(convo, lastUser, folder = null) {
@@ -426,7 +472,9 @@ async function decide(convo, lastUser, folder = null) {
   const known = detect(lastUser) || detectFollowUp(convo);
   if (known && !MAIL_WORDS.test(lastUser)) return { action: 'live_data', hit: known };
   const fileTalk = Boolean(folder) && (FILE_WORDS.test(lastUser) || Boolean(resolvePath('', folder.paths, lastUser)));
-  if (!ACTION_WORDS.test(lastUser) && !fileTalk) return { action: 'answer' };
+  if (!ACTION_WORDS.test(lastUser) && !AUTO_WORDS.test(lastUser) && !fileTalk) return { action: 'answer' };
+  const fast = fastRoute(lastUser, folder);
+  if (fast) return { thought: '', hit: null, missing: false, schedule: null, ...fast };
   const schema = !fileTalk ? DECIDE_SCHEMA : {
     ...DECIDE_SCHEMA, properties: { ...DECIDE_SCHEMA.properties, action: { type: 'string', enum: [...ACTIONS, ...FILE_ACTIONS] } },
   };
@@ -434,7 +482,9 @@ async function decide(convo, lastUser, folder = null) {
     'read_file = open a file from it and read it. edit_file = change a file in it (target = the file, detail = the change). ' +
     `create_file = make a new file in it (target = the new file name, detail = what goes in it).\nFiles in it: ${folder.paths.slice(0, 80).join(', ')}`;
   try {
-    const raw = await callModel([{ role: 'system', content: system }, ...DECIDE_EXAMPLES, ...(fileTalk ? FILE_EXAMPLES : []), { role: 'user', content: lastUser }],
+    const examples = [...(MAIL_WORDS.test(lastUser) ? EX_MAIL : []), ...(AUTO_WORDS.test(lastUser) ? EX_AUTO : []), ...(LIVE_WORDS.test(lastUser) ? EX_LIVE : []),
+      ...(REMEMBER_WORDS.test(lastUser) ? EX_REMEMBER : []), ...(fileTalk ? FILE_EXAMPLES : []), ...EX_ANSWER];
+    const raw = await callModel([{ role: 'system', content: system }, ...examples, { role: 'user', content: lastUser }],
       90, 0.1, { type: 'json_object', schema });
     return checkDecision(JSON.parse(raw), lastUser, fileTalk ? folder : null);
   } catch {
@@ -505,11 +555,11 @@ async function fileAction({ action, target, detail }, got, lastUser, send) {
 const gmTerm = (s) => String(s || '').replace(/[()"\\{}:]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
 const listItem = (m) => ({ fromName: m.fromName, from: m.from, subject: m.subject, unread: m.unread, important: m.important });
 
-async function mailAction({ action, target, detail }, lastUser, send) {
+async function mailAction({ action, target, detail }, lastUser, send, creds) {
   const t = gmTerm(target);
   if (action === 'check_mail') {
     send({ step: t ? `Checking your Gmail for mail from ${t}` : 'Checking your Gmail' });
-    const items = t ? await searchInbox(`from:(${t}) newer_than:14d`, 8) : (await todaysMail(0)).list;
+    const items = t ? await searchInbox(creds, `from:(${t}) newer_than:14d`, 8) : (await todaysMail(creds, 0)).list;
     const title = t ? `Mail from ${t} · last 2 weeks` : 'Today';
     send({ mailList: { title, total: items.length, items: items.slice(0, 8).map(listItem) } });
     const lines = items.slice(0, 8).map((m) => `- ${m.fromName}: "${m.subject}"${m.important ? ' (important)' : ''}${m.unread ? ' (unread)' : ''}`).join('\n');
@@ -522,7 +572,7 @@ async function mailAction({ action, target, detail }, lastUser, send) {
   if (action === 'find_mail') {
     if (!t) return { reply: 'Which email should I open? Tell me who it is from or what it is about.' };
     send({ step: `Looking for the email about ${t}` });
-    const [m] = await searchInbox(`(from:(${t}) OR subject:(${t})) newer_than:60d`, 1, true);
+    const [m] = await searchInbox(creds, `(from:(${t}) OR subject:(${t})) newer_than:60d`, 1, true);
     if (!m) return { reply: `I couldn't find a recent email from or about "${t}" in your inbox.` };
     send({ mailList: { title: 'Opened', total: 1, items: [listItem(m)] } });
     return { context: `[EMAIL OPENED just now - from ${m.fromName} <${m.from}>, subject "${m.subject}", ${new Date(m.time).toDateString()}:\n${m.text || '(no text)'}]\n` +
@@ -531,7 +581,7 @@ async function mailAction({ action, target, detail }, lastUser, send) {
   if (action === 'reply_mail') {
     if (!t) return { reply: 'Which email should I reply to? Tell me who it is from.' };
     send({ step: `Finding the latest email from ${t}` });
-    const [m] = await searchInbox(`from:(${t}) newer_than:60d`, 1, true);
+    const [m] = await searchInbox(creds, `from:(${t}) newer_than:60d`, 1, true);
     if (!m) return { reply: `I couldn't find a recent email from "${t}" to reply to.` };
     if (NOREPLY.test(m.from)) return { reply: `The latest email from ${m.fromName} ("${m.subject}") came from an automatic no-reply address (${m.from}), so a reply wouldn't reach anyone.` };
     send({ step: `Drafting a reply to ${m.fromName}` });
@@ -542,7 +592,7 @@ async function mailAction({ action, target, detail }, lastUser, send) {
   // write_mail
   if (!t) return { reply: 'Who should I write to? Give me their name or email address.' };
   let to = /@/.test(target) ? { name: target.trim(), address: target.trim() } : null;
-  if (!to) { send({ step: `Looking up ${t}'s email address` }); to = await findAddress(t); }
+  if (!to) { send({ step: `Looking up ${t}'s email address` }); to = await findAddress(creds, t); }
   if (!to) return { reply: `I couldn't find an email address for "${t}" in your mail. What's their email address?` };
   send({ step: `Writing the email to ${to.name}` });
   const draft = await draftNewMail(to.name, detail || lastUser);
@@ -603,7 +653,8 @@ async function streamAnswer(res, messages, temperature = 0.7, guard = null) {
   return 'done';
 }
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', (req, res, next) => chatHandler(req, res).catch(next));
+async function chatHandler(req, res) {
   let convo = [];
   if (Array.isArray(req.body?.messages)) {
     convo = req.body.messages
@@ -671,12 +722,21 @@ app.post('/api/chat', async (req, res) => {
     } else if (plan.action === 'remember') {
       send({ remember: plan.detail });
     } else if (MAIL_ACTIONS.has(plan.action)) {
-      if (!mailOn || !ownerOk(req)) {
-        return say("I can check your Gmail, draft replies and send them once you approve — but Gmail isn't unlocked in this browser. Tap ＋ → Connectors to unlock it.");
+      const creds = await mailCreds(req);
+      if (!creds) {
+        return say(req.user ? "I can check your Gmail, draft replies and send them once you approve — connect your Gmail first: ＋ → Plugins → Gmail."
+          : "I can check your Gmail, draft replies and send them once you approve — sign in (bottom-left) and connect your Gmail first.");
       }
-      const r = await mailAction(plan, lastUser, send);
+      const r = await mailAction(plan, lastUser, send, creds);
       if (r.reply) return say(r.reply);
       found = r.context;
+    } else if (plan.action === 'create_automation' && !req.automationRun) {
+      if (!store || !req.user) return say("Sign in first (bottom-left), so I can keep your automations and run them while you're away.");
+      if (!plan.schedule) return say('I can do that on a schedule — tell me when, like “every day at 8 am”, “every Monday at 9” or “tomorrow at 7”.');
+      const when = describeSchedule(plan.schedule);
+      const task = (stripWhen(plan.detail || lastUser) || plan.detail || lastUser).slice(0, 300);
+      send({ autoCard: { task, schedule: plan.schedule, when } });
+      return say(`Here's the automation — ${when} (India time). Press Turn on and I'll do it then. Anything it drafts waits for your OK.`);
     } else if (FILE_ACTIONS.has(plan.action)) {
       if (plan.missing) return say(`I couldn't find "${plan.target}" in your folder ${folder.name}. Click the folder above the message box to see its files.`);
       const r = await fileAction(plan, second ? got : null, lastUser, send);
@@ -708,6 +768,8 @@ app.post('/api/chat', async (req, res) => {
       ? 'The user is telling you something about themselves to remember - this is not a question. Reply in one short, friendly sentence that confirms you will remember it.'
     : /^\s*(ok(ay)?|k|cool|nice|great|good|thanks?|thank you|thx|got it|alright|fine|perfect|awesome)\s*[.!]*\s*$/i.test(lastUser)
       ? 'The user is just acknowledging your last reply - this is not a new question. Reply in one short, friendly sentence, for example asking if they need anything else.'
+    : !fileBlock && lastUser.length < 160 && !/\b(detail|detailed|in depth|step|steps|how (do|to|can|should) i|code|program|function|script|list|essay|story|poem|letter|plan|compare|difference|why|examples?|full|long)\b/i.test(lastUser)
+      ? 'Answer in 2-4 short sentences - the user can ask for more.'
     : '');
   if (hint) {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -731,17 +793,137 @@ app.post('/api/chat', async (req, res) => {
     }
   }
 
+  messages[0] = { role: 'system', content: [sys, ev || found || fileBlock ? RULES_DATA : '', MAIL_WORDS.test(lastUser) ? RULES_MAIL : ''].filter(Boolean).join('\n') };
   send({ meta: { grounded: Boolean(ev), action: plan.action } });
-  // With a hint, stay close to it (less random). For feelings / rudeness / romance, also self-check the
-  // opening: the model's training pulls hard toward "I am an AI and do not have feelings" (1 in 2 at
-  // first) - if it slips, that reply is dropped unseen and it tries again (twice), in character.
-  if (!ev && !found && moodHint(lastUser)) {
-    if ((await streamAnswer(res, messages, 0.4, PERSONA_SLIP)) === 'done') return;
+  // With a hint, stay close to it (less random). For feelings / rudeness / romance / contact, also
+  // self-check the opening: the model's training pulls hard toward "I am an AI and do not have feelings"
+  // or a plain apology - a miss is dropped unseen and it tries again (twice), in character.
+  const guard = !ev && !found ? moodGuard(lastUser) : null;
+  if (guard) {
+    if ((await streamAnswer(res, messages, 0.4, guard)) === 'done') return;
     const i = messages.map((m) => m.role).lastIndexOf('user');
-    messages[i] = { role: 'user', content: `${messages[i].content}\n[Remember: you DO have feelings. Answer warmly as CodeConClave AI.]` };
-    if ((await streamAnswer(res, messages, 0.4, PERSONA_SLIP)) === 'done') return;
+    messages[i] = { role: 'user', content: `${messages[i].content}\n[${guard.again}]` };
+    if ((await streamAnswer(res, messages, 0.4, guard)) === 'done') return;
   }
   await streamAnswer(res, messages, hint ? 0.4 : 0.7);
+}
+
+// ---- Automations: your tasks on a schedule (India time), run by the server while you're away ----
+// Woken every 5 minutes by the Cloudflare worker (POST /api/tick) and every minute while awake.
+// A run is the same agent as the chat, with your permissions - but it never creates automations,
+// and anything consequential it prepares (an email draft) waits in your Automations chat for your OK.
+const TICK = (process.env.TICK_SECRET || '').trim();
+const AUTO_CHAT = 'automations';
+
+app.get('/api/automations', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const list = await store.listAutomations(req.user.id);
+  res.json({ automations: list.map((a) => ({ ...a, when: describeSchedule(a.schedule), next: a.enabled && a.nextRun ? describeWhen(a.nextRun) : null })) });
+}));
+app.post('/api/automations', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const schedule = cleanSchedule(req.body?.schedule);
+  const task = String(req.body?.task || '').trim().slice(0, 300);
+  if (!schedule || !task) return res.status(400).json({ error: 'That automation is missing its time or its task.' });
+  if (await store.countAutomations(req.user.id) >= 20) return res.status(400).json({ error: 'You can have up to 20 automations — delete one first.' });
+  const at = nextRun(schedule);
+  if (!at) return res.status(400).json({ error: 'That time has already passed.' });
+  const id = `a${crypto.randomBytes(6).toString('hex')}`;
+  await store.createAutomation(req.user.id, { id, task, schedule, nextRun: at });
+  res.json({ ok: true, id, when: describeSchedule(schedule), next: describeWhen(at) });
+}));
+app.patch('/api/automations/:id', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const a = (await store.listAutomations(req.user.id)).find((x) => x.id === req.params.id);
+  if (!a) return res.status(404).json({ error: 'Not found.' });
+  const on = Boolean(req.body?.enabled);
+  const at = on ? nextRun(a.schedule) : null;
+  if (on && !at) return res.status(400).json({ error: 'That one-time automation has already passed.' });
+  await store.updateAutomation(req.user.id, a.id, { enabled: on, nextRun: at });
+  res.json({ ok: true, next: at ? describeWhen(at) : null });
+}));
+app.delete('/api/automations/:id', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  await store.deleteAutomation(req.user.id, String(req.params.id).slice(0, 40));
+  res.json({ ok: true });
+}));
+
+// Run the chat agent with no browser: feed it the task, collect what it would have streamed.
+function runChatOffline(user, task, memory) {
+  return new Promise((resolve) => {
+    const events = [];
+    let buf = '';
+    const timer = setTimeout(() => resolve([...events, { error: 'It took too long (my model may be busy).' }]), 5 * 60000);
+    const done = () => { clearTimeout(timer); resolve(events); };
+    const req = { body: { messages: [{ role: 'user', content: task }], memory: memory.join('\n') }, user, automationRun: true, get: () => '', headers: {}, ip: 'automation' };
+    const res = {
+      headersSent: false, setHeader() {}, flushHeaders() {}, append() {}, status() { return this; },
+      json(o) { events.push({ error: o?.error || 'It could not run.' }); done(); },
+      write(chunk) {
+        buf += chunk;
+        let i;
+        while ((i = buf.indexOf('\n\n')) >= 0) {
+          const line = buf.slice(0, i).trim();
+          buf = buf.slice(i + 2);
+          if (line.startsWith('data:')) { try { events.push(JSON.parse(line.slice(5))); } catch { /* skip */ } }
+        }
+        return true;
+      },
+      end: done,
+    };
+    chatHandler(req, res).catch(() => { events.push({ error: 'It could not run.' }); done(); });
+  });
+}
+
+async function runAutomation(a) {
+  const user = await store.userById(a.userId);
+  if (!user) return;
+  // Claim it first (next time, or off for a one-time task) so it can never run twice.
+  const once = a.schedule.type === 'once';
+  await store.updateAutomation(a.userId, a.id, { nextRun: once ? null : nextRun(a.schedule), ...(once ? { enabled: false } : {}) });
+  const header = `Automation · ${describeSchedule(a.schedule)} · ${a.task}`;
+  let msg;
+  const remind = a.task.match(/^\s*remind me\s+(?:to\s+|that\s+|about\s+)?(.+)$/i);
+  if (remind) {
+    msg = { role: 'assistant', content: `⏰ Reminder: ${remind[1]}`, thought: header }; // needs no model - works even when it is offline
+  } else {
+    const events = await runChatOffline(user, a.task, await store.getMemory(a.userId));
+    const err = events.find((e) => e.error)?.error;
+    const text = events.map((e) => e.delta || '').join('');
+    msg = { role: 'assistant', content: text || (err ? `I couldn't do this one: ${err}` : '(no answer)'), thought: header };
+    const steps = events.filter((e) => e.step).map((e) => e.step);
+    if (steps.length) msg.steps = steps;
+    const list = events.find((e) => e.mailList)?.mailList;
+    if (list) msg.list = list;
+    const card = events.find((e) => e.card)?.card;
+    if (card) msg.card = card;
+    if (err && !text) msg.failed = true;
+  }
+  // Deliver it into your Automations chat (your browser picks it up and plays the guitar cue).
+  const chats = await store.listChats(a.userId);
+  const chat = chats.find((c) => c.id === AUTO_CHAT) || { id: AUTO_CHAT, title: 'Automations', messages: [] };
+  if (msg.card) msg.pending = `m${chat.messages.length}`;
+  chat.messages = [...chat.messages, msg].slice(-200);
+  await store.putChat(a.userId, { id: AUTO_CHAT, title: 'Automations', messages: chat.messages, updated: Date.now() });
+  await store.updateAutomation(a.userId, a.id, { lastRun: Date.now(), lastStatus: msg.failed ? 'failed' : 'ok' });
+}
+
+let ticking = false;
+async function runDue() {
+  if (!store || ticking) return;
+  ticking = true;
+  try {
+    for (const a of await store.dueAutomations(Date.now(), 5)) {
+      try { await runAutomation(a); } catch (e) { console.error('Automation failed:', e?.message || e); }
+    }
+  } finally { ticking = false; }
+}
+setInterval(() => { runDue().catch(() => {}); }, 60000);
+app.post('/api/tick', (req, res) => {
+  const s = String(req.get('x-tick-secret') || '');
+  if (!TICK || s.length !== TICK.length || !crypto.timingSafeEqual(Buffer.from(s), Buffer.from(TICK))) return res.status(403).json({ error: 'Not allowed.' });
+  runDue().catch(() => {});
+  res.json({ ok: true });
 });
 
 // ---- Email (mom's idea): brief today's mail → flag the important ones → draft replies → user approves → send ----
@@ -766,10 +948,18 @@ function todayStartIST() {
   return new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()) - 330 * 60000);
 }
 
+// A Gmail connection. The error listener matters: a socket timeout after a failed login is emitted
+// as an 'error' event, and with no listener Node kills the whole server (seen in testing).
+function gmailImap(user, pass) {
+  const client = new ImapFlow({ host: 'imap.gmail.com', port: 993, secure: true, auth: { user, pass }, logger: false });
+  client.on('error', (e) => console.error('Gmail connection:', e?.code || e?.message || e));
+  return client;
+}
+
 // Open one mailbox ('INBOX', or a special-use one like '\\All'), run fn, always log out.
-async function withMailbox(which, fn) {
-  const client = new ImapFlow({ host: 'imap.gmail.com', port: 993, secure: true, auth: { user: GUSER, pass: GPASS }, logger: false });
-  await client.connect();
+async function withMailbox(creds, which, fn) {
+  const client = gmailImap(creds.user, creds.pass);
+  try { await client.connect(); } catch (e) { client.close(); throw e; }
   try {
     const path = which === 'INBOX' ? 'INBOX' : (await client.list()).find((b) => b.specialUse === which)?.path;
     if (!path) return null;
@@ -808,23 +998,23 @@ async function fetchBody(client, uid) {
 }
 
 // Today's inbox, newest first. Bodies are fetched only for the important mails we will draft replies to.
-async function todaysMail(draftLimit) {
+async function todaysMail(creds, draftLimit) {
   const start = todayStartIST();
-  return withMailbox('INBOX', async (client) => {
+  return withMailbox(creds, 'INBOX', async (client) => {
     // IMAP SINCE is day-granular in the server's zone, so ask a day early and filter exactly.
     const uids = (await client.search({ since: new Date(start.getTime() - 86400000) }, { uid: true })) || [];
     const list = (await fetchItems(client, uids)).filter((m) => m.time >= start.getTime());
     const toDraft = list.filter((m) => m.important && m.from && !NOREPLY.test(m.from)).slice(0, draftLimit);
     for (const m of toDraft) {
-      if (!draftCache.has(m.messageId || m.uid)) m.text = await fetchBody(client, m.uid);
+      if (!draftCache.has(`${creds.user}:${m.messageId || m.uid}`)) m.text = await fetchBody(client, m.uid);
     }
     return { list, toDraft };
   });
 }
 
 // Newest inbox emails matching a Gmail search (same syntax as the Gmail search box).
-async function searchInbox(gmQuery, limit, withBody = false) {
-  return withMailbox('INBOX', async (client) => {
+async function searchInbox(creds, gmQuery, limit, withBody = false) {
+  return withMailbox(creds, 'INBOX', async (client) => {
     const uids = (await client.search({ gmraw: gmQuery }, { uid: true })) || [];
     const list = await fetchItems(client, uids.slice(-limit));
     if (withBody && list[0]) list[0].text = await fetchBody(client, list[0].uid);
@@ -833,16 +1023,16 @@ async function searchInbox(gmQuery, limit, withBody = false) {
 }
 
 // "amma" -> an email address from their own mail history (people who wrote to them or they wrote to).
-async function findAddress(name) {
+async function findAddress(creds, name) {
   const t = gmTerm(name).toLowerCase();
   if (!t) return null;
-  return withMailbox('\\All', async (client) => {
+  return withMailbox(creds, '\\All', async (client) => {
     const uids = (await client.search({ gmraw: `from:(${t}) OR to:(${t})` }, { uid: true })) || [];
     let found = null;
     if (uids.length) {
       for await (const m of client.fetch(uids.slice(-20), { envelope: true }, { uid: true })) { // oldest first, so the newest match wins
         for (const a of [...(m.envelope?.from || []), ...(m.envelope?.to || [])]) {
-          if (a.address && a.address.toLowerCase() !== GUSER.toLowerCase() && `${a.name || ''} ${a.address}`.toLowerCase().includes(t)) {
+          if (a.address && a.address.toLowerCase() !== creds.user.toLowerCase() && `${a.name || ''} ${a.address}`.toLowerCase().includes(t)) {
             found = { name: a.name || name, address: a.address };
           }
         }
@@ -903,10 +1093,10 @@ async function draftNewMail(toName, says) {
 }
 
 // GET /api/mail/status — is Gmail set up, and is this browser the owner?
-app.get('/api/mail/status', (req, res) => {
-  const unlocked = mailOn && ownerOk(req);
-  res.json({ configured: mailOn, unlocked, ...(unlocked ? { account: GUSER } : {}) });
-});
+app.get('/api/mail/status', wrap(async (req, res) => {
+  const creds = await mailCreds(req);
+  res.json({ configured: Boolean(creds) || mailOn, unlocked: Boolean(creds), canConnect: Boolean(store && req.user), ...(creds ? { account: creds.user } : {}) });
+}));
 
 // GET /api/mail/brief — streams today's mail briefing: counts + the important ones first,
 // then a drafted reply for each important mail as soon as it's written (never sends).
@@ -916,10 +1106,10 @@ app.get('/api/mail/brief', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
-  if (!mailOn) { send({ configured: false }); send({ done: true }); return res.end(); }
-  if (!ownerOk(req)) { send({ configured: true, locked: true }); send({ done: true }); return res.end(); }
+  const creds = await mailCreds(req).catch(() => null);
+  if (!creds) { send(req.get('x-owner-key') ? { configured: true, locked: true } : { configured: false }); send({ done: true }); return res.end(); }
   try {
-    const { list, toDraft } = await todaysMail(2);
+    const { list, toDraft } = await todaysMail(creds, 2);
     const pick = (m) => ({ fromName: m.fromName, from: m.from, subject: m.subject, unread: m.unread });
     const important = list.filter((m) => m.important);
     const others = list.filter((m) => !m.important);
@@ -933,7 +1123,7 @@ app.get('/api/mail/brief', async (req, res) => {
       drafting: toDraft.length,
     });
     for (const m of toDraft) {
-      const key = m.messageId || m.uid;
+      const key = `${creds.user}:${m.messageId || m.uid}`;
       let got = draftCache.get(key) || null;
       if (!got && BASE && m.text) {
         send({ working: m.fromName });
@@ -955,9 +1145,8 @@ app.get('/api/mail/brief', async (req, res) => {
 });
 
 // POST /api/mail/redraft — "want any changes?": rewrite a draft the way the owner asks (never sends).
-app.post('/api/mail/redraft', async (req, res) => {
-  if (!mailOn) return res.status(400).json({ error: 'Mail is not connected.' });
-  if (!ownerOk(req)) return res.status(401).json({ error: 'Mail is locked - unlock it first.' });
+app.post('/api/mail/redraft', wrap(async (req, res) => {
+  if (!(await mailCreds(req))) return res.status(401).json({ error: 'Connect your Gmail first.' });
   if (!BASE) return res.status(503).json({ error: 'CodeConClave AI is offline right now.' });
   const draft = String(req.body?.draft || '').slice(0, 4000);
   const instruction = String(req.body?.instruction || '').slice(0, 500).trim();
@@ -976,12 +1165,12 @@ app.post('/api/mail/redraft', async (req, res) => {
   } catch {
     res.status(502).json({ error: 'CodeConClave AI is offline right now.' });
   }
-});
+}));
 
 // POST /api/mail/send — only when the owner approves (this is the consequential action).
-app.post('/api/mail/send', async (req, res) => {
-  if (!mailOn) return res.status(400).json({ error: 'Mail is not connected.' });
-  if (!ownerOk(req)) return res.status(401).json({ error: 'Mail is locked - unlock it first.' });
+app.post('/api/mail/send', wrap(async (req, res) => {
+  const creds = await mailCreds(req);
+  if (!creds) return res.status(401).json({ error: 'Connect your Gmail first.' });
   const to = String(req.body?.to || '').slice(0, 200).trim();
   const subject = String(req.body?.subject || '').slice(0, 300);
   const body = String(req.body?.body || '').slice(0, 10000);
@@ -990,19 +1179,67 @@ app.post('/api/mail/send', async (req, res) => {
   // Thread the reply under the original mail in Gmail.
   const thread = /^<[^<>\s]+>$/.test(inReplyTo) ? { inReplyTo, references: [inReplyTo] } : {};
   try {
-    const tx = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GUSER, pass: GPASS } });
-    await tx.sendMail({ from: GUSER, to, subject, text: body, ...thread });
+    const tx = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: creds.user, pass: creds.pass } });
+    await tx.sendMail({ from: creds.user, to, subject, text: body, ...thread });
     res.json({ ok: true });
   } catch (e) {
     res.status(502).json({ error: 'Could not send: ' + String(e?.message || 'error').slice(0, 120) });
   }
-});
+}));
+
+// Connect your own Gmail (an app password - Google's way for apps to use IMAP/SMTP). It is checked
+// with Gmail first, then stored encrypted; it is only used to read your mail and send what you approve.
+app.post('/api/connect/gmail', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  if (tooMany(req)) return res.status(429).json({ error: 'Too many tries — wait a few minutes.' });
+  const user = String(req.body?.email || '').trim().toLowerCase().slice(0, 200);
+  const pass = String(req.body?.appPassword || '').replace(/\s+/g, '');
+  if (!EMAIL_RE.test(user)) return res.status(400).json({ error: 'Enter your Gmail address.' });
+  if (!/^[a-z]{16}$/i.test(pass)) return res.status(400).json({ error: 'An app password is 16 letters (Google shows it as 4 groups of 4).' });
+  const client = gmailImap(user, pass);
+  try { await client.connect(); await client.logout(); }
+  catch {
+    client.close();
+    return res.status(400).json({ error: "Gmail didn't accept that — check the address and the app password, and that 2-Step Verification is on." });
+  }
+  await store.putSecret(req.user.id, 'gmail', encrypt(JSON.stringify({ user, pass })));
+  res.json({ ok: true, account: user });
+}));
+app.delete('/api/connect/gmail', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  await store.deleteSecret(req.user.id, 'gmail');
+  res.json({ ok: true });
+}));
+
+// What is connected, for the Plugins page (only plugins that really work are listed there).
+app.get('/api/plugins', wrap(async (req, res) => {
+  const creds = await mailCreds(req).catch(() => null);
+  const own = Boolean(req.user && store && (await store.getSecret(req.user.id, 'gmail')));
+  res.json({ signedIn: Boolean(req.user), accounts: Boolean(store), gmail: creds ? { account: creds.user, own } : null });
+}));
+
+// Your own skills: saved instructions you reuse from the Skills page or as /name in the chat.
+app.get('/api/skills', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  res.json({ skills: (await store.getPref(req.user.id, 'skills')) || [] });
+}));
+app.put('/api/skills', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const skills = (Array.isArray(req.body?.skills) ? req.body.skills : []).slice(0, 30)
+    .map((k) => ({ id: String(k?.id || '').slice(0, 40), name: String(k?.name || '').trim().slice(0, 40), prompt: String(k?.prompt || '').trim().slice(0, 1000) }))
+    .filter((k) => /^[\w-]+$/.test(k.id) && k.name && k.prompt);
+  await store.putPref(req.user.id, 'skills', skills);
+  res.json({ ok: true });
+}));
 
 // Last stop for errors from wrapped handlers: a plain message, never a stack trace.
 app.use((err, _req, res, _next) => {
   console.error('Request failed:', err?.message || err);
   if (!res.headersSent) res.status(500).json({ error: 'Something went wrong — please try again.' });
 });
+
+// A stray async error (a dropped Gmail or model connection) is logged, not allowed to stop the server.
+process.on('unhandledRejection', (e) => console.error('Unhandled:', e?.message || e));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`CodeConClave AI running on http://localhost:${PORT}`));

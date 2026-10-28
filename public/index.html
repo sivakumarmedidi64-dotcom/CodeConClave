@@ -105,6 +105,46 @@
   .modalbox{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
   .modalbox input:is([type=password],[type=search],[type=text],[type=email]){width:100%;margin-top:12px;background:#0b0d12;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;font-size:14px}
   .modalbox input:is([type=password],[type=search],[type=text],[type=email]):focus{outline:none;border-color:var(--gold)}
+  .ico{width:16px;height:16px;flex:0 0 auto;vertical-align:-3px}
+  .sidelink .ico{margin-right:4px}
+  .page{position:fixed;inset:0;z-index:35;background:var(--bg);display:none;overflow:auto}
+  .page.open{display:block}
+  .pagehead{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:10px;padding:14px 20px;background:var(--bg);border-bottom:1px solid var(--line)}
+  .pagehead h1{font-size:20px;margin:0;flex:1}
+  .pagebody{max-width:980px;margin:0 auto;padding:22px 16px 60px}
+  .feats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
+  .feat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;min-height:110px}
+  .feat:hover{border-color:#3a4252}.feat b{display:block;margin-top:14px;font-size:15px;line-height:1.4}
+  .featico,.plugico{width:42px;height:42px;border-radius:10px;background:#1b2030;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+  .featico .ico,.featico .gm,.plugico .ico,.plugico .gm{width:22px;height:22px}
+  .pagesearch{width:100%;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:11px 14px;font:inherit;font-size:15px}
+  .pagesearch:focus{outline:none;border-color:#4a5468}.pagesearch.small{max-width:260px;padding:8px 12px;font-size:14px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0}
+  .tabs button{border:none;background:none;color:var(--dim);font:inherit;font-size:15px;padding:7px 14px;border-radius:9px;cursor:pointer}
+  .tabs button.on{background:#1f2430;color:var(--fg);font-weight:600}.tabs button:hover{color:var(--fg)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.grid.three{grid-template-columns:repeat(3,1fr)}
+  .plug{display:flex;gap:14px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer}
+  .plug:hover{border-color:#3a4252}.plug .pt{flex:1;min-width:0}.plug .pt b{font-size:16px}
+  .plug .pt div{color:var(--dim);font-size:13.5px;margin-top:4px;line-height:1.45}
+  .plug .st{flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:18px}
+  .plug .st.ok{border:none;color:#7bd88f}
+  .skill{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
+  .skill:hover{border-color:#3a4252}
+  .cover{height:150px;display:flex;align-items:center;justify-content:center;position:relative}
+  .cover .ico,.cover .gm{width:52px;height:52px;color:#fff;opacity:.95}
+  .cover span{position:absolute;left:14px;top:12px;font-weight:800;font-size:15px;color:#fff;opacity:.9;max-width:80%;line-height:1.2}
+  .skill .sb{padding:14px}.skill .sb b{font-size:16px}.skill .sb div{color:var(--dim);font-size:13.5px;margin:6px 0 10px;line-height:1.45}
+  .tag{display:inline-block;font-size:12px;color:var(--dim);background:#1b2030;border:1px solid var(--line);border-radius:6px;padding:2px 7px;margin-right:6px}
+  .howto{margin:8px 0 4px;padding-left:20px;line-height:1.7;font-size:14px}.howto a{color:var(--accent)}
+  @media(max-width:720px){ .feats,.grid,.grid.three{grid-template-columns:1fr} .pagesearch.small{max-width:none} }
+  .sidelink{margin:0 14px 6px;padding:8px 10px;border:none;background:none;color:var(--dim);font:inherit;font-size:13.5px;text-align:left;border-radius:9px;cursor:pointer}
+  .sidelink:hover{background:#1b2030;color:var(--fg)}
+  #autoRows{max-height:55vh;overflow:auto;margin:10px 0}
+  .autorow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
+  .autorow .at{flex:1;min-width:0}.autorow .at b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .autorow .at span{font-size:12.5px;color:var(--dim)}
+  .autorow input{width:16px;height:16px;accent-color:#ff9933}
+  .autorow .bx{border:none;background:none;color:var(--dim);cursor:pointer;font-size:16px}.autorow .bx:hover{color:#ff8a8a}
   .gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;padding:10px;border-radius:9px;border:1px solid #dadce0;background:#fff;color:#3c4043;font:inherit;font-weight:600;cursor:pointer}
   .autherr{color:#ff8a8a;font-size:13px;min-height:18px;margin-top:8px}
   .acctrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--dim);margin:2px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
@@ -131,6 +171,9 @@
   <aside class="rail">
     <div class="rail__top"><div class="logo">CODE<b>CON</b>CLAVE</div></div>
     <button class="newbtn" id="newBtn">＋ New chat</button>
+    <button class="sidelink" id="plugBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/></svg> Plugins</button>
+    <button class="sidelink" id="skillBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg> Skills</button>
+    <button class="sidelink" id="autoBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg> Automations</button>
     <div class="convos" id="convos"></div>
     <div class="rail__foot"><button class="profile" id="meBtn" title="Your profile"><span class="avatar" id="meAvatar">G</span><span id="meName">Guest</span></button></div>
   </aside>
@@ -159,6 +202,66 @@
         <textarea id="fsText" class="maildraft" spellcheck="false"></textarea>
         <div class="mailact"><button class="msend" id="fsSave">Save</button><button class="mskip" id="fsBack">Back</button><button class="mskip" id="fsAsk">Ask AI about it</button><span class="mstatus" id="fsStatus"></span></div>
       </div>
+    </div>
+  </div>
+  <div class="page" id="plugPage">
+    <div class="pagehead"><h1>Plugins</h1><button class="bx" id="plugClose" title="Close">×</button></div>
+    <div class="pagebody">
+      <div class="feats">
+        <div class="feat" data-go="gmail"><span class="featico" id="featGmail"></span><b>Your mail, briefed for you — with replies drafted.</b></div>
+        <div class="feat" data-go="folder"><span class="featico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span><b>Work in your own files, right from the web.</b></div>
+        <div class="feat" data-go="live"><span class="featico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg></span><b>Real live numbers, always with the source.</b></div>
+      </div>
+      <input type="search" class="pagesearch" id="plugSearch" placeholder="Search" autocomplete="off" />
+      <div class="tabs" id="plugTabs"></div>
+      <div class="grid" id="plugGrid"></div>
+    </div>
+  </div>
+  <div class="page" id="skillPage">
+    <div class="pagehead"><h1>Skills</h1><input type="search" class="pagesearch small" id="skillSearch" placeholder="Search" autocomplete="off" /><button class="mskip" id="skillNew">＋ Create</button><button class="bx" id="skillClose" title="Close">×</button></div>
+    <div class="pagebody">
+      <div class="tabs" id="skillTabs"></div>
+      <div class="grid three" id="skillGrid"></div>
+    </div>
+  </div>
+  <div class="modal" id="skillModal">
+    <div class="modalbox">
+      <div class="bhead"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg><span>Create a skill</span><button class="bx" id="skNewClose" title="Close">×</button></div>
+      <div class="mailsubj">A skill is an instruction you reuse. Use it from the Skills page, or type / and its name in the chat.</div>
+      <input type="text" id="skName" placeholder="Name, e.g. Cricket news" maxlength="40" autocomplete="off" />
+      <textarea id="skPrompt" class="maildraft" rows="5" maxlength="1000" placeholder="What should the AI do? e.g. Give me today’s cricket news in 5 short points about: "></textarea>
+      <div class="autherr" id="skErr"></div>
+      <div class="mailact"><button class="msend" id="skSave">Save skill</button></div>
+    </div>
+  </div>
+  <div class="modal" id="gmailModal">
+    <div class="modalbox">
+      <div class="bhead"><span id="gmLogo"></span><span id="gmTitle">Connect your Gmail</span><button class="bx" id="gmClose" title="Close">×</button></div>
+      <div id="gmConnect">
+        <div class="btext">So your AI can brief you on new mail and draft replies — it never sends anything without your OK.</div>
+        <ol class="howto">
+          <li>Turn on <a href="https://myaccount.google.com/signinoptions/twosv" target="_blank" rel="noopener">2-Step Verification</a> in your Google account.</li>
+          <li>Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App passwords</a>, type <b>CodeConClave</b> and press <b>Create</b>.</li>
+          <li>Copy the 16-letter password Google shows and paste it below.</li>
+        </ol>
+        <input type="email" id="gmEmail" placeholder="you@gmail.com" autocomplete="email" />
+        <input type="password" id="gmPass" placeholder="16-letter app password" autocomplete="off" />
+        <div class="autherr" id="gmErr"></div>
+        <div class="mailact"><button class="msend" id="gmGo">Connect Gmail</button><button class="mskip" id="gmSkip">Skip for now</button></div>
+        <div class="mailsubj">Stored encrypted. Used only to read your mail and send what you approve. Remove it anytime here, or cancel it in your Google account.</div>
+      </div>
+      <div id="gmDone" style="display:none">
+        <div class="btext">✅ Connected as <b id="gmAccount"></b>. Ask me “any important mail?” or open the app in the morning for your brief.</div>
+        <div class="mailact"><button class="mskip" id="gmRemove">Disconnect Gmail</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="autoModal">
+    <div class="modalbox">
+      <div class="bhead"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg><span>Automations</span><button class="bx" id="autoClose" title="Close">×</button></div>
+      <div class="mailsubj">Your tasks on a schedule (India time). Anything they draft waits for your OK.</div>
+      <div id="autoRows"></div>
+      <div class="mailact"><button class="mskip" id="autoOpenChat">Open the Automations chat</button></div>
     </div>
   </div>
   <div class="modal" id="authModal">
@@ -194,8 +297,8 @@
           <button id="addFiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> Add files or photos</button>
           <button id="addFolder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Work in a folder</button>
           <button id="slashCmd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><line x1="14.5" y1="7.5" x2="9.5" y2="16.5"/></svg> Slash commands</button>
-          <button id="connectors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> Connectors</button>
-          <button id="addPlugins"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a1 1 0 0 1 1-1h2.5V5.5a2 2 0 1 1 4 0V7H15a1 1 0 0 1 1 1v2.5h1.5a2 2 0 1 1 0 4H16V17a1 1 0 0 1-1 1h-3v-1.5a2 2 0 1 0-4 0V18H5a1 1 0 0 1-1-1z"/></svg> Add plugins</button>
+          <button id="connectors"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg> Skills</button>
+          <button id="addPlugins"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/></svg> Plugins</button>
         </div>
         <input type="file" id="fileInput" multiple accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.pdf,.log,.xml,.yml,.yaml,image/*" style="display:none" />
         <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none" />
@@ -238,12 +341,15 @@
       el._think=el.appendChild(document.createElement('div')); el._think.className='think';
       el._steps=el.appendChild(document.createElement('div')); el._steps.className='steps'; }
     const node=document.createTextNode(text||''); el.appendChild(node); el._text=node; return el; }
+  // A card changed (sent, saved, edited): mark its chat as changed, so the newest copy wins when syncing.
+  function touch(){ const c=current(); if(c) c.updated=Date.now(); saveC(); }
   function decorate(b,m,i){
     if(m.thought) b._think.textContent='💭 '+m.thought;
     (m.steps||[]).forEach(s=>b._steps.appendChild(el('div','done',s)));
     if(m.list) b.appendChild(mailListCard(m.list));
-    if(m.card && !m.card.skipped){ const k=draftCard(m.card,{compact:true,onChange:saveC}); k.dataset.key='m'+i; b.appendChild(k); }
-    if(m.fileCard && !m.fileCard.skipped){ const k=fileCard(m.fileCard,{onChange:saveC}); k.dataset.key='m'+i; b.appendChild(k); }
+    if(m.card && !m.card.skipped){ const k=draftCard(m.card,{compact:true,onChange:touch}); k.dataset.key='m'+i; b.appendChild(k); }
+    if(m.fileCard && !m.fileCard.skipped){ const k=fileCard(m.fileCard,{onChange:touch}); k.dataset.key='m'+i; b.appendChild(k); }
+    if(m.autoCard && !m.autoCard.skipped){ const k=autoCard(m.autoCard,{onChange:touch}); k.dataset.key='m'+i; b.appendChild(k); }
     return b;
   }
   function renderChat(){
@@ -417,6 +523,48 @@
     return card;
   }
 
+  const CLOCK_SVG='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg>';
+  // An automation the AI set up: nothing runs until you press Turn on (or say "yes").
+  function autoCard(m,{onChange=()=>{}}={}){
+    const card=el('div','mailcard');
+    const head=el('div','bnote'); head.insertAdjacentHTML('beforeend',CLOCK_SVG+' '); head.appendChild(el('b',null,m.when)); head.append(' (India time)'); card.appendChild(head);
+    card.appendChild(el('div','mailsum',m.task));
+    const act=el('div','mailact'), onB=el('button','msend','Turn on'), skipB=el('button','mskip','Cancel'), status=el('span','mstatus');
+    act.append(onB,skipB,status); card.appendChild(act);
+    const showOn=(next)=>{ card.dataset.sent='1'; status.textContent='✅ On'+(next?' — next: '+next:''); onB.remove(); skipB.remove(); };
+    if(m.on) showOn(m.next);
+    skipB.onclick=()=>{ card.dataset.sent='skip'; m.skipped=true; onChange(); card.remove(); };
+    card._send=async()=>{
+      if(!me){ status.textContent='Sign in first.'; return 'Sign in first (bottom-left), so I can keep your automations and run them while you’re away.'; }
+      onB.disabled=true; status.textContent='Turning on…';
+      try{ const r=await fetch('/api/automations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:m.task,schedule:m.schedule})});
+        const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not turn it on');
+        m.on=true; m.next=d.next; onChange(); showOn(d.next);
+        return '✅ Done — '+d.when+'. Next run: '+d.next+'. You can see or stop it in Automations (left side).';
+      }catch(e){ onB.disabled=false; status.textContent=e.message; return 'I couldn’t turn it on: '+e.message; }
+    };
+    onB.onclick=()=>card._send();
+    return card;
+  }
+  // The Automations panel: see, pause and delete your automations.
+  async function showAutomations(){
+    if(!me){ toast('Sign in first to use automations.'); showAuth(false); return; }
+    $('autoModal').classList.add('open'); const rows=$('autoRows'); rows.innerHTML='Loading…';
+    try{
+      const d=await (await fetch('/api/automations')).json(); rows.innerHTML='';
+      if(!d.automations?.length){ rows.appendChild(el('div','mailsubj','No automations yet — try “every morning at 8 brief me on my mail” or “remind me tomorrow at 7 to call amma”.')); return; }
+      for(const a of d.automations){
+        const r=el('div','autorow'), t=el('div','at');
+        t.appendChild(el('b',null,a.task)); t.appendChild(el('span',null,a.when+(a.enabled&&a.next?' · next '+a.next:' · off')+(a.lastStatus==='failed'?' · last run failed':'')));
+        const sw=document.createElement('input'); sw.type='checkbox'; sw.checked=a.enabled; sw.title=a.enabled?'Pause':'Turn on';
+        sw.onchange=async()=>{ const x=await fetch('/api/automations/'+a.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:sw.checked})}); const j=await x.json(); if(!x.ok){ sw.checked=!sw.checked; toast(j.error||'Could not change it.'); } showAutomations(); };
+        const del=el('button','bx','×'); del.title='Delete';
+        del.onclick=async()=>{ if(del.dataset.sure){ await fetch('/api/automations/'+a.id,{method:'DELETE'}); showAutomations(); } else { del.dataset.sure='1'; del.textContent='Delete?'; } };
+        r.append(t,sw,del); rows.appendChild(r);
+      }
+    }catch{ rows.textContent='Could not load your automations.'; }
+  }
+
   // ---- memory ----
   function captureMemory(text){
     let m, added=false;
@@ -517,12 +665,13 @@
         let idx; while((idx=buf.indexOf('\n\n'))>=0){ const block=buf.slice(0,idx); buf=buf.slice(idx+2);
           const dl=block.split('\n').find(l=>l.startsWith('data:')); if(!dl)continue; let j; try{j=JSON.parse(dl.slice(5).trim());}catch{continue;}
           if(j.needFile){ need=j.needFile; }
-          else if(j.fileCard){ msg.fileCard=j.fileCard; msg.pending='m'+at; const k=fileCard(j.fileCard,{onChange:saveC}); k.dataset.key='m'+at; aiEl.appendChild(k); }
+          else if(j.autoCard){ msg.autoCard=j.autoCard; msg.pending='m'+at; const k=autoCard(j.autoCard,{onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
+          else if(j.fileCard){ msg.fileCard=j.fileCard; msg.pending='m'+at; const k=fileCard(j.fileCard,{onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
           else if(j.think){ dots.remove(); msg.thought=j.think; aiEl._think.textContent='💭 '+j.think; }
           else if(j.step){ dots.remove(); stepsDone(); const s=el('div'); s.dataset.t=j.step; s.innerHTML='<span class="dots"><i></i><i></i><i></i></span> '; s.append(j.step+'…');
             aiEl._steps.appendChild(s); (msg.steps=msg.steps||[]).push(j.step); }
           else if(j.mailList){ msg.list=j.mailList; aiEl.appendChild(mailListCard(j.mailList)); }
-          else if(j.card){ msg.card=j.card; msg.pending='m'+at; const k=draftCard(j.card,{compact:true,onChange:saveC}); k.dataset.key='m'+at; aiEl.appendChild(k); }
+          else if(j.card){ msg.card=j.card; msg.pending='m'+at; const k=draftCard(j.card,{compact:true,onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
           else if(j.remember){ const line='Remember: '+j.remember; if(!memAdded && !memory.includes(line)){ memory.push(line); saveM(); } }
           else if(j.delta){ dots.remove(); stepsDone(); full+=j.delta; aiEl._text.nodeValue=full; chat.scrollTop=chat.scrollHeight; }
           else if(j.error){ dots.remove(); stepsDone(); wrap.appendChild(el('div','err',j.error)); }
@@ -538,7 +687,7 @@
         if(text!==null) await round({fileResult:{...n, content:text.slice(0,20000)}});
       }
       stepsDone();
-      if(full||msg.card||msg.list||msg.fileCard){ msg.content=full; c.messages.push(msg); c.updated=Date.now(); saveC(); notify(); }
+      if(full||msg.card||msg.list||msg.fileCard||msg.autoCard){ msg.content=full; c.messages.push(msg); c.updated=Date.now(); saveC(); notify(); }
       else { aiEl.remove(); }
     }catch{
       aiEl.remove(); wrap.appendChild(el('div','err','Could not reach the server.'));
@@ -562,7 +711,11 @@
   }
 
   function closeRail(){ document.body.classList.remove('open'); }
-  $('newBtn').onclick=newChat; sendBtn.onclick=send;
+  $('newBtn').onclick=newChat;
+  $('autoBtn').onclick=()=>{ closeRail(); showAutomations(); };
+  $('autoClose').onclick=()=>$('autoModal').classList.remove('open');
+  $('autoModal').onclick=(e)=>{ if(e.target===$('autoModal')) $('autoModal').classList.remove('open'); };
+  $('autoOpenChat').onclick=()=>{ $('autoModal').classList.remove('open'); if(convos.some(c=>c.id==='automations')) selectChat('automations'); else toast('Nothing has run yet.'); }; sendBtn.onclick=send;
   $('burger').onclick=()=>document.body.classList.toggle('open'); $('backdrop').onclick=closeRail;
   $('meBtn').onclick=()=>(!me && authInfo.accounts && !memory.length && !ownerKey()) ? showAuth(false) : showMemory();
   $('acctBtn').onclick=()=>me?signOut():showAuth(false);
@@ -580,13 +733,134 @@
   $('addFiles').onclick=()=>{ $('menu').classList.remove('open'); $('fileInput').click(); };
   $('addFolder').onclick=()=>{ $('menu').classList.remove('open'); openFolder(); };
   $('slashCmd').onclick=()=>{ $('menu').classList.remove('open'); input.value='/'; input.focus(); slashRender('/'); };
-  $('connectors').onclick=async()=>{ $('menu').classList.remove('open');
-    try{ const s=await (await fetch('/api/mail/status',{headers:mailHeaders()})).json();
-      if(!s.configured) return toast('Gmail isn’t set up on the server yet.');
-      if(s.unlocked) return toast('Gmail connected ✓ '+s.account+' — type /mail for today’s mail');
-      if(await unlockMail()) mailBrief(true);
-    }catch{ toast('Could not reach the server.'); } };
-  $('addPlugins').onclick=()=>{ $('menu').classList.remove('open'); toast('Plugins — coming next 🙂'); };
+  $('connectors').onclick=()=>{ $('menu').classList.remove('open'); showSkills(); };
+  $('addPlugins').onclick=()=>{ $('menu').classList.remove('open'); showPlugins(); };
+  $('plugBtn').onclick=()=>{ closeRail(); showPlugins(); };
+  $('skillBtn').onclick=()=>{ closeRail(); showSkills(); };
+  $('plugClose').onclick=()=>$('plugPage').classList.remove('open');
+  $('skillClose').onclick=()=>$('skillPage').classList.remove('open');
+  $('plugSearch').oninput=renderPlugins; $('skillSearch').oninput=renderSkills;
+  document.querySelectorAll('.feat').forEach(f=>f.onclick=()=>openPlugin(f.dataset.go));
+  $('skillNew').onclick=()=>{ if(!me){ toast('Sign in first to save your own skills.'); showAuth(false); return; } $('skErr').textContent=''; $('skName').value=''; $('skPrompt').value=''; $('skillModal').classList.add('open'); $('skName').focus(); };
+  $('skNewClose').onclick=()=>$('skillModal').classList.remove('open');
+  $('skSave').onclick=saveSkill;
+  $('gmClose').onclick=()=>$('gmailModal').classList.remove('open');
+  $('gmSkip').onclick=()=>{ $('gmailModal').classList.remove('open'); toast('You can connect Gmail anytime in Plugins.'); };
+  $('gmGo').onclick=connectGmail;
+  $('gmPass').addEventListener('keydown',(e)=>{ if(e.key==='Enter') connectGmail(); });
+  $('gmRemove').onclick=async()=>{ await fetch('/api/connect/gmail',{method:'DELETE'}).catch(()=>{}); $('gmailModal').classList.remove('open'); toast('Gmail disconnected.'); plugState=null; renderPlugins(); };
+
+  // ---- Plugins page: only what really works today ----
+  const ICONS={folder:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',chart:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>',bookmark:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',pen:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',mail:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',book:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5V21h16"/></svg>',bulb:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>',code:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>',bug:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M12 20V10"/><path d="M5 9l3 2"/><path d="M19 9l-3 2"/><path d="M4 14h4"/><path d="M16 14h4"/><path d="M9 4l1.5 2"/><path d="M15 4l-1.5 2"/></svg>',calendar:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>',spark:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/></svg>'};
+  const PLUGINS=[
+    {id:'gmail', name:'Gmail', cat:'Productivity', icon:()=>GMAIL_SVG, desc:'Briefs you on important mail, drafts replies and sends only what you approve.'},
+    {id:'folder', name:'Local folder', cat:'Development', icon:()=>ICONS.folder, desc:'Read, edit and create files in a folder on your computer — every change waits for your Save.'},
+    {id:'live', name:'Live data', cat:'Data', icon:()=>ICONS.chart, desc:'Real weather, air quality, crypto prices, exchange rates and news — always with the source.'},
+    {id:'auto', name:'Automations', cat:'Productivity', icon:()=>CLOCK_SVG, desc:'Your tasks on a schedule, in India time — reminders, a daily mail brief and more.'},
+    {id:'memory', name:'Memory', cat:'Productivity', icon:()=>ICONS.bookmark, desc:'Remembers what you tell it — your name, what you like — across chats.'},
+  ];
+  let plugState=null, plugTab='All';
+  async function showPlugins(){
+    $('featGmail').innerHTML=GMAIL_SVG; $('plugPage').classList.add('open'); renderPlugins();
+    try{ plugState=await (await fetch('/api/plugins',{headers:mailHeaders()})).json(); }catch{ plugState=null; }
+    renderPlugins();
+  }
+  function plugOn(id){
+    if(id==='gmail') return Boolean(plugState?.gmail);
+    if(id==='folder') return Boolean(folder&&folder.files);
+    return true; // built in
+  }
+  function renderPlugins(){
+    const tabs=$('plugTabs'); tabs.innerHTML='';
+    ['All','Productivity','Data','Development'].forEach(t=>{ const b=el('button',t===plugTab?'on':'',t); b.onclick=()=>{ plugTab=t; renderPlugins(); }; tabs.appendChild(b); });
+    const q=$('plugSearch').value.toLowerCase(), grid=$('plugGrid'); grid.innerHTML='';
+    PLUGINS.filter(x=>(plugTab==='All'||x.cat===plugTab) && (x.name+' '+x.desc).toLowerCase().includes(q)).forEach(x=>{
+      const c=el('div','plug'), ic=el('span','plugico'); ic.innerHTML=x.icon();
+      const t=el('div','pt'); t.appendChild(el('b',null,x.name));
+      t.appendChild(el('div',null,x.id==='gmail'&&plugState?.gmail?'Connected as '+plugState.gmail.account+'.':x.desc));
+      const on=plugOn(x.id), st=el('span','st'+(on?' ok':''),on?'✓':'＋'); st.title=on?'Connected':'Connect';
+      c.append(ic,t,st); c.onclick=()=>openPlugin(x.id); grid.appendChild(c);
+    });
+  }
+  function openPlugin(id){
+    if(id==='gmail') return showGmail(false);
+    if(id==='folder'){ $('plugPage').classList.remove('open'); return folder&&folder.files?showFiles():folder?wakeFolder():openFolder(); }
+    if(id==='auto'){ $('plugPage').classList.remove('open'); return showAutomations(); }
+    if(id==='memory'){ $('plugPage').classList.remove('open'); return showMemory(); }
+    if(id==='live'){ $('plugPage').classList.remove('open'); input.value='What is the weather in Hyderabad right now?'; input.focus(); }
+  }
+
+  // ---- Connect your Gmail (shown right after sign-up, and from Plugins) ----
+  async function showGmail(welcome){
+    $('gmLogo').innerHTML=GMAIL_SVG; $('gmErr').textContent='';
+    if(!me){ toast('Sign in first, then connect your Gmail.'); showAuth(!welcome?false:true); return; }
+    let st=plugState; if(!st){ try{ st=plugState=await (await fetch('/api/plugins')).json(); }catch{} }
+    const done=Boolean(st?.gmail?.own);
+    if(welcome && done) return;
+    $('gmTitle').textContent=welcome?'Welcome! Connect your Gmail':(done?'Gmail':'Connect your Gmail');
+    $('gmConnect').style.display=done?'none':''; $('gmDone').style.display=done?'':'none';
+    if(done) $('gmAccount').textContent=st.gmail.account;
+    else { $('gmEmail').value=/@gmail\.com$/i.test(me.email)?me.email:''; $('gmPass').value=''; }
+    $('gmSkip').style.display=welcome?'':'none';
+    $('gmailModal').classList.add('open'); (done?$('gmRemove'):($('gmEmail').value?$('gmPass'):$('gmEmail'))).focus();
+  }
+  async function connectGmail(){
+    $('gmGo').disabled=true; $('gmErr').textContent='Checking with Gmail…';
+    try{
+      const r=await fetch('/api/connect/gmail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('gmEmail').value.trim(),appPassword:$('gmPass').value})});
+      const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not connect.');
+      $('gmPass').value=''; plugState=null; $('gmailModal').classList.remove('open'); toast('✅ Gmail connected: '+d.account);
+      if($('plugPage').classList.contains('open')) showPlugins();
+      mailBrief(true);
+    }catch(e){ $('gmErr').textContent=e.message; }
+    finally{ $('gmGo').disabled=false; }
+  }
+
+  // ---- Skills page: reusable instructions (built in + your own) ----
+  const SKILLS=[
+    {id:'mail-brief', name:'Mail brief', cat:'Mail', color:'#1d3557', icon:()=>GMAIL_SVG, desc:'Today’s mail: what came in, what is important, and replies drafted for you.', run:()=>mailBrief(true)},
+    {id:'fix-english', name:'Fix my English', cat:'Writing', color:'#5a3d8a', icon:()=>ICONS.pen, desc:'Corrects grammar and makes your text sound natural — keeps your meaning.', prompt:'Fix the grammar and make this sound natural, but keep my meaning: '},
+    {id:'polite-email', name:'Polite email', cat:'Writing', color:'#2a6f6a', icon:()=>ICONS.mail, desc:'A short, polite email from a few words of what you want to say.', prompt:'Write a short, polite email that says: '},
+    {id:'study-notes', name:'Study notes', cat:'Study', color:'#8a5a1f', icon:()=>ICONS.book, desc:'Short, clear notes on any topic, easy to revise.', prompt:'Make short, clear study notes on: '},
+    {id:'explain-simply', name:'Explain simply', cat:'Study', color:'#9c3d3d', icon:()=>ICONS.bulb, desc:'Any idea explained simply, with one example.', prompt:'Explain this simply, with one example: '},
+    {id:'explain-code', name:'Explain my code', cat:'Coding', color:'#2f4a8a', icon:()=>ICONS.code, desc:'What a piece of code does, step by step. Works with your folder too.', prompt:'Explain what this code does, step by step: '},
+    {id:'find-bug', name:'Find the bug', cat:'Coding', color:'#3d6b2f', icon:()=>ICONS.bug, desc:'Finds the mistake in your code and shows the fix.', prompt:'Find the bug in this code and show the fix: '},
+    {id:'plan-day', name:'Plan my day', cat:'Productivity', color:'#7a2f5f', icon:()=>ICONS.calendar, desc:'Your tasks turned into a simple time-blocked plan.', prompt:'Plan my day in time blocks. My tasks are: '},
+  ];
+  let mySkills=[], skillTab='All';
+  async function showSkills(){
+    $('skillPage').classList.add('open'); renderSkills();
+    if(me){ try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{} renderSkills(); }
+  }
+  function useSkill(k){
+    $('skillPage').classList.remove('open');
+    if(k.run) return k.run();
+    input.value=k.prompt; input.focus(); input.setSelectionRange(input.value.length,input.value.length); input.dispatchEvent(new Event('input'));
+  }
+  function renderSkills(){
+    const all=[...SKILLS, ...mySkills.map(k=>({...k, cat:'My skills', color:'#3a4252', icon:()=>ICONS.spark, desc:k.prompt, mine:true}))];
+    const tabs=$('skillTabs'); tabs.innerHTML='';
+    ['All','Writing','Study','Coding','Mail','Productivity','My skills'].forEach(t=>{ const b=el('button',t===skillTab?'on':'',t); b.onclick=()=>{ skillTab=t; renderSkills(); }; tabs.appendChild(b); });
+    const q=$('skillSearch').value.toLowerCase(), grid=$('skillGrid'); grid.innerHTML='';
+    const list=all.filter(k=>(skillTab==='All'||k.cat===skillTab) && (k.name+' '+k.desc).toLowerCase().includes(q));
+    if(!list.length) grid.appendChild(el('div','mailsubj',skillTab==='My skills'?(me?'No skills of your own yet — press ＋ Create.':'Sign in to create your own skills.'):'No skill matches.'));
+    list.forEach(k=>{
+      const c=el('div','skill'), cv=el('div','cover'); cv.style.background='linear-gradient(135deg,'+k.color+',#11141b)';
+      cv.innerHTML=k.icon(); cv.appendChild(el('span',null,k.name));
+      const b=el('div','sb'); b.appendChild(el('b',null,k.name)); b.appendChild(el('div',null,k.desc));
+      b.appendChild(el('span','tag',k.cat)); b.appendChild(el('span','tag',k.mine?'Mine':'Built in'));
+      if(k.mine){ const del=el('span','tag','Delete'); del.style.cursor='pointer'; del.onclick=async(e)=>{ e.stopPropagation(); mySkills=mySkills.filter(x=>x.id!==k.id); await putSkills(); renderSkills(); }; b.appendChild(del); }
+      c.append(cv,b); c.onclick=()=>useSkill(k); grid.appendChild(c);
+    });
+  }
+  async function putSkills(){ await fetch('/api/skills',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({skills:mySkills})}).catch(()=>{}); }
+  async function saveSkill(){
+    const name=$('skName').value.trim(), prompt=$('skPrompt').value.trim();
+    if(!name||!prompt){ $('skErr').textContent='Give it a name and say what it should do.'; return; }
+    mySkills=[...mySkills.filter(k=>k.name.toLowerCase()!==name.toLowerCase()), {id:'s'+Date.now().toString(36), name, prompt}];
+    await putSkills(); $('skillModal').classList.remove('open'); skillTab='My skills'; renderSkills(); toast('Skill saved — type /'+slug(name)+' in the chat to use it.');
+  }
+  const slug=(n)=>n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
   $('fileInput').onchange=(e)=>{ handleFiles(e.target.files); e.target.value=''; };
   $('folderInput').onchange=(e)=>{ if(e.target.files.length) useSnapshot(e.target.files); e.target.value=''; };
   // Files panel
@@ -600,17 +874,22 @@
   $('fsText').addEventListener('keydown',(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){ e.preventDefault(); saveOpenFile(); } });
   $('fsAsk').onclick=()=>{ const p=$('fsPath').value.trim(); $('fsModal').classList.remove('open'); input.value=p?'What does '+p+' do?':''; input.focus(); };
   document.addEventListener('click',()=>$('menu').classList.remove('open'));
-  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
-  function slashRender(q){ const el=$('slash'); const list=COMMANDS.filter(c=>c.cmd.startsWith(q.toLowerCase())); el.innerHTML='';
+  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/automations',desc:'See your automations — tasks on a schedule'},{cmd:'/skills',desc:'Reusable skills — built in and your own'},{cmd:'/plugins',desc:'Gmail, folder, live data and more'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
+  function slashRender(q){ const el=$('slash');
+    const list=[...COMMANDS, ...mySkills.map(k=>({cmd:'/'+slug(k.name), desc:k.prompt.slice(0,60), skill:k}))].filter(c=>c.cmd.startsWith(q.toLowerCase())); el.innerHTML='';
     list.forEach((c,i)=>{ const r=document.createElement('button'); r.className='slashrow'+(i===0?' sel':''); r.dataset.cmd=c.cmd;
       const b=document.createElement('b'); b.textContent=c.cmd; const s=document.createElement('span'); s.textContent=c.desc; r.append(b,s); r.onclick=()=>runCommand(c.cmd); el.appendChild(r); });
     el.classList.toggle('open', list.length>0); }
   function slashHide(){ $('slash').classList.remove('open'); }
   function runCommand(c){ input.value=''; slashHide();
+    const sk=mySkills.find(k=>'/'+slug(k.name)===c); if(sk) return useSkill(sk);
     if(c==='/new') newChat();
     else if(c==='/clear'){ const cur=current(); if(cur){cur.messages=[]; cur.title='New chat'; saveC(); renderSidebar(); renderChat();} }
     else if(c==='/memory') showMemory();
     else if(c==='/mail') mailBrief(true);
+    else if(c==='/automations') showAutomations();
+    else if(c==='/skills') showSkills();
+    else if(c==='/plugins') showPlugins();
     else if(c==='/folder') folder&&folder.files?showFiles():folder?wakeFolder():openFolder();
     else toast('Commands:  /new   /mail   /folder   /clear   /memory'); }
   input.addEventListener('keydown',(e)=>{ const open=$('slash').classList.contains('open');
@@ -626,7 +905,7 @@
   // You approve ("Send it" or just "yes, send it") and it sends. Owner-only: locked by a key.
   const OKEY='cc_mail_owner_v1';
   const GMAIL_SVG='<svg class="gm" viewBox="52 42 88 66" aria-label="Gmail"><path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/><path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/><path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/><path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/><path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/></svg>';
-  const SEND_YES=/^\s*(?:(?:yes|yeah|yep|ok(?:ay)?|sure)\b[\s,!.]*)?(?:please\s+)?(?:(?:send|save)(?:\s+(?:it|that|this|the\s+reply|the\s+file))?(?:\s+now)?|yes(?:\s+please)?|ok(?:ay)?|sure)[\s.!]*$/i;
+  const SEND_YES=/^\s*(?:(?:yes|yeah|yep|ok(?:ay)?|sure)\b[\s,!.]*)?(?:please\s+)?(?:(?:send|save)(?:\s+(?:it|that|this|the\s+reply|the\s+file))?(?:\s+now)?|turn\s+(?:it\s+)?on|yes(?:\s+please)?|ok(?:ay)?|sure)[\s.!]*$/i;
   const CHANGE_RE=/^\s*(?:please\s+)?(?:change|make|rewrite|edit|redo|reword|rephrase|say|tell\s+(?:him|her|them)|add|remove|mention|shorten|shorter|longer|more\s|less\s|be\s|sound|don'?t|do\s+not|instead|i'?m\s|i\s+am\s|i\s+(?:can|can'?t|cannot|will|won'?t|already|have|paid|sent))|\b(?:the|this|that|my)\s+(?:reply|draft|mail|email)\b/i;
   const ownerKey=()=>{ try{ return localStorage.getItem(OKEY)||''; }catch{ return ''; } };
   const mailHeaders=(extra)=>({...(extra||{}),'x-owner-key':ownerKey()});
@@ -718,7 +997,7 @@
   }
 
   async function mailBrief(manual){
-    if(!ownerKey() && me?.role!=='owner' && !(manual && await unlockMail())) return; // visitors never see the owner's mail
+    if(!ownerKey() && !me){ if(manual){ toast('Sign in and connect your Gmail first.'); showAuth(false); } return; } // visitors never see anyone's mail
     const b=el('div','msg ai brief'); b.appendChild(el('span','who','CodeConClave AI'));
     const head=el('div','bhead'); head.innerHTML=GMAIL_SVG; head.appendChild(el('span',null,'Today’s mail'));
     const x=el('button','bx','×'); x.title='Hide'; x.onclick=()=>{ if(briefEl===b){ briefEl=null; briefChatId=null; briefText=''; renderChat(); } };
@@ -743,7 +1022,7 @@
           if(o.locked){ try{ localStorage.removeItem(OKEY); }catch{}
             if(shown && briefEl===b){ briefEl=null; briefChatId=null; renderChat(); }
             if(manual) toast('That key didn’t work. Try again from ＋ → Connectors.'); return; }
-          if(o.configured===false){ if(shown && briefEl===b){ briefEl=null; renderChat(); } if(manual) toast('Gmail isn’t set up on the server yet.'); return; }
+          if(o.configured===false){ if(shown && briefEl===b){ briefEl=null; renderChat(); } if(manual) showGmail(false); return; }
           if(o.error) return fail('I couldn’t read your Gmail right now — try /mail again in a minute.');
           if(typeof o.total==='number'){
             show(); renderSummary(box,o); if(o.important.length) notify(); // important mail waiting: the guitar cue
@@ -773,12 +1052,14 @@
   function pushMemory(){ if(!me) return; clearTimeout(memT); memT=setTimeout(()=>fetch('/api/memory',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:memory})}).catch(()=>{}),800); }
   // Merge your account's chats with this device's (the newest copy of each wins); chats made here
   // before signing in are uploaded by the next save.
-  async function syncDown(){
+  async function syncDown(quiet=false){
     try{
       const d=await (await fetch('/api/sync')).json(); if(!Array.isArray(d.chats)) return;
-      const byId=new Map(convos.map(c=>[c.id,c]));
+      const byId=new Map(convos.map(c=>[c.id,c])); let changed=!quiet;
       for(const sc of d.chats){ const local=byId.get(sc.id), c={id:sc.id,title:sc.title,messages:sc.messages,updated:sc.updated};
-        if(!local || (sc.updated||0)>=(local.updated||0)) byId.set(sc.id,c); pushed.set(sc.id,JSON.stringify(c)); }
+        if(!local || (sc.updated||0)>(local.updated||0) || (!quiet && (sc.updated||0)===(local.updated||0))){ byId.set(sc.id,c); changed=true; }
+        pushed.set(sc.id,JSON.stringify(byId.get(sc.id))); }
+      if(!changed) return;
       convos=[...byId.values()].sort((a,b)=>(b.updated||0)-(a.updated||0));
       memory=[...new Set([...(d.memory||[]),...memory])].slice(0,30);
       if(!convos.some(c=>c.id===currentId)) currentId=convos[0]?.id||null;
@@ -788,6 +1069,8 @@
   async function loadMe(){
     try{ const d=await (await fetch('/api/auth/me',{headers:mailHeaders()})).json(); me=d.user; authInfo=d; }catch{ me=null; }
     renderProfile(); if(me) await syncDown();
+    if(new URLSearchParams(location.search).get('welcome')){ history.replaceState(null,'','/'); if(me) showGmail(true); }
+    if(me){ try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{} }
     const why=new URLSearchParams(location.search).get('signin');
     if(why){ history.replaceState(null,'','/'); toast(why==='password'?'That email already has an account — sign in with your password.':'Google sign-in did not work — please try again.'); }
   }
@@ -805,7 +1088,9 @@
         body:JSON.stringify({email:$('authEmail').value.trim(),password:$('authPass').value,name:$('authName').value.trim()})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not sign in.');
       me=d.user; $('authPass').value=''; $('authModal').classList.remove('open');
-      await syncDown(); renderProfile(); toast((signup?'Account created — ':'Signed in as ')+me.email); mailBrief(false);
+      await syncDown(); renderProfile(); toast((signup?'Account created — ':'Signed in as ')+me.email);
+      try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{}
+      if(signup) showGmail(true); else mailBrief(false);
     }catch(e){ $('authErr').textContent=e.message; }
     finally{ $('authGo').disabled=false; }
   }
@@ -816,6 +1101,13 @@
     saveM(); newChat(); $('profModal').classList.remove('open'); toast('Signed out — your chats stay safe on your account.');
   }
   loadMe().then(()=>mailBrief(false)); // then the AI briefs you on your mail (owner only)
+  // Every minute: pick up anything an automation delivered (with the guitar cue).
+  setInterval(async()=>{
+    if(!me||busy) return;
+    const count=()=>convos.find(c=>c.id==='automations')?.messages.length||0, before=count();
+    await syncDown(true);
+    if(count()>before){ notify(); toast('An automation just ran — see Automations'); }
+  },60000);
 
   load(); renderProfile(); reconnectFolder(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
 </script>
