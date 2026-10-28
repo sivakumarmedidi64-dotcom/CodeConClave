@@ -197,9 +197,51 @@ function liveFromDecision(target, detail, msg) {
   return q && q.length <= 40 ? { sourceId, query: q } : null;
 }
 
+// ---- Local folder (web → the user's own files) ----
+// The files live in the user's browser. The server only gets the list of paths, plus the text of a
+// file the browser reads for it (a second round trip). It never writes: edits and new files go back
+// to the browser as cards, and only the user's Save click writes them.
+const FILE_ACTIONS = new Set(['read_file', 'edit_file', 'create_file']);
+// With a folder connected, think about file actions only when a file of theirs is named or these words
+// appear - broader words ("function", "code") made every coding question wait ~40 s for nothing.
+const FILE_WORDS = /\b(files?|folder|readme|open|save)\b/i;
+const MODEL_FILE_CHARS = 8000; // the model reads ~4k tokens in all - a file gets ~2k of them
+const FILE_EXAMPLES = [
+  ['what does index.html do?', { action: 'read_file', target: 'index.html', detail: '', thought: 'I will open index.html from your folder and read it.' }],
+  ['in app.py change the port to 8080', { action: 'edit_file', target: 'app.py', detail: 'change the port to 8080', thought: 'I will read app.py and suggest the change for you to save.' }],
+  ['make a todo.md file with buy milk and call mom', { action: 'create_file', target: 'todo.md', detail: 'a todo list: buy milk, call mom', thought: 'I will write todo.md for you to save in your folder.' }],
+  ['write a function that adds two numbers', { action: 'answer', target: '', detail: '', thought: 'I can write that here for you.' }],
+].flatMap(([q, a]) => [{ role: 'user', content: q }, { role: 'assistant', content: JSON.stringify(a) }]);
+
+function cleanFolder(f) {
+  if (!f || typeof f !== 'object' || !Array.isArray(f.paths)) return null;
+  const paths = f.paths.filter((p) => typeof p === 'string' && p && p.length < 300 && !p.split('/').includes('..')).slice(0, 2000);
+  return paths.length ? { name: String(f.name || 'folder').slice(0, 80), live: Boolean(f.live), paths } : null;
+}
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// "index.html" / "the readme" / "src/app.js" -> a real path in their folder (or null).
+function resolvePath(target, paths, msg = '') {
+  const t = String(target || '').trim().replace(/^["'`]+|["'`]+$/g, '').replace(/^\.?\//, '').toLowerCase();
+  const base = (p) => p.toLowerCase().split('/').pop();
+  const stem = (s) => s.replace(/\.[^.]+$/, '');
+  const shortest = (list) => list.sort((a, b) => a.length - b.length)[0] || null;
+  if (t) {
+    const exact = paths.find((p) => p.toLowerCase() === t);
+    if (exact) return exact;
+    const byName = paths.filter((p) => p.toLowerCase().endsWith('/' + t) || base(p) === t);
+    if (byName.length) return shortest(byName);
+    const byStem = paths.filter((p) => stem(base(p)) === stem(t)); // "readme" -> README.md
+    if (byStem.length) return shortest(byStem);
+  }
+  // Otherwise a file name written in the message itself ("explain server.js").
+  const named = paths.filter((p) => base(p).includes('.') && new RegExp(`(^|[\\s"'\`/(])${escapeRe(base(p))}($|[\\s"'\`,?!):]|\\.(\\s|$))`, 'i').test(msg));
+  return named.length ? shortest(named) : null;
+}
+
 // Check the model's choice against what the user actually wrote (the misses found in testing).
-function checkDecision(d, msg) {
-  let action = ACTIONS.includes(d?.action) ? d.action : 'answer';
+function checkDecision(d, msg, folder = null) {
+  let action = ACTIONS.includes(d?.action) || (folder && FILE_ACTIONS.has(d?.action)) ? d.action : 'answer';
   let target = String(d?.target || '').trim().slice(0, 120);
   const detail = String(d?.detail || '').trim().slice(0, 500);
   const thought = String(d?.thought || '').trim().slice(0, 200);
@@ -212,21 +254,104 @@ function checkDecision(d, msg) {
   let hit = null;
   if (action === 'live_data' && !(hit = liveFromDecision(target, detail, msg))) action = 'answer';
   if (action === 'remember' && !detail) action = 'answer';
-  return { action, target, detail, thought, hit };
+  // A mail action needs a message that is about mail ("write a python function" is not an email).
+  if (MAIL_ACTIONS.has(action) && !MAIL_WORDS.test(msg)) action = 'answer';
+  let missing = false;
+  if (FILE_ACTIONS.has(action)) {
+    if (action === 'create_file') {
+      // Only a real "make a file" request with a file name - not "write a function" (answered in chat).
+      const name = (target.match(/[\w./-]+\.[a-z0-9]{1,8}\b/i) || msg.match(/[\w./-]+\.[a-z0-9]{1,8}\b/i) || [])[0] || '';
+      const existing = name && resolvePath(name, folder.paths);
+      if (!name || !/\b(files?|create|make|new|save)\b/i.test(msg)) action = 'answer';
+      else if (existing) { action = 'edit_file'; target = existing; } // it already exists: change it instead
+      else target = name.replace(/^\.?\//, '');
+    } else {
+      const path = resolvePath(target, folder.paths, msg);
+      if (path) target = path;
+      else if (!target || /^(the |my |your )?(folder|files?|all files|everything)$/i.test(target)) action = 'answer'; // "what files are in my folder?"
+      else missing = true;
+    }
+  }
+  return { action, target, detail, thought, hit, missing };
 }
 
-async function decide(convo, lastUser) {
+async function decide(convo, lastUser, folder = null) {
   // Clear live-data questions are already understood exactly - no need to spend seconds thinking.
   const known = detect(lastUser) || detectFollowUp(convo);
   if (known && !MAIL_WORDS.test(lastUser)) return { action: 'live_data', hit: known };
-  if (!ACTION_WORDS.test(lastUser)) return { action: 'answer' };
+  const fileTalk = Boolean(folder) && (FILE_WORDS.test(lastUser) || Boolean(resolvePath('', folder.paths, lastUser)));
+  if (!ACTION_WORDS.test(lastUser) && !fileTalk) return { action: 'answer' };
+  const schema = !fileTalk ? DECIDE_SCHEMA : {
+    ...DECIDE_SCHEMA, properties: { ...DECIDE_SCHEMA.properties, action: { type: 'string', enum: [...ACTIONS, ...FILE_ACTIONS] } },
+  };
+  const system = !fileTalk ? DECIDE_SYSTEM : `${DECIDE_SYSTEM}\nThe user also connected a local folder "${folder.name}". ` +
+    'read_file = open a file from it and read it. edit_file = change a file in it (target = the file, detail = the change). ' +
+    `create_file = make a new file in it (target = the new file name, detail = what goes in it).\nFiles in it: ${folder.paths.slice(0, 80).join(', ')}`;
   try {
-    const raw = await callModel([{ role: 'system', content: DECIDE_SYSTEM }, ...DECIDE_EXAMPLES, { role: 'user', content: lastUser }],
-      90, 0.1, { type: 'json_object', schema: DECIDE_SCHEMA });
-    return checkDecision(JSON.parse(raw), lastUser);
+    const raw = await callModel([{ role: 'system', content: system }, ...DECIDE_EXAMPLES, ...(fileTalk ? FILE_EXAMPLES : []), { role: 'user', content: lastUser }],
+      90, 0.1, { type: 'json_object', schema });
+    return checkDecision(JSON.parse(raw), lastUser, fileTalk ? folder : null);
   } catch {
     return { action: 'answer' };
   }
+}
+
+// File actions. read/edit need the file's text, which only the browser has: the first round returns
+// { needFile } and the browser asks again with the text. Returns { reply } / { context } like mailAction.
+const EDIT_SCHEMA = { type: 'object', properties: { find: { type: 'string' }, replace: { type: 'string' } }, required: ['find', 'replace'] };
+const stripFences = (s) => s.replace(/^\s*```[\w-]*\s*\n/, '').replace(/\n```\s*$/, '').trim();
+
+// Replace the first block of lines matching `find` (ignoring trailing spaces / line endings). null = no match.
+function applyEdit(content, find, replace) {
+  if (!find || !find.trim()) return null;
+  const eol = content.includes('\r\n') ? '\r\n' : '\n';
+  const lines = content.split(/\r?\n/);
+  const want = find.replace(/\n+$/, '').split(/\r?\n/);
+  for (let i = 0; i + want.length <= lines.length; i++) {
+    if (want.every((w, k) => lines[i + k].trimEnd() === w.trimEnd())) {
+      return [...lines.slice(0, i), ...replace.replace(/\n+$/, '').split(/\r?\n/), ...lines.slice(i + want.length)].join(eol);
+    }
+  }
+  return null;
+}
+
+async function fileAction({ action, target, detail }, got, lastUser, send) {
+  if (action === 'create_file') {
+    send({ step: `Writing ${target}` });
+    const content = stripFences(await callModel([
+      { role: 'system', content: 'You write files for the user. Output ONLY the file content - no explanation and no ``` fences.' },
+      { role: 'user', content: `Write the file "${target}". It should contain: ${detail || lastUser}` },
+    ], 500, 0.3));
+    send({ fileCard: { kind: 'new', path: target, content } });
+    return { reply: `Here's ${target}. Check it, then press Save to create it in your folder.` };
+  }
+  if (!got) { // first round: the browser reads the file for us
+    send({ step: `Reading ${target}` });
+    return { needFile: { path: target, action, detail } };
+  }
+  const content = String(got.content || '');
+  if (action === 'read_file') {
+    const cut = content.length > MODEL_FILE_CHARS;
+    return { context: `[FILE "${target}" from the user's folder${cut ? ` (first ${MODEL_FILE_CHARS} characters only)` : ''}:\n${content.slice(0, MODEL_FILE_CHARS)}]\n` +
+      "Using this file, answer the user's message." };
+  }
+  // edit_file: the model names only the lines to change (whole-file rewrites take minutes on a laptop CPU).
+  if (content.length > MODEL_FILE_CHARS) {
+    return { reply: `${target} is too big for me to change safely — I can read about ${MODEL_FILE_CHARS.toLocaleString('en-IN')} characters at once. Open it from your folder (click the folder above the message box) and edit it there; I can still answer questions about it.` };
+  }
+  send({ step: `Working out the change to ${target}` });
+  const e = JSON.parse(await callModel([
+    { role: 'system', content: 'You edit files. Return JSON: "find" = lines copied EXACTLY from the file (enough to be unique), "replace" = what those lines become. Change only what the user asked.' },
+    { role: 'user', content: 'File app.py:\ndef add(a, b):\n    return a + b\n\nChange: make add also print the result' },
+    { role: 'assistant', content: JSON.stringify({ find: '    return a + b', replace: '    print(a + b)\n    return a + b' }) },
+    { role: 'user', content: `File ${target}:\n${content}\n\nChange: ${detail || lastUser}` },
+  ], 400, 0.1, { type: 'json_object', schema: EDIT_SCHEMA }));
+  const next = applyEdit(content, String(e.find || ''), String(e.replace || ''));
+  if (next === null || next === content) {
+    return { reply: `I couldn't work out an exact change for that in ${target}. Tell me which line to change, or open the file from your folder and edit it yourself.` };
+  }
+  send({ fileCard: { kind: 'edit', path: target, find: e.find, replace: e.replace, content: next } });
+  return { reply: `Here's the change to ${target}. Check it, then press Save to write it to your file.` };
 }
 
 // Mail actions. Each returns either { reply } (a finished, factual message) or { context } (what was
@@ -379,8 +504,15 @@ app.post('/api/chat', async (req, res) => {
   // A finished, factual message from an action (not model text), e.g. "I couldn't find…".
   const say = (text) => { send({ delta: text }); send({ done: true }); res.end(); };
 
+  // The user's connected local folder (paths only), and - on the second round of a file action -
+  // the text of the file their browser just read for us.
+  const folder = cleanFolder(req.body?.folder);
+  const got = req.body?.fileResult;
+  const second = folder && got && FILE_ACTIONS.has(got.action) && typeof got.path === 'string' && typeof got.content === 'string';
+
   // 1. Think: pick an action (only when the message might need one).
-  const plan = fileBlock ? { action: 'answer' } : await decide(convo, lastUser);
+  const plan = second ? { action: got.action, target: got.path, detail: String(got.detail || '').slice(0, 500) }
+    : fileBlock ? { action: 'answer' } : await decide(convo, lastUser, folder);
   if (plan.thought) send({ think: plan.thought });
 
   // 2. Act.
@@ -399,6 +531,16 @@ app.post('/api/chat', async (req, res) => {
       const r = await mailAction(plan, lastUser, send);
       if (r.reply) return say(r.reply);
       found = r.context;
+    } else if (FILE_ACTIONS.has(plan.action)) {
+      if (plan.missing) return say(`I couldn't find "${plan.target}" in your folder ${folder.name}. Click the folder above the message box to see its files.`);
+      const r = await fileAction(plan, second ? got : null, lastUser, send);
+      if (r.needFile) { send({ needFile: r.needFile }); send({ done: true }); return res.end(); }
+      if (r.reply) return say(r.reply);
+      found = r.context;
+    } else if (folder && /\b(files?|folder)\b/i.test(lastUser)) {
+      // "what files are in my folder?" - give the model the real list instead of letting it guess.
+      found = `[The user's local folder "${folder.name}" has ${folder.paths.length} file(s):\n${folder.paths.slice(0, 150).join('\n')}` +
+        `${folder.paths.length > 150 ? '\n…' : ''}]\nUse this list to answer.`;
     }
   } catch {
     return say('I tried, but something went wrong while doing that — please try again in a moment.');
