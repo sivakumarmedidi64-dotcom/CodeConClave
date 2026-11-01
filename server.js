@@ -5,6 +5,9 @@
 import express from 'express';
 import crypto from 'crypto';
 import path from 'path';
+import https from 'https';
+import dns from 'dns';
+import net from 'net';
 import { fileURLToPath } from 'url';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -1284,6 +1287,96 @@ app.put('/api/library', wrap(async (req, res) => {
     .filter((f) => /^[\w-]+$/.test(f.id) && f.name);
   await store.putPref(req.user.id, 'library', files);
   res.json({ ok: true });
+}));
+
+// ---- Import memory from a share link (the chat where the user ran our transfer prompt in another AI) ----
+// The server fetches the public page itself, so it must never be pointed at private or internal addresses:
+// https only, every resolved IP checked at connect time, redirects re-checked, size and time capped.
+function privateIp(ip) {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254)
+      || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 198 && (b === 18 || b === 19));
+  }
+  const v = ip.toLowerCase();
+  if (v.startsWith('::ffff:')) return privateIp(v.slice(7));
+  return v === '::' || v === '::1' || /^(fc|fd|fe8|fe9|fea|feb|ff)/.test(v);
+}
+function publicLookup(host, opts, cb) {
+  dns.lookup(host, { all: true }, (err, addrs) => {
+    if (err) return cb(err);
+    if (!addrs.length || addrs.some((a) => privateIp(a.address))) return cb(new Error('private address'));
+    if (opts?.all) return cb(null, addrs);
+    cb(null, addrs[0].address, addrs[0].family);
+  });
+}
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
+function fetchPublicPage(url, hops = 0) {
+  return new Promise((resolve, reject) => {
+    let u;
+    try { u = new URL(url); } catch { return reject(new Error('That is not a valid link.')); }
+    if (u.protocol !== 'https:') return reject(new Error('Only https:// links work.'));
+    // An IP written in the link skips DNS (and so the lookup check), so it is checked here.
+    const literal = u.hostname.replace(/^\[|\]$/g, '');
+    if (net.isIP(literal) && privateIp(literal)) return reject(new Error('That link points to a private address.'));
+    const req = https.get(u, { lookup: publicLookup, timeout: 12000, maxHeaderSize: 65536, headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,*/*', 'Accept-Language': 'en' } }, (r) => {
+      if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) {
+        r.resume();
+        if (hops >= 4) return reject(new Error('That link redirects too many times.'));
+        return resolve(fetchPublicPage(new URL(r.headers.location, u).href, hops + 1));
+      }
+      if (r.statusCode !== 200) { r.resume(); return reject(new Error(`That site answered with error ${r.statusCode}.`)); }
+      const chunks = []; let size = 0;
+      r.on('data', (c) => { size += c.length; if (size > 5e6) req.destroy(new Error('That page is too big.')); else chunks.push(c); });
+      r.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      r.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error('That site took too long to answer.')));
+    req.on('error', (e) => reject(e.message === 'private address' ? new Error('That link points to a private address.') : e));
+  });
+}
+const MEMORY_HEADS = ['Basic Identity', 'Work & Education', 'Work and Education', 'Personal Context', 'Preferences & Instructions', 'Preferences and Instructions'];
+const headCount = (t) => MEMORY_HEADS.filter((h) => t.includes(h)).length;
+const isOurPrompt = (t) => /For any missing category|Output plain text only/i.test(t);
+// Every JSON string literal in a page, unescaped; strings that are JSON themselves are opened up too
+// (chat apps put the conversation inside script data, sometimes escaped twice).
+function stringsIn(text, depth = 0, out = []) {
+  if (depth > 3 || out.length > 20000) return out;
+  for (const m of text.matchAll(/"(?:[^"\\]|\\.){40,}"/g)) {
+    let s;
+    try { s = JSON.parse(m[0]); } catch { continue; }
+    if (typeof s !== 'string') continue;
+    out.push(s);
+    if (/^\s*[[{]/.test(s) || s.includes('\\"')) stringsIn(s, depth + 1, out);
+  }
+  return out;
+}
+function visibleText(html) {
+  return html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, ' ').replace(/<br\s*\/?>|<\/(p|div|li|h\d)>/gi, '\n').replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
+}
+function extractMemory(html) {
+  const strings = stringsIn(html);
+  const answers = strings.filter((s) => headCount(s) >= 2 && !isOurPrompt(s)).sort((a, b) => b.length - a.length);
+  if (answers.length) return { text: answers[0].trim().slice(0, 8000), structured: true };
+  const vis = visibleText(html), at = vis.lastIndexOf('Basic Identity');
+  if (at >= 0 && headCount(vis.slice(at)) >= 2) return { text: vis.slice(at).slice(0, 8000), structured: true };
+  return null;   // only the answer to our prompt is imported — never a guess from the rest of the page
+}
+app.post('/api/import-link', wrap(async (req, res) => {
+  const url = String(req.body?.url || '').trim().slice(0, 600);
+  if (!/^https:\/\/\S+$/i.test(url)) return res.status(400).json({ error: 'Paste a share link that starts with https://' });
+  let html;
+  try { html = await fetchPublicPage(url); } catch (e) { return res.status(400).json({ error: e.message || 'Could not open that link.' }); }
+  const found = extractMemory(html);
+  if (!found) {
+    const walled = /challenge-platform|cf-chl|Just a moment|enable JavaScript and cookies/i.test(html);
+    return res.status(422).json({ error: walled
+      ? 'That site hides shared chats from other apps, so I cannot read it. Open the link yourself, copy the answer, and paste it in the box below.'
+      : 'I could not find the answer to the memory prompt on that page. Make sure the shared chat is the one where you pasted the prompt — or copy the answer and paste it in the box below.' });
+  }
+  res.json(found);
 }));
 
 // Last stop for errors from wrapped handlers: a plain message, never a stack trace.

@@ -4,11 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>CodeConClave AI</title>
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="#1f1f1f" />
+<link rel="icon" href="/icon-192.png" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
-    --bg:#0f1115; --panel:#161922; --rail:#12141b; --line:#262b36; --fg:#e8ebf2; --dim:#9aa3b2;
-    --gold:#d9b25a; --accent:#6ea8fe; --radius:12px;
+    --bg:#1a1a1a; --panel:#232323; --rail:#1f1f1f; --line:#2c2c2c; --fg:#e6e6e6; --dim:#8c8c8c; --field:#242424; --edge:#353535;
+    --gold:#f2c200; --accent:#1a93fe; --radius:12px;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
   *{box-sizing:border-box}
@@ -17,16 +21,16 @@
   .rail{width:260px;flex:0 0 260px;background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;transition:margin-left .2s}
   .rail__top{padding:16px 14px 10px}
   .logo{font-size:15px;font-weight:800;letter-spacing:1.5px}.logo b{color:var(--gold)}
-  .newbtn{margin:10px 14px;padding:10px;border:1px solid var(--line);background:#1b2030;color:var(--fg);border-radius:10px;cursor:pointer;font:inherit;font-weight:600;display:flex;gap:8px;align-items:center;justify-content:center}
+  .newbtn{margin:10px 14px;padding:10px;border:1px solid var(--line);background:#2a2a2a;color:var(--fg);border-radius:10px;cursor:pointer;font:inherit;font-weight:600;display:flex;gap:8px;align-items:center;justify-content:center}
   .newbtn:hover{border-color:var(--gold)}
   .convos{flex:1;overflow-y:auto;padding:6px 8px}
   .cnv{display:flex;align-items:center;gap:6px;padding:9px 10px;border-radius:9px;cursor:pointer;color:var(--dim);font-size:13.5px}
-  .cnv:hover{background:#1b2030;color:var(--fg)}.cnv.active{background:#223049;color:#eaf1ff}
+  .cnv:hover{background:#2a2a2a;color:var(--fg)}.cnv.active{background:#2c2c2c;color:#e6e6e6}
   .cnv__t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cnv__x{opacity:0;border:none;background:none;color:var(--dim);cursor:pointer;font-size:15px}.cnv:hover .cnv__x{opacity:.7}.cnv__x:hover{color:#ff8a8a;opacity:1}
   .rail__foot{padding:10px;border-top:1px solid var(--line)}
   .profile{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;color:var(--fg);font:inherit;font-size:14px;font-weight:600;padding:6px;border-radius:9px;cursor:pointer;text-align:left}
-  .profile:hover{background:#1b2030}
+  .profile:hover{background:#2a2a2a}
   .avatar{width:30px;height:30px;flex:0 0 auto;border-radius:50%;background:#ff9933;color:#2a1600;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
   .sndrow{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--fg);cursor:pointer;margin-top:12px}
   #memList{max-height:40vh;overflow:auto;list-style:disc;padding-left:20px;color:var(--fg);font-size:14px}
@@ -39,7 +43,7 @@
   .steps{display:flex;flex-direction:column;gap:3px;margin:0 0 8px;font-size:12.5px;color:var(--dim);white-space:normal}
   .steps .done::before{content:'✓ ';color:#7bd88f}
   .think:empty,.steps:empty{display:none}
-  .mlist{background:#11141b;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:14px;white-space:normal}
+  .mlist{background:#1c1c1c;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:14px;white-space:normal}
   .mlist .bhead{margin-bottom:2px;font-size:13.5px}
   .msg .mailcard{white-space:normal}
   .brief{white-space:normal;max-width:92%;width:100%}
@@ -55,19 +59,19 @@
   .bothers{margin:6px 0 2px;color:var(--dim);font-size:13.5px}
   .bothers summary{cursor:pointer}
   .bnote{margin-top:12px;line-height:1.6}
-  .mailcard{background:#11141b;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;font-size:14px}
+  .mailcard{background:#1c1c1c;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;font-size:14px}
   .mailcard .bnote{margin-top:0}
   .mailsubj{color:var(--dim);font-size:13px;margin:4px 0 8px}
   .mailsum{line-height:1.55;margin-bottom:10px}
-  .maildraft{width:100%;min-height:90px;background:#0b0d12;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit;font-size:14px;resize:vertical}
+  .maildraft{width:100%;min-height:90px;background:#151515;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit;font-size:14px;resize:vertical}
   .mailact{display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap}
   .msend{background:var(--gold);color:#201a08;border:none;border-radius:9px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer}
-  .mskip{background:#1b2030;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:8px 14px;font:inherit;cursor:pointer}
+  .mskip{background:#2a2a2a;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:8px 14px;font:inherit;cursor:pointer}
   .mstatus{font-size:12.5px;color:var(--dim)}
   #chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;padding:18px 16px}
   .wrap{width:100%;max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
   .msg{padding:11px 14px;border-radius:12px;max-width:85%;line-height:1.55;font-size:15px;white-space:pre-wrap;word-wrap:break-word}
-  .me{align-self:flex-end;background:#223049;color:#eaf1ff;border-bottom-right-radius:4px}
+  .me{align-self:flex-end;background:#2c2c2c;color:#e6e6e6;border-bottom-right-radius:4px}
   .ai{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
   .ai .who{color:var(--gold);font-size:11px;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px;display:block}
   .err{align-self:center;color:#ff8a8a;font-size:13px;text-align:center}
@@ -78,23 +82,23 @@
 
   .barwrap{padding:8px 16px 18px}
   .files{width:100%;max-width:760px;margin:0 auto 6px;display:flex;flex-wrap:wrap;gap:6px}
-  .chip{display:flex;align-items:center;gap:6px;background:#1b2030;border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12.5px;color:var(--fg)}
+  .chip{display:flex;align-items:center;gap:6px;background:#2a2a2a;border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12.5px;color:var(--fg)}
   .chip b{color:var(--gold);font-weight:600}.chip button{border:none;background:none;color:var(--dim);cursor:pointer;font-size:14px}
   .bar{width:100%;max-width:760px;margin:0 auto;display:flex;gap:6px;align-items:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 8px;position:relative}
-  .plus{flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:none;background:#1b2030;color:var(--fg);font-size:20px;cursor:pointer}
+  .plus{flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:none;background:#2a2a2a;color:var(--fg);font-size:20px;cursor:pointer}
   .plus:hover{color:var(--gold)}
-  .menu{position:absolute;bottom:48px;left:6px;background:#1b2030;border:1px solid var(--line);border-radius:10px;padding:6px;min-width:210px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;z-index:5}
+  .menu{position:absolute;bottom:48px;left:6px;background:#2a2a2a;border:1px solid var(--line);border-radius:10px;padding:6px;min-width:210px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;z-index:5}
   .menu.open{display:block}
   .menu button{width:100%;text-align:left;display:flex;align-items:center;gap:10px;background:none;border:none;color:var(--fg);font:inherit;font-size:14px;padding:9px 10px;border-radius:8px;cursor:pointer}
-  .menu button:hover{background:#223049}.menu button:disabled{color:var(--dim);cursor:default}.menu button:disabled:hover{background:none}
+  .menu button:hover{background:#2c2c2c}.menu button:disabled{color:var(--dim);cursor:default}.menu button:disabled:hover{background:none}
   .menu .soon{margin-left:auto;font-size:10px;color:var(--dim)}
   .menu button svg{width:17px;height:17px;flex:0 0 auto;color:var(--dim)}
-  .toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:#223049;border:1px solid var(--line);color:var(--fg);padding:9px 14px;border-radius:10px;font-size:13px;z-index:30;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:#2c2c2c;border:1px solid var(--line);color:var(--fg);padding:9px 14px;border-radius:10px;font-size:13px;z-index:30;opacity:0;pointer-events:none;transition:opacity .2s}
   .toast.show{opacity:1}
-  .slash{position:absolute;bottom:48px;left:46px;right:10px;background:#1b2030;border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;z-index:6}
+  .slash{position:absolute;bottom:48px;left:46px;right:10px;background:#2a2a2a;border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none;z-index:6}
   .slash.open{display:block}
   .slashrow{width:100%;text-align:left;display:flex;gap:10px;align-items:baseline;background:none;border:none;color:var(--fg);font:inherit;font-size:14px;padding:8px 10px;border-radius:8px;cursor:pointer}
-  .slashrow:hover,.slashrow.sel{background:#223049}
+  .slashrow:hover,.slashrow.sel{background:#2c2c2c}
   .slashrow b{color:var(--gold);font-weight:600}.slashrow span{color:var(--dim);font-size:12.5px}
   textarea{flex:1;min-width:0;resize:none;background:transparent;color:var(--fg);border:none;font:inherit;font-size:15px;padding:8px;max-height:150px}
   textarea:focus{outline:none}
@@ -103,7 +107,7 @@
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:40;padding:16px}
   .modal.open{display:flex}
   .modalbox{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
-  .modalbox input:is([type=password],[type=search],[type=text],[type=email]){width:100%;margin-top:12px;background:#0b0d12;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;font-size:14px}
+  .modalbox input:is([type=password],[type=search],[type=text],[type=email]){width:100%;margin-top:12px;background:#151515;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;font-size:14px}
   .modalbox input:is([type=password],[type=search],[type=text],[type=email]):focus{outline:none;border-color:var(--gold)}
   .ico{width:16px;height:16px;flex:0 0 auto;vertical-align:-3px}
   .sidelink .ico{margin-right:4px}
@@ -114,54 +118,54 @@
   .pagebody{max-width:980px;margin:0 auto;padding:22px 16px 60px}
   .feats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
   .feat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;min-height:110px}
-  .feat:hover{border-color:#3a4252}.feat b{display:block;margin-top:14px;font-size:15px;line-height:1.4}
-  .featico,.plugico{width:42px;height:42px;border-radius:10px;background:#1b2030;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+  .feat:hover{border-color:#3a3a3a}.feat b{display:block;margin-top:14px;font-size:15px;line-height:1.4}
+  .featico,.plugico{width:42px;height:42px;border-radius:10px;background:#2a2a2a;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
   .featico .ico,.featico .gm,.plugico .ico,.plugico .gm{width:22px;height:22px}
   .pagesearch{width:100%;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:11px 14px;font:inherit;font-size:15px}
-  .pagesearch:focus{outline:none;border-color:#4a5468}.pagesearch.small{max-width:260px;padding:8px 12px;font-size:14px}
+  .pagesearch:focus{outline:none;border-color:#4a4a4a}.pagesearch.small{max-width:260px;padding:8px 12px;font-size:14px}
   .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0}
   .tabs button{border:none;background:none;color:var(--dim);font:inherit;font-size:15px;padding:7px 14px;border-radius:9px;cursor:pointer}
-  .tabs button.on{background:#1f2430;color:var(--fg);font-weight:600}.tabs button:hover{color:var(--fg)}
+  .tabs button.on{background:#2c2c2c;color:var(--fg);font-weight:600}.tabs button:hover{color:var(--fg)}
   .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.grid.three{grid-template-columns:repeat(3,1fr)}
   .plug{display:flex;gap:14px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer}
-  .plug:hover{border-color:#3a4252}.plug .pt{flex:1;min-width:0}.plug .pt b{font-size:16px}
+  .plug:hover{border-color:#3a3a3a}.plug .pt{flex:1;min-width:0}.plug .pt b{font-size:16px}
   .plug .pt div{color:var(--dim);font-size:13.5px;margin-top:4px;line-height:1.45}
   .plug .st{flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:18px}
   .plug .st.ok{border:none;color:#7bd88f}
   .skill{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
-  .skill:hover{border-color:#3a4252}
+  .skill:hover{border-color:#3a3a3a}
   .cover{height:150px;display:flex;align-items:center;justify-content:center;position:relative}
   .cover .ico,.cover .gm{width:52px;height:52px;color:#fff;opacity:.95}
   .cover span{position:absolute;left:14px;top:12px;font-weight:800;font-size:15px;color:#fff;opacity:.9;max-width:80%;line-height:1.2}
   .skill .sb{padding:14px}.skill .sb b{font-size:16px}.skill .sb div{color:var(--dim);font-size:13.5px;margin:6px 0 10px;line-height:1.45}
-  .tag{display:inline-block;font-size:12px;color:var(--dim);background:#1b2030;border:1px solid var(--line);border-radius:6px;padding:2px 7px;margin-right:6px}
+  .tag{display:inline-block;font-size:12px;color:var(--dim);background:#2a2a2a;border:1px solid var(--line);border-radius:6px;padding:2px 7px;margin-right:6px}
   .howto{margin:8px 0 4px;padding-left:20px;line-height:1.7;font-size:14px}.howto a{color:var(--accent)}
   @media(max-width:720px){ .feats,.grid,.grid.three{grid-template-columns:1fr} .pagesearch.small{max-width:none} }
   .pagebody.narrow{max-width:900px}
   .pagebody label{display:block;font-weight:600;font-size:14px;margin-top:16px;position:relative}
   .pagebody label input,.pagebody label textarea{display:block;width:100%;margin-top:8px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:11px 13px;font:inherit;font-size:14.5px;font-weight:400;resize:vertical}
-  .pagebody label input:focus,.pagebody label textarea:focus{outline:none;border-color:#4a5468}
+  .pagebody label input:focus,.pagebody label textarea:focus{outline:none;border-color:#4a4a4a}
   .count{position:absolute;right:12px;bottom:10px;font-size:12px;color:var(--dim);font-weight:400}
   .twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .tabs.line{border-bottom:1px solid var(--line);margin-top:0}.tabs.line button.on{background:none;border-bottom:2px solid var(--fg);border-radius:0}
   .importcard{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:16px 0 4px;cursor:pointer}
-  .importcard:hover{border-color:#3a4252}.importcard div{flex:1}.importcard b{display:block}.importcard span:not(.plugico){color:var(--dim);font-size:13.5px}
+  .importcard:hover{border-color:#3a3a3a}.importcard div{flex:1}.importcard b{display:block}.importcard span:not(.plugico){color:var(--dim);font-size:13.5px}
   .chev{font-size:22px;color:var(--dim)}
-  .perslink{width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#11141b;border:1px solid var(--line);color:var(--fg);font:inherit;font-weight:600;font-size:14px;padding:11px 12px;border-radius:10px;cursor:pointer;margin-bottom:14px;text-align:left}
-  .perslink span{flex-basis:100%;font-weight:400;color:var(--dim);font-size:12.5px}.perslink:hover{border-color:#3a4252}
+  .perslink{width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#1c1c1c;border:1px solid var(--line);color:var(--fg);font:inherit;font-weight:600;font-size:14px;padding:11px 12px;border-radius:10px;cursor:pointer;margin-bottom:14px;text-align:left}
+  .perslink span{flex-basis:100%;font-weight:400;color:var(--dim);font-size:12.5px}.perslink:hover{border-color:#3a3a3a}
   .modalbox.wide{max-width:620px}
-  .istep{display:flex;gap:14px;margin-top:16px}.inum{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#1b2030;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--dim)}
+  .istep{display:flex;gap:14px;margin-top:16px}.inum{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#2a2a2a;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--dim)}
   .ibody{flex:1;min-width:0}.ihead{display:flex;align-items:center;justify-content:space-between;gap:10px}.isub{display:block;color:var(--dim);font-size:13px;margin:4px 0 8px}
   .copybtn{display:flex;align-items:center;gap:6px;background:#fff;color:#111;border:none;border-radius:9px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
-  .promptbox{width:100%;background:#11141b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-size:13.5px;line-height:1.5;resize:vertical}
+  .promptbox{width:100%;background:#1c1c1c;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-size:13.5px;line-height:1.5;resize:vertical}
   .mailact.right{justify-content:flex-end;margin-top:16px}
   .msend:disabled{opacity:.45;cursor:default}
   .item{display:flex;gap:12px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer}
-  .item:hover{border-color:#3a4252}.item .pt{flex:1;min-width:0}.item .pt b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item:hover{border-color:#3a3a3a}.item .pt{flex:1;min-width:0}.item .pt b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .item .pt span{color:var(--dim);font-size:13px}.item .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .recchip{border-color:#c0392b !important}.recdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#e74c3c;margin-right:6px;animation:b 1.2s infinite}
   .sidelink{margin:0 14px 6px;padding:8px 10px;border:none;background:none;color:var(--dim);font:inherit;font-size:13.5px;text-align:left;border-radius:9px;cursor:pointer}
-  .sidelink:hover{background:#1b2030;color:var(--fg)}
+  .sidelink:hover{background:#2a2a2a;color:var(--fg)}
   #autoRows{max-height:55vh;overflow:auto;margin:10px 0}
   .autorow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
   .autorow .at{flex:1;min-width:0}.autorow .at b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -175,32 +179,136 @@
   .fsbox .bhead .mstatus{font-weight:400;margin-left:4px}
   #fsRows{max-height:52vh;overflow:auto;margin:8px 0}
   .fsrow{padding:7px 9px;border-radius:8px;cursor:pointer;font:13px ui-monospace,Consolas,monospace;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .fsrow:hover{background:#223049}
+  .fsrow:hover{background:#2c2c2c}
   #fsText{min-height:46vh;font:13px/1.5 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto;margin-top:10px}
   .folderchip{cursor:pointer}.folderchip:hover{border-color:var(--gold)}
-  .diff{font:12.5px/1.5 ui-monospace,Consolas,monospace;background:#0b0d12;border:1px solid var(--line);border-radius:9px;padding:8px 10px;overflow:auto;white-space:pre;margin:6px 0 8px;max-height:40vh}
+  .diff{font:12.5px/1.5 ui-monospace,Consolas,monospace;background:#151515;border:1px solid var(--line);border-radius:9px;padding:8px 10px;overflow:auto;white-space:pre;margin:6px 0 8px;max-height:40vh}
   .diff .del{color:#ff8a8a}.diff .add{color:#7bd88f}
   .sndrow input{width:16px;height:16px;margin:0;accent-color:#ff9933}
   .backdrop{display:none}
+
+  /* ---- CodeConClave look: dark sidebar #1f1f1f, page #1a1a1a, cards #232323, text #e6e6e6 / #8c8c8c ---- */
+  .rail{width:272px;flex-basis:272px;border-right:1px solid #2c2c2c}
+  body.collapsed .rail{margin-left:-272px}
+  body.collapsed .burger{display:block}
+  .rail__top{display:flex;align-items:center;gap:2px;padding:10px 10px 8px 12px}
+  .rail__logo{height:52px;width:auto;display:block;margin-right:auto}
+  .railbtn{width:34px;height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border:none;background:none;color:#b3b3b3;border-radius:8px;cursor:pointer}
+  .railbtn:hover{background:#2a2a2a;color:#e6e6e6}.railbtn .ico{width:20px;height:20px}
+  .railsearch{display:none;margin:0 12px 8px;background:#1a1a1a;color:var(--fg);border:1px solid #363636;border-radius:8px;padding:8px 10px;font:inherit;font-size:14px}
+  .railsearch.open{display:block}.railsearch:focus{outline:none;border-color:#4a4a4a}
+  .sidelink{display:flex;align-items:center;gap:12px;margin:0 8px 2px;padding:9px 12px;color:#e6e6e6;font-size:15px}
+  .sidelink .ico{width:20px;height:20px;margin:0}
+  .sidelink:hover{background:#2a2a2a;color:#e6e6e6}
+  .raillbl{padding:20px 20px 6px;color:#8c8c8c;font-size:14px}
+  .convos{padding:0 8px}
+  .cnv{color:#e6e6e6;font-size:14.5px;padding:9px 12px;border-radius:8px}
+  .cnv:hover{background:#2a2a2a}.cnv.active{background:#2c2c2c;color:#e6e6e6}
+  .rail__foot{display:flex;align-items:center;gap:4px;border-top:none;padding:10px 10px 12px}
+  .profile{flex:1;min-width:0;font-size:15px}.profile:hover{background:#2a2a2a}
+  .avatar{background:#23998d;color:#fff;font-weight:600}
+  .top{border-bottom:none;padding:14px 18px}
+  .top__title{font-weight:600;font-size:17px}
+  .burger{width:34px;height:34px;align-items:center;justify-content:center;color:#b3b3b3;border-radius:8px}.burger .ico{width:20px;height:20px}
+  .burger:hover{background:#2a2a2a}
+  /* home: big logo + cards, like the start screen */
+  .home{width:100%;max-width:560px;margin:auto;display:flex;flex-direction:column;align-items:stretch;gap:14px;padding:10px 0 20px}
+  .home__logo{width:min(320px,80%);height:auto;align-self:center;margin-bottom:18px}
+  .hcard{display:block;width:100%;text-align:left;background:#232323;border:none;border-radius:16px;padding:22px 24px;color:#e6e6e6;font:inherit;cursor:pointer}
+  .hcard:hover{background:#282828}
+  .hcard .hico{display:block;width:30px;height:30px;margin-bottom:16px}
+  .hcard b{display:flex;align-items:center;gap:6px;font-size:18px;font-weight:600}
+  .hcard b svg{width:18px;height:18px}
+  .hcard span{display:block;margin-top:6px;color:#888;font-size:15px}
+  /* messages: your words in a bubble, the AI's answer as plain text */
+  .me{background:#2c2c2c;color:#e6e6e6}
+  .ai{background:transparent;border:none;padding-left:2px;max-width:100%}
+  .ai .who{color:var(--gold)}
+  .dots i{background:#8c8c8c}
+  /* the task box */
+  .barwrap{padding:8px 18px 20px}
+  .bar{background:#242424;border:1px solid #353535;border-radius:22px;padding:10px 12px;align-items:flex-end}
+  .plus{width:36px;height:36px;border-radius:50%;border:1px solid #353535;background:transparent;color:#b4b4b4;font-size:19px}
+  .plus:hover{color:#e6e6e6;background:#2a2a2a}
+  .send{width:36px;height:36px;padding:0;border-radius:50%;background:#353535;color:#595959;display:flex;align-items:center;justify-content:center}
+  .send svg{width:18px;height:18px}
+  .send.ready{background:#e6e6e6;color:#1a1a1a}
+  .send:disabled{opacity:1;background:#353535;color:#595959}
+  textarea::placeholder{color:#595959}
+  .chip{background:#242424;border-color:#363636;border-radius:999px;padding:5px 11px}.chip b{color:#e6e6e6}
+  .menu,.slash{background:#242424;border-color:#353535;border-radius:12px}
+  .menu button:hover,.slashrow:hover,.slashrow.sel{background:#2c2c2c}.slashrow b{color:#e6e6e6}
+  .toast{background:#2c2c2c;border-color:#363636}
+  /* buttons: main action white, others quiet */
+  .msend{background:#e6e6e6;color:#1a1a1a}
+  .mskip{background:transparent;border-color:#363636}
+  .mskip:hover{background:#2a2a2a}
+  .modalbox{background:#1f1f1f;border-color:#2c2c2c;border-radius:16px}
+  .page,.pagehead{background:#1a1a1a}.pagehead{border-bottom:none}
+  .tabs button{color:#8c8c8c}.tabs button.on{background:#2c2c2c;color:#e6e6e6;font-weight:500}
+  .pagesearch{background:transparent;border-color:#363636;border-radius:10px}
+  .feat,.plug,.skill,.item,.importcard{border-color:#2c2c2c}
+  .feat:hover,.plug:hover,.skill:hover,.item:hover,.importcard:hover{border-color:#3a3a3a}
+  .copybtn{background:#e6e6e6;color:#1a1a1a}
+  .implink{display:flex;gap:8px;margin:2px 0 4px}
+  .implink input{flex:1;min-width:0;background:#1c1c1c;color:var(--fg);border:1px solid #363636;border-radius:10px;padding:9px 12px;font:inherit;font-size:14px}
+  .implink input:focus{outline:none;border-color:#4a4a4a}
+  /* Library */
+  .libhead{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:10px;padding:16px 22px 10px;background:#1a1a1a}
+  .libhead h1{font-size:20px;font-weight:600;margin:0;flex:1}
+  .libsearch{display:flex;align-items:center;gap:8px;width:300px;max-width:40vw;border:1px solid #363636;border-radius:10px;padding:0 10px;color:#595959}
+  .libsearch input{flex:1;min-width:0;background:none;border:none;color:var(--fg);font:inherit;font-size:14px;padding:8px 0}
+  .libsearch input:focus{outline:none}.libsearch input::placeholder{color:#595959}
+  .libicon{width:38px;height:36px;display:flex;align-items:center;justify-content:center;border:1px solid #363636;background:none;color:#999;border-radius:10px;cursor:pointer}
+  .libicon:hover{color:#e6e6e6;background:#242424}.libicon .ico{width:18px;height:18px}
+  .libview{display:flex;background:#151515;border-radius:10px;padding:3px}
+  .libview button{width:36px;height:30px;display:flex;align-items:center;justify-content:center;border:none;background:none;color:#8c8c8c;border-radius:8px;cursor:pointer}
+  .libview button.on{background:#242424;color:#e6e6e6}.libview .ico{width:17px;height:17px}
+  .libtabs{display:flex;gap:4px;flex-wrap:wrap;padding:4px 22px 14px 118px}
+  .libtabs button{border:none;background:none;color:#8c8c8c;font:inherit;font-size:15px;padding:8px 16px;border-radius:10px;cursor:pointer}
+  .libtabs button:hover{color:#e6e6e6}.libtabs button.on{background:#2c2c2c;color:#e6e6e6}
+  .libtabs button i{font-style:normal;color:#595959;font-size:12.5px;margin-left:5px}
+  .libbody{padding:4px 22px 60px}
+  .libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .libcard{background:#232323;border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;position:relative}
+  .libcard:hover{background:#282828}
+  .libthumb{height:130px;display:flex;align-items:center;justify-content:center;background:#1c1c1c;color:#8c8c8c;overflow:hidden}
+  .libthumb img{width:100%;height:100%;object-fit:cover}.libthumb .ico{width:38px;height:38px}
+  .libmeta{padding:10px 12px 12px}.libmeta b{display:block;font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .libmeta span{color:#8c8c8c;font-size:12.5px}
+  .libacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .libacts button{background:transparent;border:1px solid #363636;color:#e6e6e6;border-radius:8px;padding:4px 10px;font:inherit;font-size:12.5px;cursor:pointer}
+  .libacts button:hover{background:#2c2c2c}
+  .liblist .libcard{flex-direction:row;align-items:center;border-radius:10px;margin-bottom:6px}
+  .liblist .libthumb{width:46px;height:46px;flex:0 0 auto;margin:6px;border-radius:8px}.liblist .libthumb .ico{width:22px;height:22px}
+  .liblist .libmeta{flex:1;min-width:0;display:flex;align-items:center;gap:14px;padding:8px 12px}
+  .liblist .libmeta b{flex:1;min-width:0}.liblist .libacts{margin-top:0}
+  .libempty{color:#8c8c8c;text-align:center;padding:60px 10px;line-height:1.7}
+  @media(max-width:720px){ .libtabs{padding-left:22px} .libsearch{width:auto;flex:1;max-width:none} .libhead h1{flex:0} }
   @media(max-width:720px){
-    .rail{position:fixed;z-index:20;height:100%;margin-left:-260px}
+    .rail{position:fixed;z-index:20;height:100%;margin-left:-272px}
     body.open .rail{margin-left:0}
     body.open .backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:15}
-    .burger{display:block}
+    .burger{display:flex}
   }
+  .burger{display:none}
+  body.collapsed .burger{display:flex}
+  @media(max-width:720px){ .burger{display:flex} }
 </style>
 </head>
 <body>
   <aside class="rail">
-    <div class="rail__top"><div class="logo">CODE<b>CON</b>CLAVE</div></div>
-    <button class="newbtn" id="newBtn">＋ New chat</button>
-    <button class="sidelink" id="autoBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg> Automations</button>
-    <button class="sidelink" id="plugBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="3.5"/><circle cx="17" cy="7" r="3.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg> Plugins</button>
+    <div class="rail__top"><img class="rail__logo" src="/logo.png" alt="CodeConClave" /><button class="railbtn" id="chatSearchBtn" title="Search tasks"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button><button class="railbtn" id="railCollapse" title="Close sidebar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button></div>
+    <input type="search" class="railsearch" id="chatSearch" placeholder="Search tasks" autocomplete="off" />
+    <button class="sidelink" id="newBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M18.4 2.6a2 2 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> New task</button>
     <button class="sidelink" id="libBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg> Library</button>
     <button class="sidelink" id="createBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.3 10a.7.7 0 0 1-.63-1.08L11.4 3a.7.7 0 0 1 1.2-.04L16.3 8.9a.7.7 0 0 1-.57 1.1z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/></svg> Creations</button>
+    <button class="sidelink" id="autoBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg> Automations</button>
+    <button class="sidelink" id="plugBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="3.5"/><circle cx="17" cy="7" r="3.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg> Plugins</button>
     <button class="sidelink" id="skillBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg> Skills</button>
+    <div class="raillbl">Tasks</div>
     <div class="convos" id="convos"></div>
-    <div class="rail__foot"><button class="profile" id="meBtn" title="Your profile"><span class="avatar" id="meAvatar">G</span><span id="meName">Guest</span></button></div>
+    <div class="rail__foot"><button class="profile" id="meBtn" title="Your profile"><span class="avatar" id="meAvatar">G</span><span id="meName">Guest</span></button><button class="railbtn" id="installBtn" title="Install CodeConClave as a desktop app" hidden><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M12 7v6"/><path d="m9 10 3 3 3-3"/></svg></button></div>
   </aside>
   <div class="backdrop" id="backdrop"></div>
   <div class="toast" id="toast"></div>
@@ -327,19 +435,25 @@ For any missing category, write:
 &quot;None available.&quot;
 
 Output plain text only. No code blocks. No nested bullets.</textarea></div></div>
-      <div class="istep"><span class="inum">2</span><div class="ibody"><b>Paste the response</b>
+      <div class="istep"><span class="inum">2</span><div class="ibody"><b>Paste the response — or a share link to that chat</b>
         <span class="isub">CodeConClave AI will use it to fill in your profile. You can edit it before saving.</span>
-        <textarea id="impPaste" class="promptbox" rows="6" placeholder="Paste the response here..."></textarea></div></div>
+        <div class="implink"><input type="url" id="impLink" placeholder="https://… share link from the other AI" autocomplete="off" /><button class="mskip" id="impLinkGo">Get it</button></div>
+        <div class="autherr" id="impLinkErr"></div>
+        <textarea id="impPaste" class="promptbox" rows="6" placeholder="…or paste the response here"></textarea></div></div>
       <div class="mailact right"><button class="mskip" id="impCancel">Cancel</button><button class="msend" id="impGo" disabled>Import</button></div>
     </div>
   </div>
   <div class="page" id="libPage">
-    <div class="pagehead"><h1>Library</h1><input type="search" class="pagesearch small" id="libSearch" placeholder="Search" autocomplete="off" /><button class="mskip" id="libAdd">＋ Add files</button><button class="bx" id="libClose" title="Close">×</button></div>
-    <div class="pagebody">
-      <div class="mailsubj">Your files, kept for you. Files you attach in any chat are saved here too. Press “Use in chat” to give one to the AI again.</div>
-      <div class="grid" id="libGrid"></div>
-      <input type="file" id="libInput" multiple accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.pdf,.log,.xml,.yml,.yaml" style="display:none" />
+    <div class="libhead">
+      <h1>Library</h1>
+      <label class="libsearch"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="libSearch" placeholder="Search files" autocomplete="off" /></label>
+      <button class="libicon" id="libSort" title="Sort: newest first"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h6"/><path d="M18 11v8"/><path d="m15 16 3 3 3-3"/></svg></button>
+      <div class="libview"><button id="libGridBtn" title="Grid view"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button><button id="libListBtn" title="List view"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg></button></div>
+      <button class="libicon" id="libAdd" title="Add files"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+      <button class="libicon" id="libClose" title="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
+    <div class="libtabs" id="libTabs"></div>
+    <div class="libbody"><div id="libGrid"></div><input type="file" id="libInput" multiple style="display:none" /></div>
   </div>
   <div class="page" id="createPage">
     <div class="pagehead"><h1>Creations</h1><input type="search" class="pagesearch small" id="createSearch" placeholder="Search" autocomplete="off" /><button class="bx" id="createClose" title="Close">×</button></div>
@@ -433,7 +547,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   </div>
 
   <div class="main">
-    <div class="top"><button class="burger" id="burger">☰</button><div class="top__title">CODE<b>CON</b>CLAVE AI</div></div>
+    <div class="top"><button class="burger" id="burger" title="Open sidebar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button><div class="top__title">CodeConClave AI</div></div>
     <div id="chat"></div>
     <div class="barwrap">
       <div class="files" id="recBar"></div>
@@ -451,8 +565,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
         <input type="file" id="fileInput" multiple accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.pdf,.log,.xml,.yml,.yaml,image/*" style="display:none" />
         <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none" />
         <div class="slash" id="slash"></div>
-        <textarea id="input" rows="1" placeholder="Ask anything…"></textarea>
-        <button class="send" id="send">Send</button>
+        <textarea id="input" rows="1" placeholder="Assign a task or ask anything"></textarea>
+        <button class="send" id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
       </div>
     </div>
   </div>
@@ -481,11 +595,22 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(me) fetch('/api/chats/'+encodeURIComponent(id),{method:'DELETE'}).catch(()=>{}); if(currentId===id){currentId=convos[0]?.id||null; if(!currentId)newChat();} saveC(); renderSidebar(); renderChat(); }
 
   function renderSidebar(){
-    convosEl.innerHTML='';
-    convos.forEach(c=>{ const row=document.createElement('div'); row.className='cnv'+(c.id===currentId?' active':''); row.onclick=()=>selectChat(c.id);
+    convosEl.innerHTML=''; const q=$('chatSearch').value.trim().toLowerCase();
+    convos.filter(c=>!q || (c.title||'').toLowerCase().includes(q)).forEach(c=>{ const row=document.createElement('div'); row.className='cnv'+(c.id===currentId?' active':''); row.onclick=()=>selectChat(c.id);
       const t=document.createElement('div'); t.className='cnv__t'; t.textContent=c.title||'New chat';
       const x=document.createElement('button'); x.className='cnv__x'; x.textContent='×'; x.title='Delete'; x.onclick=(e)=>deleteChat(c.id,e);
       row.append(t,x); convosEl.appendChild(row); });
+  }
+  // Start screen: the CodeConClave logo and two things the AI can really do for you.
+  const CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+  function homeScreen(){
+    const h=el('div','home'); h.innerHTML='<img class="home__logo" src="/logo.png" alt="CodeConClave" />';
+    const card=(color,icon,title,sub,go)=>{ const b=el('button','hcard'); b.innerHTML=`<svg class="hico" style="color:${color}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg><b></b><span></span>`;
+      b.querySelector('b').append(title); b.querySelector('b').insertAdjacentHTML('beforeend',CHEV); b.querySelector('span').textContent=sub; b.onclick=go; return b; };
+    h.append(
+      card('#1c7dd2','<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>','Work in a folder','Read, edit and save files on your computer — right from here',()=>openFolder()),
+      card('#c57f16','<rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/>','Automate a task','Tell me what to do and when — it runs by itself, India time',()=>{ input.value='Every day at 8 am, '; input.focus(); input.dispatchEvent(new Event('input')); }));
+    return h;
   }
   // An AI bubble has: who · 💭 thought · ✓ steps · answer text · mail list / draft card.
   function bubble(role,text){ const el=document.createElement('div'); el.className='msg '+(role==='user'?'me':'ai');
@@ -506,7 +631,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
   function renderChat(){
     chat.innerHTML=''; const c=current(); const withBrief=briefEl && currentId===briefChatId;
-    if((!c||c.messages.length===0) && !withBrief){ const e=document.createElement('div'); e.className='empty'; e.innerHTML='<div class="big">CODE<b>CON</b>CLAVE AI</div><div>Your own AI. Ask me anything, or add a file with ＋.</div>'; chat.appendChild(e); return; }
+    if((!c||c.messages.length===0) && !withBrief){ chat.appendChild(homeScreen()); return; }
     const wrap=document.createElement('div'); wrap.className='wrap'; if(withBrief) wrap.appendChild(briefEl);
     (c?.messages||[]).forEach((m,i)=>wrap.appendChild(m.role==='user'?bubble('user',m.content):decorate(bubble('ai',m.content),m,i))); chat.appendChild(wrap);
     chat.scrollTop = c&&c.messages.length ? chat.scrollHeight : 0;
@@ -531,6 +656,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(folder) arr=arr.filter(f=>TEXTY.test(f.name)||/\.pdf$/i.test(f.name));
     for(const f of arr.slice(0, folder?12:5)){ const r=await readFile(f); pending.push(r); }
     if(folder && arr.length===0) toast('No readable text files in that folder.');
+    if(!folder){ const pics=arr.filter(f=>/^image\//.test(f.type)); if(pics.length) addFilesToLibrary(pics); }
     renderFiles();
   }
 
@@ -775,7 +901,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     let c=current(); if(!c){ newChat(); c=current(); }
     const files=pending.slice(); pending=[]; renderFiles(); addToLibrary(files);
     const shown = text + (files.length?('\n'+files.map(f=>'📄 '+f.name).join('\n')):'');
-    input.value=''; input.style.height='auto';
+    input.value=''; input.style.height='auto'; sendBtn.classList.remove('ready');
     c.messages.push({role:'user',content:shown});
     if(c.title==='New chat'||!c.title) c.title=(text||files[0]?.name||'Chat').slice(0,40);
     c.updated=Date.now(); const memAdded=captureMemory(text); saveC(); renderSidebar(); renderChat();
@@ -870,7 +996,16 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   $('autoClose').onclick=()=>$('autoModal').classList.remove('open');
   $('autoModal').onclick=(e)=>{ if(e.target===$('autoModal')) $('autoModal').classList.remove('open'); };
   $('autoOpenChat').onclick=()=>{ $('autoModal').classList.remove('open'); if(convos.some(c=>c.id==='automations')) selectChat('automations'); else toast('Nothing has run yet.'); }; sendBtn.onclick=send;
-  $('burger').onclick=()=>document.body.classList.toggle('open'); $('backdrop').onclick=closeRail;
+  const narrow=()=>matchMedia('(max-width:720px)').matches;
+  $('burger').onclick=()=>{ if(narrow()) document.body.classList.toggle('open'); else document.body.classList.remove('collapsed'); }; $('backdrop').onclick=closeRail;
+  $('railCollapse').onclick=()=>{ if(narrow()) closeRail(); else document.body.classList.add('collapsed'); };
+  $('chatSearchBtn').onclick=()=>{ const s=$('chatSearch'); s.classList.toggle('open'); if(s.classList.contains('open')) s.focus(); else { s.value=''; renderSidebar(); } };
+  $('chatSearch').oninput=renderSidebar;
+  // Desktop app: the browser offers "install" for this site; the button shows only when it really can.
+  let installPrompt=null;
+  addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); installPrompt=e; $('installBtn').hidden=false; });
+  addEventListener('appinstalled',()=>{ installPrompt=null; $('installBtn').hidden=true; toast('Installed — open CodeConClave from your Start menu or desktop.'); });
+  $('installBtn').onclick=async()=>{ if(!installPrompt) return; installPrompt.prompt(); await installPrompt.userChoice.catch(()=>{}); installPrompt=null; $('installBtn').hidden=true; };
   $('meBtn').onclick=()=>(!me && authInfo.accounts && !memory.length && !ownerKey()) ? showAuth(false) : showMemory();
   $('acctBtn').onclick=()=>me?signOut():showAuth(false);
   $('authClose').onclick=()=>$('authModal').classList.remove('open');
@@ -993,7 +1128,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     input.value=k.prompt; input.focus(); input.setSelectionRange(input.value.length,input.value.length); input.dispatchEvent(new Event('input'));
   }
   function renderSkills(){
-    const all=[...SKILLS, ...mySkills.map(k=>({...k, cat:'My skills', color:k.steps?'#5a2a2a':'#3a4252', icon:()=>k.steps?REC_SVG:ICONS.spark,
+    const all=[...SKILLS, ...mySkills.map(k=>({...k, cat:'My skills', color:k.steps?'#3a2a2a':'#3a3a3a', icon:()=>k.steps?REC_SVG:ICONS.spark,
       desc:k.steps?k.steps.join(' → '):k.prompt, mine:true}))];
     const tabs=$('skillTabs'); tabs.innerHTML='';
     ['All','Writing','Study','Coding','Mail','Productivity','My skills'].forEach(t=>{ const b=el('button',t===skillTab?'on':'',t); b.onclick=()=>{ skillTab=t; renderSkills(); }; tabs.appendChild(b); });
@@ -1001,7 +1136,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const list=all.filter(k=>(skillTab==='All'||k.cat===skillTab) && (k.name+' '+k.desc).toLowerCase().includes(q));
     if(!list.length) grid.appendChild(el('div','mailsubj',skillTab==='My skills'?(me?'No skills of your own yet — press ＋ Create.':'Sign in to create your own skills.'):'No skill matches.'));
     list.forEach(k=>{
-      const c=el('div','skill'), cv=el('div','cover'); cv.style.background='linear-gradient(135deg,'+k.color+',#11141b)';
+      const c=el('div','skill'), cv=el('div','cover'); cv.style.background='linear-gradient(135deg,'+k.color+',#1c1c1c)';
       cv.innerHTML=k.icon(); cv.appendChild(el('span',null,k.name));
       const b=el('div','sb'); b.appendChild(el('b',null,k.name)); b.appendChild(el('div',null,k.desc));
       b.appendChild(el('span','tag',k.cat)); b.appendChild(el('span','tag',k.steps?'Recorded · '+k.steps.length+' step'+(k.steps.length===1?'':'s'):k.mine?'Mine':'Built in'));
@@ -1053,7 +1188,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       instr: (sec['preferences & instructions']||[]).join('\n').slice(0,1000),
     };
   }
-  function openImport(){ $('impPaste').value=''; $('impGo').disabled=true; $('importModal').classList.add('open'); }
+  function openImport(){ $('impPaste').value=''; $('impLink').value=''; $('impLinkErr').textContent=''; $('impGo').disabled=true; $('importModal').classList.add('open'); }
   function doImport(){
     const x=parseImport($('impPaste').value.trim());
     if(x.nick) $('pfNick').value=x.nick; if(x.job) $('pfJob').value=x.job; if(x.about) $('pfAbout').value=x.about; if(x.instr) $('pfInstr').value=x.instr;
@@ -1062,32 +1197,115 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
 
   // ---- Library: your files, kept for you and reusable in any chat ----
+  // Text you can give the AI is kept in the list (and in your account when signed in). The file itself —
+  // pictures, audio, video, PDFs, anything — is kept on this device in IndexedDB.
+  const libDB=(()=>{ let p; return ()=>p||(p=new Promise((ok,bad)=>{ const r=indexedDB.open('cc_library_files',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('files'); r.onsuccess=()=>ok(r.result); r.onerror=()=>bad(r.error); })); })();
+  async function blobPut(id,blob){ const db=await libDB(); return new Promise((ok,bad)=>{ const t=db.transaction('files','readwrite'); t.objectStore('files').put(blob,id); t.oncomplete=()=>ok(); t.onerror=()=>bad(t.error); }); }
+  async function blobGet(id){ const db=await libDB(); return new Promise((ok,bad)=>{ const r=db.transaction('files').objectStore('files').get(id); r.onsuccess=()=>ok(r.result||null); r.onerror=()=>bad(r.error); }); }
+  async function blobDel(id){ const db=await libDB(); return new Promise((ok)=>{ const t=db.transaction('files','readwrite'); t.objectStore('files').delete(id); t.oncomplete=()=>ok(); t.onerror=()=>ok(); }); }
+  const newLibId=()=>'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const LIB_TABS=['All','Text & PDF','Websites','Slides','Games','Spreadsheets','Images','Videos','Audio','Mobile apps','Others'];
+  const svgPath=(d)=>`<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const KIND_ICONS={
+    'Text & PDF':'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>',
+    'Websites':'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/>',
+    'Slides':'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4"/><path d="M8 20h8"/>',
+    'Games':'<rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3"/><path d="M5.5 12.5h3"/><circle cx="16" cy="11.5" r=".8"/><circle cx="18" cy="13.5" r=".8"/>',
+    'Spreadsheets':'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>',
+    'Images':'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+    'Videos':'<rect x="2" y="5" width="15" height="14" rx="2"/><path d="m17 10 5-3v10l-5-3"/>',
+    'Audio':'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    'Mobile apps':'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
+    'Others':'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'};
+  function kindOf(f){
+    const n=f.name.toLowerCase(), m=f.mime||'';
+    if(/\.(apk|aab|ipa|xapk)$/.test(n)) return 'Mobile apps';
+    if(/game/.test(n) && /\.(html?|js)$/.test(n)) return 'Games';
+    if(m.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg|bmp|avif|heic)$/.test(n)) return 'Images';
+    if(m.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|oga|aac|flac|opus)$/.test(n) || (/audio/.test(n) && /\.mp4$/.test(n))) return 'Audio';
+    if(m.startsWith('video/') || /\.(mp4|mov|webm|mkv|avi|m4v)$/.test(n)) return 'Videos';
+    if(/\.(pptx?|key|odp)$/.test(n)) return 'Slides';
+    if(/\.(csv|tsv|xlsx?|ods|numbers)$/.test(n)) return 'Spreadsheets';
+    if(/\.(html?|css)$/.test(n)) return 'Websites';
+    if(/\.(txt|md|pdf|docx?|rtf|odt|log)$/.test(n)) return 'Text & PDF';
+    return 'Others';
+  }
+  const fmtSize=(n)=>n<1024?n+' B':n<1048576?Math.round(n/1024)+' KB':(n/1048576).toFixed(1)+' MB';
+  function trimLibrary(){ let t=0; library=library.filter(f=>{ if(f.text && !f.blob){ t++; return t<=30; } return true; }).slice(0,150); }
   function saveLibrary(){
     try{ localStorage.setItem(LKEY,JSON.stringify(library)); }catch{ toast('Your library is full on this device — delete a file.'); }
-    if(me) fetch('/api/library',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:library})}).catch(()=>{});
+    const texts=library.filter(f=>f.text).map(({id,name,text,added})=>({id,name,text,added}));
+    if(me) fetch('/api/library',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:texts})}).catch(()=>{});
   }
+  // From a chat: the text of attached files
   function addToLibrary(files){
     let added=0;
     for(const f of files){
-      if(!f?.text || /^\((An image|Could not)/.test(f.text) || library.some(x=>x.name===f.name && x.text.length===Math.min(f.text.length,40000))) continue;
-      library.unshift({id:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), name:f.name, text:f.text.slice(0,40000), added:Date.now()}); added++;
+      if(!f?.text || /^\((An image|Could not)/.test(f.text) || library.some(x=>x.name===f.name && x.text?.length===Math.min(f.text.length,40000))) continue;
+      library.unshift({id:newLibId(), name:f.name, text:f.text.slice(0,40000), added:Date.now()}); added++;
     }
-    library=library.slice(0,30); if(added) saveLibrary(); return added;
+    if(added){ trimLibrary(); saveLibrary(); } return added;
+  }
+  // From ＋ in the Library (or a picture attached in a chat): any kind of file
+  async function addFilesToLibrary(fileList){
+    let n=0;
+    for(const file of Array.from(fileList).slice(0,20)){
+      const pdf=/\.pdf$/i.test(file.name), readable=TEXTY.test(file.name)||pdf;
+      if(library.some(x=>x.name===file.name.slice(0,120) && x.size===file.size)) continue;
+      const item={id:newLibId(), name:file.name.slice(0,120), added:Date.now(), size:file.size, mime:file.type||''};
+      if(readable){ const r=await readFile(file); if(r.text && !/^\(Could not/.test(r.text)) item.text=r.text.slice(0,40000); }
+      if(!readable || pdf){
+        if(file.size>100*1048576){ toast(file.name+' is too big (100 MB max).'); continue; }
+        try{ await blobPut(item.id,file); item.blob=true; }catch{ toast('Could not keep '+file.name+' on this device.'); continue; }
+      }
+      if(!item.text && !item.blob) continue;
+      library.unshift(item); n++;
+    }
+    if(n){ trimLibrary(); saveLibrary(); }
+    return n;
   }
   function showLibrary(){ $('libPage').classList.add('open'); renderLibrary(); }
+  let libTab='All', libSort=0, libUrls=[], libView=(()=>{ try{ return localStorage.getItem('cc_libview')||'grid'; }catch{ return 'grid'; } })();
+  const LIB_SORTS=[['newest first',(a,b)=>b.added-a.added],['oldest first',(a,b)=>a.added-b.added],['name A–Z',(a,b)=>a.name.localeCompare(b.name)]];
   function renderLibrary(){
-    const q=$('libSearch').value.toLowerCase(), g=$('libGrid'); g.innerHTML='';
-    const list=library.filter(f=>f.name.toLowerCase().includes(q));
-    if(!list.length){ g.appendChild(el('div','mailsubj',q?'No file matches.':'No files yet — press ＋ Add files, or attach a file in any chat.')); return; }
-    list.forEach(f=>{
-      const c=el('div','item'), ic=el('span','plugico'); ic.innerHTML=ICONS.book;
-      const t=el('div','pt'); t.appendChild(el('b',null,f.name));
-      t.appendChild(el('span',null,(f.text.length<1000?f.text.length+' characters':Math.round(f.text.length/1000)+'k characters')+' · added '+new Date(f.added).toLocaleDateString('en-IN',{day:'numeric',month:'short'})));
-      const acts=el('div','acts'), use=el('button','msend','Use in chat'), del=el('button','mskip','Delete');
-      use.onclick=(e)=>{ e.stopPropagation(); pending.push({name:f.name,text:f.text}); renderFiles(); $('libPage').classList.remove('open'); input.focus(); toast(f.name+' is attached to your next message'); };
-      del.onclick=(e)=>{ e.stopPropagation(); if(del.dataset.sure){ library=library.filter(x=>x.id!==f.id); saveLibrary(); renderLibrary(); } else { del.dataset.sure='1'; del.textContent='Delete?'; } };
-      acts.append(use,del); t.appendChild(acts); c.append(ic,t); g.appendChild(c);
-    });
+    libUrls.forEach(u=>URL.revokeObjectURL(u)); libUrls=[];
+    const counts={}; library.forEach(f=>{ const k=kindOf(f); counts[k]=(counts[k]||0)+1; });
+    const tabs=$('libTabs'); tabs.innerHTML='';
+    LIB_TABS.forEach(t=>{ const b=el('button',t===libTab?'on':null,t), n=t==='All'?library.length:(counts[t]||0);
+      if(n) b.appendChild(el('i',null,String(n))); b.onclick=()=>{ libTab=t; renderLibrary(); }; tabs.appendChild(b); });
+    $('libGridBtn').classList.toggle('on',libView==='grid'); $('libListBtn').classList.toggle('on',libView==='list');
+    $('libSort').title='Sort: '+LIB_SORTS[libSort][0];
+    const q=$('libSearch').value.trim().toLowerCase(), g=$('libGrid'); g.innerHTML='';
+    const list=library.filter(f=>(libTab==='All'||kindOf(f)===libTab) && f.name.toLowerCase().includes(q)).sort(LIB_SORTS[libSort][1]);
+    g.className=libView==='grid'?'libgrid':'liblist';
+    if(!list.length){ g.className=''; g.appendChild(el('div','libempty', q?'No file matches your search.' : libTab==='All'
+      ?'Nothing here yet. Press ＋ to add files — documents, pictures, audio, video, anything. Files you attach in a chat are kept here too.'
+      :`No ${libTab.toLowerCase()} yet. Press ＋ to add some.`)); return; }
+    list.forEach(f=>g.appendChild(libCard(f)));
+  }
+  function libCard(f){
+    const k=kindOf(f), c=el('div','libcard'), th=el('div','libthumb'), m=el('div','libmeta');
+    th.innerHTML=svgPath(KIND_ICONS[k]);
+    if(f.blob && k==='Images') blobGet(f.id).then(b=>{ if(!b) return; const u=URL.createObjectURL(b); libUrls.push(u); const img=new Image(); img.alt=''; img.src=u; th.replaceChildren(img); }).catch(()=>{});
+    const size=f.size?fmtSize(f.size):(f.text.length<1000?f.text.length+' characters':Math.round(f.text.length/1000)+'k characters');
+    m.append(el('b',null,f.name), el('span',null,[k,size,new Date(f.added).toLocaleDateString('en-IN',{day:'numeric',month:'short'})].join(' · ')));
+    const acts=el('div','libacts');
+    if(f.text){ const use=el('button',null,'Use in chat'); use.onclick=(e)=>{ e.stopPropagation(); pending.push({name:f.name,text:f.text}); renderFiles(); $('libPage').classList.remove('open'); input.focus(); toast(f.name+' is attached to your next message'); }; acts.appendChild(use); }
+    if(f.blob){ const dl=el('button',null,'Download'); dl.onclick=async(e)=>{ e.stopPropagation(); const b=await blobGet(f.id).catch(()=>null); if(!b) return toast('That file is not on this device.');
+      const u=URL.createObjectURL(b), a=el('a'); a.href=u; a.download=f.name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),4000); }; acts.appendChild(dl); }
+    const del=el('button',null,'Delete');
+    del.onclick=(e)=>{ e.stopPropagation(); if(del.dataset.sure){ library=library.filter(x=>x.id!==f.id); if(f.blob) blobDel(f.id); saveLibrary(); renderLibrary(); } else { del.dataset.sure='1'; del.textContent='Delete?'; } };
+    acts.appendChild(del); m.appendChild(acts);
+    c.onclick=()=>openLibFile(f); c.title='Open '+f.name;
+    c.append(th,m); return c;
+  }
+  // Open in a new tab. Web pages and SVGs open as plain text so a file can never run code inside the app.
+  async function openLibFile(f){
+    let b=f.blob ? await blobGet(f.id).catch(()=>null) : new Blob([f.text],{type:'text/plain;charset=utf-8'});
+    if(!b) return toast('That file is not on this device.');
+    if(/html|svg|xml|javascript/i.test(b.type) || /\.(html?|svg|xml|xhtml|js)$/i.test(f.name)) b=new Blob([b],{type:'text/plain;charset=utf-8'});
+    const u=URL.createObjectURL(b); window.open(u,'_blank','noopener'); setTimeout(()=>URL.revokeObjectURL(u),60000);
   }
   // Signed in: merge this device's profile + library with your account's (the account wins on profile).
   async function syncProfileAndLibrary(){
@@ -1096,11 +1314,11 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       if(Object.values(pr).some(Boolean)){ profile=pr; try{ localStorage.setItem(PKEY,JSON.stringify(profile)); }catch{} }
       else if(Object.values(profile).some(Boolean)) fetch('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})}).catch(()=>{});
       const lib=(await (await fetch('/api/library')).json()).files||[];
-      const before=library.length; const merged=[...lib];
-      for(const f of library) if(!merged.some(x=>x.name===f.name && x.text.length===f.text.length)) merged.push(f);
-      library=merged.sort((a,b)=>b.added-a.added).slice(0,30);
+      const before=library.length, merged=[...library];   // this device's copy wins (it may also hold the file itself)
+      for(const x of lib) if(!merged.some(f=>f.id===x.id || (f.name===x.name && f.text?.length===x.text?.length))) merged.push(x);
+      library=merged.sort((a,b)=>b.added-a.added); trimLibrary();
       try{ localStorage.setItem(LKEY,JSON.stringify(library)); }catch{}
-      if(library.length!==lib.length || before!==library.length) saveLibrary();
+      if(library.filter(f=>f.text).length!==lib.length || before!==library.length) saveLibrary();
       renderProfile();
     }catch{}
   }
@@ -1194,6 +1412,19 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   $('impClose').onclick=()=>$('importModal').classList.remove('open'); $('impCancel').onclick=()=>$('importModal').classList.remove('open');
   $('impPaste').oninput=()=>{ $('impGo').disabled=!$('impPaste').value.trim(); };
   $('impGo').onclick=doImport;
+  $('impLinkGo').onclick=async()=>{
+    const url=$('impLink').value.trim(), err=$('impLinkErr'), b=$('impLinkGo'); err.style.color=''; err.textContent='';
+    if(!/^https:\/\/\S+$/i.test(url)){ err.textContent='Paste a share link that starts with https://'; return; }
+    b.disabled=true; b.textContent='Reading…';
+    try{
+      const r=await fetch('/api/import-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+      const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'Could not read that link.');
+      $('impPaste').value=d.text; $('impGo').disabled=false;
+      if(d.structured){ err.style.color='#7bd88f'; err.textContent='Got it — check the text below, then press Import.'; }
+      else err.textContent='I read that page but could not find the memory sections in it. Check the text below before you import.';
+    }catch(e){ err.textContent=e.message; }
+    b.disabled=false; b.textContent='Get it';
+  };
   $('impCopy').onclick=async()=>{
     const t=$('impPrompt').value;
     try{ await navigator.clipboard.writeText(t); }catch{ $('impPrompt').select(); document.execCommand('copy'); }
@@ -1201,8 +1432,13 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   };
   $('libClose').onclick=()=>$('libPage').classList.remove('open'); $('libSearch').oninput=renderLibrary;
   $('libAdd').onclick=()=>$('libInput').click();
-  $('libInput').onchange=async(e)=>{ const got=[]; for(const f of Array.from(e.target.files).slice(0,10)) got.push(await readFile(f)); e.target.value='';
-    const n=addToLibrary(got); renderLibrary(); toast(n?n+' file'+(n===1?'':'s')+' added to your Library':'Those files are already in your Library.'); };
+  async function libAddAndShow(files){ const n=await addFilesToLibrary(files); renderLibrary(); toast(n?n+' file'+(n===1?'':'s')+' added to your Library':'Those files are already in your Library.'); }
+  $('libInput').onchange=async(e)=>{ const files=Array.from(e.target.files); e.target.value=''; await libAddAndShow(files); };
+  $('libPage').ondragover=(e)=>e.preventDefault();
+  $('libPage').ondrop=(e)=>{ e.preventDefault(); if(e.dataTransfer?.files?.length) libAddAndShow(e.dataTransfer.files); };
+  $('libSort').onclick=()=>{ libSort=(libSort+1)%LIB_SORTS.length; renderLibrary(); toast('Sorted: '+LIB_SORTS[libSort][0]); };
+  const setLibView=(v)=>{ libView=v; try{ localStorage.setItem('cc_libview',v); }catch{} renderLibrary(); };
+  $('libGridBtn').onclick=()=>setLibView('grid'); $('libListBtn').onclick=()=>setLibView('list');
   $('createClose').onclick=()=>$('createPage').classList.remove('open'); $('createSearch').oninput=renderCreations;
   $('skillRec').onclick=startRecording;
   $('recClose').onclick=()=>$('recModal').classList.remove('open'); $('recSave').onclick=saveRecording;
@@ -1248,7 +1484,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault();
       if(open){ const first=$('slash').querySelector('.slashrow'); if(first){ runCommand(first.dataset.cmd); return; } }
       send(); } });
-  input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px';
+  input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px'; sendBtn.classList.toggle('ready',!!input.value.trim());
     const v=input.value; if(v.startsWith('/')&&!v.includes(' ')) slashRender(v); else slashHide(); });
 
   // ---- mail (mom's idea): when you open the app, the AI tells you how many mails came today,
