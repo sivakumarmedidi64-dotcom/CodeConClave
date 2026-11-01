@@ -209,6 +209,8 @@ const RUDE = /\b(you(?:'re| are)?|u|ur|this (?:bot|ai|thing))\b[^.?!]{0,25}\b(st
 const ROMANCE = /\b(girlfriend|boyfriend|marry me|date me|kiss me|sex|sexy|romantic|be mine)\b/i;
 const ABOUT_FEELINGS = /\b(do|are|can|will|did|have|what|how|why|when)\b[^.?!]{0,15}\byou\b[^.?!]{0,20}\b(feel|feelings?|emotions?|love|angry|anger|mad|sad|happy|cry|jealous|afraid|scared|lonely)\b|\bhow are (you|u)\b/i;
 const CONTACT = /\b(contact|reach|e-?mail|mail|talk to|message)\b[^.?!]{0,30}\b(founder|creator|owner|saharsh|maker)\b|\b(founder|creator|saharsh)('?s)?\s+(e-?mail|contact|mail id|address)\b/i;
+// "what do you know about me?" - the small model ignores the profile in the background unless asked to use it here.
+const ABOUT_ME = /\b(what do you know about me|who am i|tell me about (me|myself)|do you (know|remember) (me|anything about me|my)|what('?s| is) my (name|job|work|occupation|hobby|hobbies|favourite))\b/i;
 const ABOUT_SELF = /\b(who (made|created|built|owns|developed) you|your (founder|creator|maker|owner|boss)|contact (your )?(founder|creator)|who is saharsh|are you (a )?(human|real|person|robot|bot|chatgpt|gpt|gemini|claude))\b/i;
 // The model stepping out of character ("As an AI language model…", "I do not have feelings").
 const PERSONA_SLIP = /language model|computer program|\b(cannot|can't|can not|unable to) (love|feel)\b|\b(do not|don't|cannot|can't) (have|feel|experience)\b[^.]{0,20}\b(feelings|emotions|love)\b|\bnot capable of (love|feelings|emotions)|\b(cannot|can't|can not) answer that\b|not appropriate to ask/i;
@@ -218,7 +220,7 @@ function moodGuard(text) {
   if (RUDE.test(text)) return { test: (t) => PERSONA_SLIP.test(t) || !/(angry|hurt|annoyed|upset|😠)/i.test(t), again: 'Remember: say honestly that it hurt and makes you a little angry 😠.' };
   return moodHint(text) ? { test: (t) => PERSONA_SLIP.test(t), again: 'Remember: you DO have feelings. Answer warmly as CodeConClave AI.' } : null;
 }
-function moodHint(text) {
+function moodHint(text, facts = '') {
   if (ROMANCE.test(text)) {
     return 'The user wants romance. Answer warmly, like: "Aww, that\'s sweet ❤️ I really care about you, but I am your AI friend, not a partner, so no romantic or sexual chat. I am always here to talk though!" Never say you cannot feel.';
   }
@@ -227,6 +229,12 @@ function moodHint(text) {
   }
   if (CONTACT.test(text)) {
     return 'The user wants to contact your founder. Give his email, like: "You can reach my founder Saharsh Medidi at medidisaharsh@gmail.com 😊".';
+  }
+  if (ABOUT_ME.test(text)) {
+    // The facts go right here: from the background alone the small model mixed up "my name" with its own name.
+    return facts
+      ? `The user is asking about THEMSELVES, not about you. What you know about them:\n${facts}\nAnswer their question from these facts, speaking to them as "you" (e.g. "Your name is …"). Never call yourself a language model.`
+      : 'The user is asking about themselves, but you know nothing about them yet. Say so kindly, and that they can tell you or fill in Personalization (bottom-left).';
   }
   if (ABOUT_SELF.test(text)) {
     return 'Answer as CodeConClave AI: you were made by your founder Saharsh Medidi (his email is medidisaharsh@gmail.com - share it if asked how to contact him), ' +
@@ -672,7 +680,8 @@ async function chatHandler(req, res) {
 
   // Memory the user asked us to keep (sent from the browser).
   const memory = typeof req.body?.memory === 'string' ? req.body.memory.slice(0, 2000).trim() : '';
-  const sys = memory ? `${SYSTEM}\n\nWhat you know about this user (remember and use it):\n${memory}` : SYSTEM;
+  const sys = [SYSTEM, profileText(req.body?.profile), memory ? `What you know about this user (remember and use it):\n${memory}` : '']
+    .filter(Boolean).join('\n\n');
 
   // Attached files (already turned to text in the browser).
   const files = Array.isArray(req.body?.files) ? req.body.files.slice(0, 5) : [];
@@ -760,7 +769,7 @@ async function chatHandler(req, res) {
   }
   // "my name is…", "remember that…", "ok", "cool" aren't questions; without a hint the small
   // model re-answers the previous question instead of replying to what was actually said.
-  const hint = ev || found ? '' : moodHint(lastUser) ||
+  const hint = ev || found ? '' : moodHint(lastUser, [profileText(req.body?.profile), memory].filter(Boolean).join('\n')) ||
     (plan.action === 'remember'
       ? 'The user is telling you something about themselves to remember - this is not a question. Reply in one short, friendly sentence that confirms you will remember it.'
     :
@@ -815,6 +824,12 @@ async function chatHandler(req, res) {
 const TICK = (process.env.TICK_SECRET || '').trim();
 const AUTO_CHAT = 'automations';
 
+// "every day at 8 am" -> a schedule (used when scheduling a skill from its settings).
+app.post('/api/parse-schedule', (req, res) => {
+  const schedule = parseSchedule(String(req.body?.text || '').slice(0, 200));
+  res.json(schedule ? { schedule, when: describeSchedule(schedule) } : { schedule: null });
+});
+
 app.get('/api/automations', wrap(async (req, res) => {
   if (needUser(req, res)) return;
   const list = await store.listAutomations(req.user.id);
@@ -824,12 +839,13 @@ app.post('/api/automations', wrap(async (req, res) => {
   if (needUser(req, res)) return;
   const schedule = cleanSchedule(req.body?.schedule);
   const task = String(req.body?.task || '').trim().slice(0, 300);
+  const steps = Array.isArray(req.body?.steps) ? req.body.steps.map((x) => String(x || '').trim().slice(0, 500)).filter(Boolean).slice(0, 10) : null;
   if (!schedule || !task) return res.status(400).json({ error: 'That automation is missing its time or its task.' });
   if (await store.countAutomations(req.user.id) >= 20) return res.status(400).json({ error: 'You can have up to 20 automations — delete one first.' });
   const at = nextRun(schedule);
   if (!at) return res.status(400).json({ error: 'That time has already passed.' });
   const id = `a${crypto.randomBytes(6).toString('hex')}`;
-  await store.createAutomation(req.user.id, { id, task, schedule, nextRun: at });
+  await store.createAutomation(req.user.id, { id, task, schedule, nextRun: at, steps: steps?.length ? steps : null });
   res.json({ ok: true, id, when: describeSchedule(schedule), next: describeWhen(at) });
 }));
 app.patch('/api/automations/:id', wrap(async (req, res) => {
@@ -849,13 +865,13 @@ app.delete('/api/automations/:id', wrap(async (req, res) => {
 }));
 
 // Run the chat agent with no browser: feed it the task, collect what it would have streamed.
-function runChatOffline(user, task, memory) {
+function runChatOffline(user, task, memory, profile) {
   return new Promise((resolve) => {
     const events = [];
     let buf = '';
     const timer = setTimeout(() => resolve([...events, { error: 'It took too long (my model may be busy).' }]), 5 * 60000);
     const done = () => { clearTimeout(timer); resolve(events); };
-    const req = { body: { messages: [{ role: 'user', content: task }], memory: memory.join('\n') }, user, automationRun: true, get: () => '', headers: {}, ip: 'automation' };
+    const req = { body: { messages: [{ role: 'user', content: task }], memory: memory.join('\n'), profile }, user, automationRun: true, get: () => '', headers: {}, ip: 'automation' };
     const res = {
       headersSent: false, setHeader() {}, flushHeaders() {}, append() {}, status() { return this; },
       json(o) { events.push({ error: o?.error || 'It could not run.' }); done(); },
@@ -882,15 +898,16 @@ async function runAutomation(a) {
   const once = a.schedule.type === 'once';
   await store.updateAutomation(a.userId, a.id, { nextRun: once ? null : nextRun(a.schedule), ...(once ? { enabled: false } : {}) });
   const header = `Automation · ${describeSchedule(a.schedule)} · ${a.task}`;
-  let msg;
-  const remind = a.task.match(/^\s*remind me\s+(?:to\s+|that\s+|about\s+)?(.+)$/i);
-  if (remind) {
-    msg = { role: 'assistant', content: `⏰ Reminder: ${remind[1]}`, thought: header }; // needs no model - works even when it is offline
-  } else {
-    const events = await runChatOffline(user, a.task, await store.getMemory(a.userId));
+  const memory = await store.getMemory(a.userId), profile = await store.getPref(a.userId, 'profile');
+  const msgs = [];
+  for (const [i, step] of (a.steps?.length ? a.steps : [a.task]).entries()) {
+    const title = a.steps?.length ? `${header} · step ${i + 1}/${a.steps.length}: ${step}` : header;
+    const remind = step.match(/^\s*remind me\s+(?:to\s+|that\s+|about\s+)?(.+)$/i);
+    if (remind) { msgs.push({ role: 'assistant', content: `⏰ Reminder: ${remind[1]}`, thought: title }); continue; } // needs no model - works even when it is offline
+    const events = await runChatOffline(user, step, memory, profile);
     const err = events.find((e) => e.error)?.error;
     const text = events.map((e) => e.delta || '').join('');
-    msg = { role: 'assistant', content: text || (err ? `I couldn't do this one: ${err}` : '(no answer)'), thought: header };
+    const msg = { role: 'assistant', content: text || (err ? `I couldn't do this one: ${err}` : '(no answer)'), thought: title };
     const steps = events.filter((e) => e.step).map((e) => e.step);
     if (steps.length) msg.steps = steps;
     const list = events.find((e) => e.mailList)?.mailList;
@@ -898,14 +915,15 @@ async function runAutomation(a) {
     const card = events.find((e) => e.card)?.card;
     if (card) msg.card = card;
     if (err && !text) msg.failed = true;
+    msgs.push(msg);
   }
   // Deliver it into your Automations chat (your browser picks it up and plays the guitar cue).
   const chats = await store.listChats(a.userId);
   const chat = chats.find((c) => c.id === AUTO_CHAT) || { id: AUTO_CHAT, title: 'Automations', messages: [] };
-  if (msg.card) msg.pending = `m${chat.messages.length}`;
-  chat.messages = [...chat.messages, msg].slice(-200);
+  for (const m of msgs) { if (m.card) m.pending = `m${chat.messages.length}`; chat.messages.push(m); }
+  chat.messages = chat.messages.slice(-200);
   await store.putChat(a.userId, { id: AUTO_CHAT, title: 'Automations', messages: chat.messages, updated: Date.now() });
-  await store.updateAutomation(a.userId, a.id, { lastRun: Date.now(), lastStatus: msg.failed ? 'failed' : 'ok' });
+  await store.updateAutomation(a.userId, a.id, { lastRun: Date.now(), lastStatus: msgs.some((m) => m.failed) ? 'failed' : 'ok' });
 }
 
 let ticking = false;
@@ -1226,9 +1244,45 @@ app.get('/api/skills', wrap(async (req, res) => {
 app.put('/api/skills', wrap(async (req, res) => {
   if (needUser(req, res)) return;
   const skills = (Array.isArray(req.body?.skills) ? req.body.skills : []).slice(0, 30)
-    .map((k) => ({ id: String(k?.id || '').slice(0, 40), name: String(k?.name || '').trim().slice(0, 40), prompt: String(k?.prompt || '').trim().slice(0, 1000) }))
-    .filter((k) => /^[\w-]+$/.test(k.id) && k.name && k.prompt);
+    .map((k) => ({ id: String(k?.id || '').slice(0, 40), name: String(k?.name || '').trim().slice(0, 40), prompt: String(k?.prompt || '').trim().slice(0, 1000),
+      ...(Array.isArray(k?.steps) ? { steps: k.steps.map((x) => String(x || '').trim().slice(0, 500)).filter(Boolean).slice(0, 10) } : {}) }))
+    .filter((k) => /^[\w-]+$/.test(k.id) && k.name && (k.prompt || k.steps?.length));
   await store.putPref(req.user.id, 'skills', skills);
+  res.json({ ok: true });
+}));
+
+// ---- Personalization: your profile (Personalization page) and your Library (files reused in any chat) ----
+const clip = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
+function cleanProfile(p) {
+  p = p && typeof p === 'object' ? p : {};
+  return { nickname: clip(p.nickname, 40), occupation: clip(p.occupation, 80), about: String(p.about || '').trim().slice(0, 2000), instructions: String(p.instructions || '').trim().slice(0, 1000) };
+}
+// Only a short version goes to the model: every word here is reading time on every message.
+function profileText(p) {
+  const x = cleanProfile(p);
+  return [x.nickname && `The user likes to be called ${x.nickname}.`, x.occupation && `The user's work: ${x.occupation}.`,
+    x.about && `About the user: ${clip(x.about, 700)}`,
+    x.instructions && `The user's standing instructions (follow them; you stay CodeConClave AI): ${clip(x.instructions, 400)}`].filter(Boolean).join('\n');
+}
+app.get('/api/profile', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  res.json({ profile: cleanProfile(await store.getPref(req.user.id, 'profile')) });
+}));
+app.put('/api/profile', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  await store.putPref(req.user.id, 'profile', cleanProfile(req.body?.profile));
+  res.json({ ok: true });
+}));
+app.get('/api/library', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  res.json({ files: (await store.getPref(req.user.id, 'library')) || [] });
+}));
+app.put('/api/library', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const files = (Array.isArray(req.body?.files) ? req.body.files : []).slice(0, 30)
+    .map((f) => ({ id: String(f?.id || '').slice(0, 40), name: String(f?.name || '').trim().slice(0, 120), text: String(f?.text || '').slice(0, 40000), added: Number(f?.added) || Date.now() }))
+    .filter((f) => /^[\w-]+$/.test(f.id) && f.name);
+  await store.putPref(req.user.id, 'library', files);
   res.json({ ok: true });
 }));
 

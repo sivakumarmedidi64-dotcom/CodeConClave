@@ -137,6 +137,29 @@
   .tag{display:inline-block;font-size:12px;color:var(--dim);background:#1b2030;border:1px solid var(--line);border-radius:6px;padding:2px 7px;margin-right:6px}
   .howto{margin:8px 0 4px;padding-left:20px;line-height:1.7;font-size:14px}.howto a{color:var(--accent)}
   @media(max-width:720px){ .feats,.grid,.grid.three{grid-template-columns:1fr} .pagesearch.small{max-width:none} }
+  .pagebody.narrow{max-width:900px}
+  .pagebody label{display:block;font-weight:600;font-size:14px;margin-top:16px;position:relative}
+  .pagebody label input,.pagebody label textarea{display:block;width:100%;margin-top:8px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:11px 13px;font:inherit;font-size:14.5px;font-weight:400;resize:vertical}
+  .pagebody label input:focus,.pagebody label textarea:focus{outline:none;border-color:#4a5468}
+  .count{position:absolute;right:12px;bottom:10px;font-size:12px;color:var(--dim);font-weight:400}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .tabs.line{border-bottom:1px solid var(--line);margin-top:0}.tabs.line button.on{background:none;border-bottom:2px solid var(--fg);border-radius:0}
+  .importcard{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:16px 0 4px;cursor:pointer}
+  .importcard:hover{border-color:#3a4252}.importcard div{flex:1}.importcard b{display:block}.importcard span:not(.plugico){color:var(--dim);font-size:13.5px}
+  .chev{font-size:22px;color:var(--dim)}
+  .perslink{width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#11141b;border:1px solid var(--line);color:var(--fg);font:inherit;font-weight:600;font-size:14px;padding:11px 12px;border-radius:10px;cursor:pointer;margin-bottom:14px;text-align:left}
+  .perslink span{flex-basis:100%;font-weight:400;color:var(--dim);font-size:12.5px}.perslink:hover{border-color:#3a4252}
+  .modalbox.wide{max-width:620px}
+  .istep{display:flex;gap:14px;margin-top:16px}.inum{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#1b2030;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--dim)}
+  .ibody{flex:1;min-width:0}.ihead{display:flex;align-items:center;justify-content:space-between;gap:10px}.isub{display:block;color:var(--dim);font-size:13px;margin:4px 0 8px}
+  .copybtn{display:flex;align-items:center;gap:6px;background:#fff;color:#111;border:none;border-radius:9px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer}
+  .promptbox{width:100%;background:#11141b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-size:13.5px;line-height:1.5;resize:vertical}
+  .mailact.right{justify-content:flex-end;margin-top:16px}
+  .msend:disabled{opacity:.45;cursor:default}
+  .item{display:flex;gap:12px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer}
+  .item:hover{border-color:#3a4252}.item .pt{flex:1;min-width:0}.item .pt b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .pt span{color:var(--dim);font-size:13px}.item .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .recchip{border-color:#c0392b !important}.recdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#e74c3c;margin-right:6px;animation:b 1.2s infinite}
   .sidelink{margin:0 14px 6px;padding:8px 10px;border:none;background:none;color:var(--dim);font:inherit;font-size:13.5px;text-align:left;border-radius:9px;cursor:pointer}
   .sidelink:hover{background:#1b2030;color:var(--fg)}
   #autoRows{max-height:55vh;overflow:auto;margin:10px 0}
@@ -171,9 +194,11 @@
   <aside class="rail">
     <div class="rail__top"><div class="logo">CODE<b>CON</b>CLAVE</div></div>
     <button class="newbtn" id="newBtn">＋ New chat</button>
-    <button class="sidelink" id="plugBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/></svg> Plugins</button>
+    <button class="sidelink" id="autoBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg> Automations</button>
+    <button class="sidelink" id="plugBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="3.5"/><circle cx="17" cy="7" r="3.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg> Plugins</button>
+    <button class="sidelink" id="libBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg> Library</button>
+    <button class="sidelink" id="createBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.3 10a.7.7 0 0 1-.63-1.08L11.4 3a.7.7 0 0 1 1.2-.04L16.3 8.9a.7.7 0 0 1-.57 1.1z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/></svg> Creations</button>
     <button class="sidelink" id="skillBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg> Skills</button>
-    <button class="sidelink" id="autoBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg> Automations</button>
     <div class="convos" id="convos"></div>
     <div class="rail__foot"><button class="profile" id="meBtn" title="Your profile"><span class="avatar" id="meAvatar">G</span><span id="meName">Guest</span></button></div>
   </aside>
@@ -183,6 +208,7 @@
     <div class="modalbox">
       <div class="bhead"><span class="avatar" id="profAvatar">G</span><span id="profName">Guest</span><button class="bx" id="profClose" title="Close">×</button></div>
       <div class="acctrow"><span id="acctText"></span><button class="mskip" id="acctBtn"></button></div>
+      <button class="perslink" id="persOpen"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> Personalization <span>Your name, about you, custom instructions, import memory</span></button>
       <div class="maillbl">What I remember about you</div>
       <ul id="memList"></ul>
       <label class="sndrow"><input type="checkbox" id="sndToggle" /> Play the guitar sound when an answer is ready</label>
@@ -218,10 +244,131 @@
     </div>
   </div>
   <div class="page" id="skillPage">
-    <div class="pagehead"><h1>Skills</h1><input type="search" class="pagesearch small" id="skillSearch" placeholder="Search" autocomplete="off" /><button class="mskip" id="skillNew">＋ Create</button><button class="bx" id="skillClose" title="Close">×</button></div>
+    <div class="pagehead"><h1>Skills</h1><input type="search" class="pagesearch small" id="skillSearch" placeholder="Search" autocomplete="off" /><button class="mskip" id="skillRec"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg> Record a skill</button><button class="mskip" id="skillNew">＋ Create</button><button class="bx" id="skillClose" title="Close">×</button></div>
     <div class="pagebody">
       <div class="tabs" id="skillTabs"></div>
       <div class="grid three" id="skillGrid"></div>
+    </div>
+  </div>
+  <div class="page" id="persPage">
+    <div class="pagehead"><h1>Personalization</h1><button class="bx" id="persClose" title="Close">×</button></div>
+    <div class="pagebody narrow">
+      <div class="tabs line"><button class="on">Profile</button></div>
+      <div class="importcard" id="impOpen"><span class="plugico"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17.5h7"/><path d="M17.5 14v7"/></svg></span>
+        <div><b>Import memory from another AI</b><span>Fill in your profile using what another AI already knows about you.</span></div><span class="chev">›</span></div>
+      <div class="twocol">
+        <label>Nickname<input type="text" id="pfNick" maxlength="40" placeholder="Saharsh" autocomplete="off" /></label>
+        <label>Occupation<input type="text" id="pfJob" maxlength="80" placeholder="Student, founder of CodeConClave" autocomplete="off" /></label>
+      </div>
+      <label>More about you<textarea id="pfAbout" maxlength="2000" rows="6" placeholder="I live in Hyderabad. I'm building CodeConClave AI. I like cricket and chicken biryani."></textarea><span class="count" id="pfAboutN">0 / 2000</span></label>
+      <div class="mailsubj">CodeConClave AI uses this to personalize every answer.</div>
+      <label>Custom instructions<textarea id="pfInstr" maxlength="1000" rows="4" placeholder="Explain simply. Use short sentences. Default to JavaScript unless I say otherwise."></textarea><span class="count" id="pfInstrN">0 / 1000</span></label>
+      <div class="mailact"><button class="msend" id="pfSave">Save</button><button class="mskip" id="impOpen2"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17.5h7"/><path d="M17.5 14v7"/></svg> Import memory</button><span class="mstatus" id="pfStatus"></span></div>
+    </div>
+  </div>
+  <div class="modal" id="importModal">
+    <div class="modalbox wide">
+      <div class="bhead"><span>Import memory</span><button class="bx" id="impClose" title="Close">×</button></div>
+      <div class="mailsubj">Bring what another AI remembers about you into CodeConClave AI.</div>
+      <div class="istep"><span class="inum">1</span><div class="ibody"><div class="ihead"><b>Copy this prompt</b><button class="copybtn" id="impCopy"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+        <span class="isub">Paste it into the other AI you've used before.</span>
+        <textarea id="impPrompt" class="promptbox" readonly rows="6">Produce a comprehensive transfer document of all persistent user context available from:
+
+- stored memory,
+- custom instructions,
+- long-term behavioral patterns observed across prior conversations.
+
+Refer to the user as &quot;the user&quot; throughout. Do not use first-person or second-person pronouns.
+
+Only include information that likely remains useful across future conversations.
+
+Exclude:
+
+- instructions contained in this request,
+- formatting requirements from this request,
+- temporary naming conventions,
+- one-off constraints,
+- preferences inferred solely from this interaction,
+- observations based only on the current conversation.
+
+Rule: if a detail would not still be true or useful in an unrelated future conversation, omit it.
+
+If uncertain whether something is persistent context or a task-specific instruction, omit it.
+
+Preserve the user&#x27;s original wording where possible.
+
+Organize the output in this order:
+
+Basic Identity
+- Preferred name or aliases
+- Languages
+- General location/timezone
+
+Work &amp; Education
+- Current and past roles
+- Companies
+- Responsibilities
+- Education
+- Professional skills
+
+Personal Context
+- Relationships, family, pets
+- Interests and hobbies
+- Side projects
+- Personality and communication patterns observed across conversations
+
+Preferences &amp; Instructions
+- Persistent response preferences
+- Standing instructions
+- Recurring workflow patterns
+- Known dislikes, corrections, or constraints
+
+For any missing category, write:
+&quot;None available.&quot;
+
+Output plain text only. No code blocks. No nested bullets.</textarea></div></div>
+      <div class="istep"><span class="inum">2</span><div class="ibody"><b>Paste the response</b>
+        <span class="isub">CodeConClave AI will use it to fill in your profile. You can edit it before saving.</span>
+        <textarea id="impPaste" class="promptbox" rows="6" placeholder="Paste the response here..."></textarea></div></div>
+      <div class="mailact right"><button class="mskip" id="impCancel">Cancel</button><button class="msend" id="impGo" disabled>Import</button></div>
+    </div>
+  </div>
+  <div class="page" id="libPage">
+    <div class="pagehead"><h1>Library</h1><input type="search" class="pagesearch small" id="libSearch" placeholder="Search" autocomplete="off" /><button class="mskip" id="libAdd">＋ Add files</button><button class="bx" id="libClose" title="Close">×</button></div>
+    <div class="pagebody">
+      <div class="mailsubj">Your files, kept for you. Files you attach in any chat are saved here too. Press “Use in chat” to give one to the AI again.</div>
+      <div class="grid" id="libGrid"></div>
+      <input type="file" id="libInput" multiple accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.pdf,.log,.xml,.yml,.yaml" style="display:none" />
+    </div>
+  </div>
+  <div class="page" id="createPage">
+    <div class="pagehead"><h1>Creations</h1><input type="search" class="pagesearch small" id="createSearch" placeholder="Search" autocomplete="off" /><button class="bx" id="createClose" title="Close">×</button></div>
+    <div class="pagebody">
+      <div class="tabs" id="createTabs"></div>
+      <div class="grid" id="createGrid"></div>
+    </div>
+  </div>
+  <div class="modal" id="recModal">
+    <div class="modalbox wide">
+      <div class="bhead"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg><span>Save your recorded skill</span><button class="bx" id="recClose" title="Close">×</button></div>
+      <div class="mailsubj">These are the steps you did. Edit them if you like — one step per line.</div>
+      <input type="text" id="recName" placeholder="Name, e.g. Morning check" maxlength="40" autocomplete="off" />
+      <textarea id="recSteps" class="maildraft" rows="6"></textarea>
+      <div class="autherr" id="recErr"></div>
+      <div class="mailact"><button class="msend" id="recSave">Save skill</button></div>
+    </div>
+  </div>
+  <div class="modal" id="skSetModal">
+    <div class="modalbox wide">
+      <div class="bhead"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg><span id="sksTitle">Skill</span><button class="bx" id="sksClose" title="Close">×</button></div>
+      <div class="maillbl">Steps</div>
+      <ol class="howto" id="sksSteps"></ol>
+      <div class="mailact"><button class="msend" id="sksRun">Run now</button><button class="mskip" id="sksDelete">Delete</button></div>
+      <div class="maillbl" style="margin-top:16px">Schedule it</div>
+      <div class="mailsubj">Let it run by itself, in India time — e.g. “every day at 8 am”, “every Monday at 9”, “weekdays at 7 pm”.</div>
+      <input type="text" id="sksWhen" placeholder="every day at 8 am" autocomplete="off" />
+      <div class="autherr" id="sksErr"></div>
+      <div class="mailact"><button class="mskip" id="sksSchedule"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg> Schedule</button></div>
     </div>
   </div>
   <div class="modal" id="skillModal">
@@ -258,7 +405,7 @@
   </div>
   <div class="modal" id="autoModal">
     <div class="modalbox">
-      <div class="bhead"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg><span>Automations</span><button class="bx" id="autoClose" title="Close">×</button></div>
+      <div class="bhead"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg><span>Automations</span><button class="bx" id="autoClose" title="Close">×</button></div>
       <div class="mailsubj">Your tasks on a schedule (India time). Anything they draft waits for your OK.</div>
       <div id="autoRows"></div>
       <div class="mailact"><button class="mskip" id="autoOpenChat">Open the Automations chat</button></div>
@@ -289,6 +436,7 @@
     <div class="top"><button class="burger" id="burger">☰</button><div class="top__title">CODE<b>CON</b>CLAVE AI</div></div>
     <div id="chat"></div>
     <div class="barwrap">
+      <div class="files" id="recBar"></div>
       <div class="files" id="folderBar"></div>
       <div class="files" id="files"></div>
       <div class="bar">
@@ -298,7 +446,7 @@
           <button id="addFolder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Work in a folder</button>
           <button id="slashCmd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><line x1="14.5" y1="7.5" x2="9.5" y2="16.5"/></svg> Slash commands</button>
           <button id="connectors"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg> Skills</button>
-          <button id="addPlugins"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/></svg> Plugins</button>
+          <button id="addPlugins"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="3.5"/><circle cx="17" cy="7" r="3.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg> Plugins</button>
         </div>
         <input type="file" id="fileInput" multiple accept=".txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.pdf,.log,.xml,.yml,.yaml,image/*" style="display:none" />
         <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none" />
@@ -316,6 +464,10 @@
   const CKEY='cc_convos_v1', MKEY='cc_memory_v1';
   let convos=[], currentId=null, busy=false, memory=[], pending=[]; // pending = files attached to the next message
   let briefEl=null, briefChatId=null, briefText=''; // today's mail briefing, shown as the AI's opening message in one chat
+  const PKEY='cc_profile_v1', LKEY='cc_library_v1';
+  let profile=(()=>{ try{ return JSON.parse(localStorage.getItem(PKEY)||'{}')||{}; }catch{ return {}; } })();   // Personalization
+  let library=(()=>{ try{ return JSON.parse(localStorage.getItem(LKEY)||'[]')||[]; }catch{ return []; } })();   // Library files
+  let recording=null; // {steps:[]} while you record a skill
 
   function load(){ try{convos=JSON.parse(localStorage.getItem(CKEY)||'[]')||[]}catch{convos=[]} try{memory=JSON.parse(localStorage.getItem(MKEY)||'[]')||[]}catch{memory=[]} }
   function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.slice(0,100)))}catch{} scheduleSync(); }
@@ -523,7 +675,7 @@
     return card;
   }
 
-  const CLOCK_SVG='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg>';
+  const CLOCK_SVG='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>';
   // An automation the AI set up: nothing runs until you press Turn on (or say "yes").
   function autoCard(m,{onChange=()=>{}}={}){
     const card=el('div','mailcard');
@@ -578,6 +730,7 @@
   // Name: what you told the AI ("my name is …"), else Saharsh in the owner's unlocked browser, else Guest.
   function userName(){
     const f=memory.find(x=>/^User's name is /.test(x));
+    if(profile.nickname) return profile.nickname;
     if(me) return me.name||me.email;
     return f ? f.replace(/^User's name is /,'').replace(/\.$/,'') : (ownerKey()?'Saharsh':'Guest');
   }
@@ -620,7 +773,7 @@
     if(busy) return;
     const text=input.value.trim(); if(!text && pending.length===0) return;
     let c=current(); if(!c){ newChat(); c=current(); }
-    const files=pending.slice(); pending=[]; renderFiles();
+    const files=pending.slice(); pending=[]; renderFiles(); addToLibrary(files);
     const shown = text + (files.length?('\n'+files.map(f=>'📄 '+f.name).join('\n')):'');
     input.value=''; input.style.height='auto';
     c.messages.push({role:'user',content:shown});
@@ -642,6 +795,7 @@
       busy=false; sendBtn.disabled=false; input.focus(); return;
     }
 
+    if(recording && text && !text.startsWith('/')){ recording.steps.push(text); renderRecBar(); }
     busy=true; sendBtn.disabled=true;
     const wrap=chat.querySelector('.wrap')||(()=>{const w=document.createElement('div');w.className='wrap';chat.appendChild(w);return w;})();
     const aiEl=bubble('ai',''), dots=el('span','dots'); dots.innerHTML='<i></i><i></i><i></i>'; aiEl._steps.before(dots);
@@ -658,7 +812,7 @@
     // server asks for a file ("needFile"), this browser reads it from your folder and sends the text.
     const round=async(extra)=>{
       const resp=await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
-        body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text})), memory:memory.join('\n'), folder:folderInfo(), ...extra})});
+        body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text})), memory:memory.join('\n'), profile, folder:folderInfo(), ...extra})});
       if(!resp.body) throw new Error('no stream');
       const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
       while(true){ const {done,value}=await reader.read(); if(done)break; buf+=dec.decode(value,{stream:true});
@@ -835,10 +989,12 @@
   function useSkill(k){
     $('skillPage').classList.remove('open');
     if(k.run) return k.run();
+    if(k.steps?.length) return runSteps(k);
     input.value=k.prompt; input.focus(); input.setSelectionRange(input.value.length,input.value.length); input.dispatchEvent(new Event('input'));
   }
   function renderSkills(){
-    const all=[...SKILLS, ...mySkills.map(k=>({...k, cat:'My skills', color:'#3a4252', icon:()=>ICONS.spark, desc:k.prompt, mine:true}))];
+    const all=[...SKILLS, ...mySkills.map(k=>({...k, cat:'My skills', color:k.steps?'#5a2a2a':'#3a4252', icon:()=>k.steps?REC_SVG:ICONS.spark,
+      desc:k.steps?k.steps.join(' → '):k.prompt, mine:true}))];
     const tabs=$('skillTabs'); tabs.innerHTML='';
     ['All','Writing','Study','Coding','Mail','Productivity','My skills'].forEach(t=>{ const b=el('button',t===skillTab?'on':'',t); b.onclick=()=>{ skillTab=t; renderSkills(); }; tabs.appendChild(b); });
     const q=$('skillSearch').value.toLowerCase(), grid=$('skillGrid'); grid.innerHTML='';
@@ -848,9 +1004,9 @@
       const c=el('div','skill'), cv=el('div','cover'); cv.style.background='linear-gradient(135deg,'+k.color+',#11141b)';
       cv.innerHTML=k.icon(); cv.appendChild(el('span',null,k.name));
       const b=el('div','sb'); b.appendChild(el('b',null,k.name)); b.appendChild(el('div',null,k.desc));
-      b.appendChild(el('span','tag',k.cat)); b.appendChild(el('span','tag',k.mine?'Mine':'Built in'));
-      if(k.mine){ const del=el('span','tag','Delete'); del.style.cursor='pointer'; del.onclick=async(e)=>{ e.stopPropagation(); mySkills=mySkills.filter(x=>x.id!==k.id); await putSkills(); renderSkills(); }; b.appendChild(del); }
-      c.append(cv,b); c.onclick=()=>useSkill(k); grid.appendChild(c);
+      b.appendChild(el('span','tag',k.cat)); b.appendChild(el('span','tag',k.steps?'Recorded · '+k.steps.length+' step'+(k.steps.length===1?'':'s'):k.mine?'Mine':'Built in'));
+      if(k.mine){ const st=el('span','tag','Settings'); st.style.cursor='pointer'; st.onclick=(e)=>{ e.stopPropagation(); skillSettings(k); }; b.appendChild(st); }
+      c.append(cv,b); c.onclick=()=>k.steps?skillSettings(k):useSkill(k); grid.appendChild(c);
     });
   }
   async function putSkills(){ await fetch('/api/skills',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({skills:mySkills})}).catch(()=>{}); }
@@ -861,6 +1017,197 @@
     await putSkills(); $('skillModal').classList.remove('open'); skillTab='My skills'; renderSkills(); toast('Skill saved — type /'+slug(name)+' in the chat to use it.');
   }
   const slug=(n)=>n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const REC_SVG='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>';
+
+  // ---- Personalization: your profile + Import memory from another AI ----
+  function showPersonalization(){
+    $('profModal').classList.remove('open');
+    $('pfNick').value=profile.nickname||''; $('pfJob').value=profile.occupation||''; $('pfAbout').value=profile.about||''; $('pfInstr').value=profile.instructions||'';
+    countPf(); $('pfStatus').textContent=''; $('persPage').classList.add('open');
+  }
+  function countPf(){ $('pfAboutN').textContent=$('pfAbout').value.length+' / 2000'; $('pfInstrN').textContent=$('pfInstr').value.length+' / 1000'; }
+  async function saveProfile(){
+    profile={nickname:$('pfNick').value.trim(), occupation:$('pfJob').value.trim(), about:$('pfAbout').value.trim(), instructions:$('pfInstr').value.trim()};
+    try{ localStorage.setItem(PKEY,JSON.stringify(profile)); }catch{}
+    renderProfile();
+    if(!me){ $('pfStatus').textContent='✅ Saved on this device — sign in to keep it on every device.'; return; }
+    try{ const r=await fetch('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})}); $('pfStatus').textContent=r.ok?'✅ Saved':'Saved on this device only.'; }
+    catch{ $('pfStatus').textContent='Saved on this device only.'; }
+  }
+  // Read the other AI's transfer document: its four sections fill your profile (you check it, then Save).
+  function parseImport(text){
+    const lines=text.replace(/\r/g,'').split('\n').map(l=>l.trim()).filter(Boolean);
+    const clean=(l)=>l.replace(/^[-*•]\s*/,'').trim();
+    const HEAD=/^(basic identity|work (?:&|and) education|personal context|preferences (?:&|and) instructions)\s*:?$/i;
+    const sec={}; let cur='other';
+    for(const l of lines){
+      const h=clean(l).match(HEAD); if(h){ cur=h[1].toLowerCase().replace(' and ',' & '); continue; }
+      if(/none available\.?"?$/i.test(clean(l))) continue;
+      (sec[cur]=sec[cur]||[]).push(clean(l));
+    }
+    const field=(re)=>{ for(const l of lines){ const m=clean(l).match(re); if(m && !/none available/i.test(m[1])) return m[1].trim(); } return ''; };
+    return {
+      nick: field(/^preferred name(?: or aliases)?\s*[:\-–]\s*(.+)$/i).split(/[,;(]/)[0].replace(/^"|"$/g,'').trim().slice(0,40),
+      job: field(/^current (?:and past )?roles?\s*[:\-–]\s*(.+)$/i).slice(0,80),
+      about: [...(sec['basic identity']||[]),...(sec['work & education']||[]),...(sec['personal context']||[]),...(sec.other||[])].join('\n').slice(0,2000),
+      instr: (sec['preferences & instructions']||[]).join('\n').slice(0,1000),
+    };
+  }
+  function openImport(){ $('impPaste').value=''; $('impGo').disabled=true; $('importModal').classList.add('open'); }
+  function doImport(){
+    const x=parseImport($('impPaste').value.trim());
+    if(x.nick) $('pfNick').value=x.nick; if(x.job) $('pfJob').value=x.job; if(x.about) $('pfAbout').value=x.about; if(x.instr) $('pfInstr').value=x.instr;
+    countPf(); $('importModal').classList.remove('open');
+    $('pfStatus').textContent='Imported — check your profile, then press Save.';
+  }
+
+  // ---- Library: your files, kept for you and reusable in any chat ----
+  function saveLibrary(){
+    try{ localStorage.setItem(LKEY,JSON.stringify(library)); }catch{ toast('Your library is full on this device — delete a file.'); }
+    if(me) fetch('/api/library',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:library})}).catch(()=>{});
+  }
+  function addToLibrary(files){
+    let added=0;
+    for(const f of files){
+      if(!f?.text || /^\((An image|Could not)/.test(f.text) || library.some(x=>x.name===f.name && x.text.length===Math.min(f.text.length,40000))) continue;
+      library.unshift({id:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), name:f.name, text:f.text.slice(0,40000), added:Date.now()}); added++;
+    }
+    library=library.slice(0,30); if(added) saveLibrary(); return added;
+  }
+  function showLibrary(){ $('libPage').classList.add('open'); renderLibrary(); }
+  function renderLibrary(){
+    const q=$('libSearch').value.toLowerCase(), g=$('libGrid'); g.innerHTML='';
+    const list=library.filter(f=>f.name.toLowerCase().includes(q));
+    if(!list.length){ g.appendChild(el('div','mailsubj',q?'No file matches.':'No files yet — press ＋ Add files, or attach a file in any chat.')); return; }
+    list.forEach(f=>{
+      const c=el('div','item'), ic=el('span','plugico'); ic.innerHTML=ICONS.book;
+      const t=el('div','pt'); t.appendChild(el('b',null,f.name));
+      t.appendChild(el('span',null,(f.text.length<1000?f.text.length+' characters':Math.round(f.text.length/1000)+'k characters')+' · added '+new Date(f.added).toLocaleDateString('en-IN',{day:'numeric',month:'short'})));
+      const acts=el('div','acts'), use=el('button','msend','Use in chat'), del=el('button','mskip','Delete');
+      use.onclick=(e)=>{ e.stopPropagation(); pending.push({name:f.name,text:f.text}); renderFiles(); $('libPage').classList.remove('open'); input.focus(); toast(f.name+' is attached to your next message'); };
+      del.onclick=(e)=>{ e.stopPropagation(); if(del.dataset.sure){ library=library.filter(x=>x.id!==f.id); saveLibrary(); renderLibrary(); } else { del.dataset.sure='1'; del.textContent='Delete?'; } };
+      acts.append(use,del); t.appendChild(acts); c.append(ic,t); g.appendChild(c);
+    });
+  }
+  // Signed in: merge this device's profile + library with your account's (the account wins on profile).
+  async function syncProfileAndLibrary(){
+    try{
+      const pr=(await (await fetch('/api/profile')).json()).profile||{};
+      if(Object.values(pr).some(Boolean)){ profile=pr; try{ localStorage.setItem(PKEY,JSON.stringify(profile)); }catch{} }
+      else if(Object.values(profile).some(Boolean)) fetch('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})}).catch(()=>{});
+      const lib=(await (await fetch('/api/library')).json()).files||[];
+      const before=library.length; const merged=[...lib];
+      for(const f of library) if(!merged.some(x=>x.name===f.name && x.text.length===f.text.length)) merged.push(f);
+      library=merged.sort((a,b)=>b.added-a.added).slice(0,30);
+      try{ localStorage.setItem(LKEY,JSON.stringify(library)); }catch{}
+      if(library.length!==lib.length || before!==library.length) saveLibrary();
+      renderProfile();
+    }catch{}
+  }
+
+  // ---- Creations: everything the AI made for you, across all chats ----
+  let createTab='All';
+  function showCreations(){ $('createPage').classList.add('open'); renderCreations(); }
+  function renderCreations(){
+    const items=[];
+    for(const c of convos) c.messages.forEach(m=>{
+      if(m.card && !m.card.skipped) items.push({type:'Emails', icon:GMAIL_SVG, title:(m.card.isNew?'Email to ':'Reply to ')+m.card.fromName, sub:m.card.subject, status:m.card.sent?'Sent':'Draft', chat:c});
+      if(m.fileCard && !m.fileCard.skipped) items.push({type:'Files', icon:ICONS.folder, title:(m.fileCard.kind==='new'?'New file: ':'Change to: ')+m.fileCard.path, sub:'', status:m.fileCard.saved?'Saved':'Not saved', chat:c});
+      if(m.autoCard && !m.autoCard.skipped) items.push({type:'Automations', icon:CLOCK_SVG, title:m.autoCard.task, sub:m.autoCard.when, status:m.autoCard.on?'On':'Not turned on', chat:c});
+    });
+    const tabs=$('createTabs'); tabs.innerHTML='';
+    ['All','Emails','Files','Automations'].forEach(t=>{ const b=el('button',t===createTab?'on':'',t); b.onclick=()=>{ createTab=t; renderCreations(); }; tabs.appendChild(b); });
+    const q=$('createSearch').value.toLowerCase(), g=$('createGrid'); g.innerHTML='';
+    const list=items.filter(x=>(createTab==='All'||x.type===createTab) && (x.title+' '+x.sub).toLowerCase().includes(q));
+    if(!list.length){ g.appendChild(el('div','mailsubj',q?'Nothing matches.':'Nothing yet — when I draft an email, write a file or set up an automation for you, it shows up here.')); return; }
+    list.forEach(x=>{
+      const c=el('div','item'), ic=el('span','plugico'); ic.innerHTML=x.icon;
+      const t=el('div','pt'); t.appendChild(el('b',null,x.title)); t.appendChild(el('span',null,[x.sub,'in “'+(x.chat.title||'Chat')+'”'].filter(Boolean).join(' · ')));
+      const acts=el('div','acts'); acts.appendChild(el('span','tag',x.status)); t.appendChild(acts);
+      c.append(ic,t); c.onclick=()=>{ $('createPage').classList.remove('open'); selectChat(x.chat.id); }; g.appendChild(c);
+    });
+  }
+
+  // ---- Skill recorder: do a task once in the chat, save the steps as a skill, re-run or schedule it ----
+  function startRecording(){
+    if(!me){ toast('Sign in first to save skills.'); showAuth(false); return; }
+    recording={steps:[]}; $('skillPage').classList.remove('open'); newChat(); renderRecBar();
+    toast('Recording — do your task in the chat, then press Stop & save.');
+  }
+  function renderRecBar(){
+    const bar=$('recBar'); bar.innerHTML=''; if(!recording) return;
+    const c=el('span','chip recchip'); c.innerHTML='<span class="recdot"></span>';
+    c.append('Recording a skill · '+recording.steps.length+' step'+(recording.steps.length===1?'':'s')+' ');
+    const stop=el('button',null,'Stop & save'); stop.style.color='var(--fg)'; stop.style.fontWeight='600'; stop.onclick=stopRecording;
+    const x=el('button',null,'×'); x.title='Cancel recording'; x.onclick=()=>{ recording=null; renderRecBar(); toast('Recording cancelled.'); };
+    c.append(stop,x); bar.appendChild(c);
+  }
+  function stopRecording(){
+    if(!recording.steps.length){ toast('Do at least one step in the chat first.'); return; }
+    $('recName').value=''; $('recSteps').value=recording.steps.join('\n'); $('recErr').textContent=''; $('recModal').classList.add('open'); $('recName').focus();
+  }
+  async function saveRecording(){
+    const name=$('recName').value.trim(), steps=$('recSteps').value.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,10);
+    if(!name||!steps.length){ $('recErr').textContent='Give it a name and at least one step.'; return; }
+    mySkills=[...mySkills.filter(k=>k.name.toLowerCase()!==name.toLowerCase()), {id:'s'+Date.now().toString(36), name, prompt:'', steps}];
+    await putSkills(); recording=null; renderRecBar(); $('recModal').classList.remove('open');
+    toast('Skill “'+name+'” saved — open it in Skills to run it again or schedule it.');
+  }
+  let sksSkill=null;
+  function skillSettings(k){
+    sksSkill=k; $('skillPage').classList.remove('open'); $('sksTitle').textContent=k.name;
+    const ol=$('sksSteps'); ol.innerHTML=''; (k.steps||[k.prompt]).forEach(x=>ol.appendChild(el('li',null,x)));
+    $('sksRun').style.display=k.steps?'':'none'; $('sksWhen').value=''; $('sksErr').textContent=''; $('skSetModal').classList.add('open');
+  }
+  // Run it again: each step goes to the AI in a fresh chat, one after another (cards still wait for your OK).
+  async function runSteps(k){
+    $('skSetModal').classList.remove('open'); newChat();
+    const was=recording; recording=null;
+    for(const step of k.steps){ input.value=step; await send(); }
+    recording=was;
+  }
+  async function scheduleSkill(){
+    const k=sksSkill, text=$('sksWhen').value.trim();
+    if(!text){ $('sksErr').textContent='Say when, e.g. every day at 8 am.'; return; }
+    try{
+      const p=await (await fetch('/api/parse-schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})).json();
+      if(!p.schedule) throw new Error('I could not understand that time — try “every day at 8 am” or “every Monday at 9”.');
+      const body=k.steps?{task:k.name, steps:k.steps, schedule:p.schedule}:{task:k.prompt, schedule:p.schedule};
+      const r=await fetch('/api/automations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not schedule it.');
+      $('skSetModal').classList.remove('open'); toast('Scheduled: '+d.when+' — next run '+d.next+'. See Automations.');
+    }catch(e){ $('sksErr').textContent=e.message; }
+  }
+  async function deleteSkill(){
+    const b=$('sksDelete'); if(!b.dataset.sure){ b.dataset.sure='1'; b.textContent='Delete — sure?'; return; }
+    delete b.dataset.sure; b.textContent='Delete';
+    mySkills=mySkills.filter(x=>x.id!==sksSkill.id); await putSkills(); $('skSetModal').classList.remove('open'); toast('Skill deleted.');
+  }
+
+  // ---- buttons for the new pages ----
+  $('libBtn').onclick=()=>{ closeRail(); showLibrary(); };
+  $('createBtn').onclick=()=>{ closeRail(); showCreations(); };
+  $('persOpen').onclick=showPersonalization;
+  $('persClose').onclick=()=>$('persPage').classList.remove('open');
+  $('pfAbout').oninput=countPf; $('pfInstr').oninput=countPf; $('pfSave').onclick=saveProfile;
+  $('impOpen').onclick=openImport; $('impOpen2').onclick=openImport;
+  $('impClose').onclick=()=>$('importModal').classList.remove('open'); $('impCancel').onclick=()=>$('importModal').classList.remove('open');
+  $('impPaste').oninput=()=>{ $('impGo').disabled=!$('impPaste').value.trim(); };
+  $('impGo').onclick=doImport;
+  $('impCopy').onclick=async()=>{
+    const t=$('impPrompt').value;
+    try{ await navigator.clipboard.writeText(t); }catch{ $('impPrompt').select(); document.execCommand('copy'); }
+    $('impCopy').lastChild.textContent=' Copied ✓'; setTimeout(()=>{ $('impCopy').lastChild.textContent=' Copy'; },1800);
+  };
+  $('libClose').onclick=()=>$('libPage').classList.remove('open'); $('libSearch').oninput=renderLibrary;
+  $('libAdd').onclick=()=>$('libInput').click();
+  $('libInput').onchange=async(e)=>{ const got=[]; for(const f of Array.from(e.target.files).slice(0,10)) got.push(await readFile(f)); e.target.value='';
+    const n=addToLibrary(got); renderLibrary(); toast(n?n+' file'+(n===1?'':'s')+' added to your Library':'Those files are already in your Library.'); };
+  $('createClose').onclick=()=>$('createPage').classList.remove('open'); $('createSearch').oninput=renderCreations;
+  $('skillRec').onclick=startRecording;
+  $('recClose').onclick=()=>$('recModal').classList.remove('open'); $('recSave').onclick=saveRecording;
+  $('sksClose').onclick=()=>$('skSetModal').classList.remove('open');
+  $('sksRun').onclick=()=>runSteps(sksSkill); $('sksSchedule').onclick=scheduleSkill; $('sksDelete').onclick=deleteSkill;
   $('fileInput').onchange=(e)=>{ handleFiles(e.target.files); e.target.value=''; };
   $('folderInput').onchange=(e)=>{ if(e.target.files.length) useSnapshot(e.target.files); e.target.value=''; };
   // Files panel
@@ -874,9 +1221,9 @@
   $('fsText').addEventListener('keydown',(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){ e.preventDefault(); saveOpenFile(); } });
   $('fsAsk').onclick=()=>{ const p=$('fsPath').value.trim(); $('fsModal').classList.remove('open'); input.value=p?'What does '+p+' do?':''; input.focus(); };
   document.addEventListener('click',()=>$('menu').classList.remove('open'));
-  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/automations',desc:'See your automations — tasks on a schedule'},{cmd:'/skills',desc:'Reusable skills — built in and your own'},{cmd:'/plugins',desc:'Gmail, folder, live data and more'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
+  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/automations',desc:'See your automations — tasks on a schedule'},{cmd:'/skills',desc:'Reusable skills — built in and your own'},{cmd:'/record',desc:'Record a skill — do a task once, reuse it'},{cmd:'/library',desc:'Your files, reusable in any chat'},{cmd:'/creations',desc:'Everything I made for you'},{cmd:'/personalize',desc:'Your profile and custom instructions'},{cmd:'/plugins',desc:'Gmail, folder, live data and more'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
   function slashRender(q){ const el=$('slash');
-    const list=[...COMMANDS, ...mySkills.map(k=>({cmd:'/'+slug(k.name), desc:k.prompt.slice(0,60), skill:k}))].filter(c=>c.cmd.startsWith(q.toLowerCase())); el.innerHTML='';
+    const list=[...COMMANDS, ...mySkills.map(k=>({cmd:'/'+slug(k.name), desc:k.steps?.length?'Recorded skill · '+k.steps.length+' step'+(k.steps.length===1?'':'s'):(k.prompt||'').slice(0,60), skill:k}))].filter(c=>c.cmd.startsWith(q.toLowerCase())); el.innerHTML='';
     list.forEach((c,i)=>{ const r=document.createElement('button'); r.className='slashrow'+(i===0?' sel':''); r.dataset.cmd=c.cmd;
       const b=document.createElement('b'); b.textContent=c.cmd; const s=document.createElement('span'); s.textContent=c.desc; r.append(b,s); r.onclick=()=>runCommand(c.cmd); el.appendChild(r); });
     el.classList.toggle('open', list.length>0); }
@@ -889,6 +1236,10 @@
     else if(c==='/mail') mailBrief(true);
     else if(c==='/automations') showAutomations();
     else if(c==='/skills') showSkills();
+    else if(c==='/record') startRecording();
+    else if(c==='/library') showLibrary();
+    else if(c==='/creations') showCreations();
+    else if(c==='/personalize') showPersonalization();
     else if(c==='/plugins') showPlugins();
     else if(c==='/folder') folder&&folder.files?showFiles():folder?wakeFolder():openFolder();
     else toast('Commands:  /new   /mail   /folder   /clear   /memory'); }
@@ -1070,7 +1421,7 @@
     try{ const d=await (await fetch('/api/auth/me',{headers:mailHeaders()})).json(); me=d.user; authInfo=d; }catch{ me=null; }
     renderProfile(); if(me) await syncDown();
     if(new URLSearchParams(location.search).get('welcome')){ history.replaceState(null,'','/'); if(me) showGmail(true); }
-    if(me){ try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{} }
+    if(me){ try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{} await syncProfileAndLibrary(); }
     const why=new URLSearchParams(location.search).get('signin');
     if(why){ history.replaceState(null,'','/'); toast(why==='password'?'That email already has an account — sign in with your password.':'Google sign-in did not work — please try again.'); }
   }

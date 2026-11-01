@@ -84,12 +84,13 @@ async function pgStore(url) {
       last_status text not null default '',
       created bigint not null,
       primary key (user_id, id));
+    alter table automations add column if not exists steps jsonb;
     create table if not exists prefs (
       user_id bigint not null references users(id) on delete cascade,
       name text not null,
       value jsonb not null,
       primary key (user_id, name));`);
-  const autoOut = (r) => r && { id: r.id, task: r.task, schedule: r.schedule, enabled: r.enabled,
+  const autoOut = (r) => r && { id: r.id, task: r.task, steps: r.steps || null, schedule: r.schedule, enabled: r.enabled,
     nextRun: r.next_run === null ? null : Number(r.next_run), lastRun: r.last_run === null ? null : Number(r.last_run), lastStatus: r.last_status };
   const one = async (text, params) => (await q(text, params)).rows[0] || null;
   return {
@@ -131,8 +132,8 @@ async function pgStore(url) {
     },
     async countAutomations(userId) { return Number((await one('select count(*) as n from automations where user_id = $1', [userId])).n); },
     async createAutomation(userId, a) {
-      await q('insert into automations (user_id, id, task, schedule, enabled, next_run, created) values ($1,$2,$3,$4,true,$5,$6)',
-        [userId, a.id, a.task, JSON.stringify(a.schedule), a.nextRun, Date.now()]);
+      await q('insert into automations (user_id, id, task, schedule, enabled, next_run, created, steps) values ($1,$2,$3,$4,true,$5,$6,$7)',
+        [userId, a.id, a.task, JSON.stringify(a.schedule), a.nextRun, Date.now(), a.steps ? JSON.stringify(a.steps) : null]);
     },
     async updateAutomation(userId, id, f) {
       await q(`update automations set enabled = coalesce($3, enabled), next_run = case when $4 then $5 else next_run end,
@@ -201,7 +202,7 @@ function fileStore(dir) {
     },
     async countAutomations(userId) { return db.automations.filter((a) => a.userId === uid(userId)).length; },
     async createAutomation(userId, a) {
-      db.automations.push({ userId: uid(userId), id: a.id, task: a.task, schedule: a.schedule, enabled: true, nextRun: a.nextRun, lastRun: null, lastStatus: '', created: Date.now() });
+      db.automations.push({ userId: uid(userId), id: a.id, task: a.task, steps: a.steps || null, schedule: a.schedule, enabled: true, nextRun: a.nextRun, lastRun: null, lastStatus: '', created: Date.now() });
       save();
     },
     async updateAutomation(userId, id, f) {
