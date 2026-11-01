@@ -614,13 +614,13 @@ async function mailAction({ action, target, detail }, lastUser, send, creds) {
 // Stream the model's answer to the browser as it is written. With `guard`, the first ~160 characters
 // are held back and checked first: if they match (the model slipped out of character), nothing is
 // shown and 'retry' is returned so the caller can ask again. Otherwise ends the response: 'done'.
-async function streamAnswer(res, messages, temperature = 0.7, guard = null) {
+async function streamAnswer(res, messages, temperature = 0.7, guard = null, extra = null) {
   let held = '', holding = Boolean(guard);
   try {
     const r = await fetch(`${BASE}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(KEY ? { Authorization: `Bearer ${KEY}` } : {}) },
-      body: JSON.stringify({ model: MODEL, messages, temperature, max_tokens: 1024, stream: true }),
+      body: JSON.stringify({ model: MODEL, messages, temperature, max_tokens: 1024, stream: true, ...(extra || {}) }),
     });
     if (!r.ok || !r.body) throw new Error(`model HTTP ${r.status}`);
     const reader = r.body.getReader();
@@ -1379,12 +1379,15 @@ async function getJSON(url, ms = 9000) {
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
+// "what is the James Webb telescope and what has it found?" -> "james webb telescope"
+const QUESTION_WORDS = new Set('what whats which who whom whose why how when where is are was were be been do does did done has have had the a an and or of to in on at for from by with about into tell me explain please can could would should will you your i my its it this that these those there their them they latest recent news found find give show list some any more most much many very really just also than then so if as up out new'.split(' '));
+const searchWords = (q) => (q.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/).filter((w) => w && !QUESTION_WORDS.has(w)).slice(0, 6).join(' ') || q);
 async function wikiSources(q) {
   const s = await getJSON(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=3&format=json&utf8=1`, 8000);
   const titles = (s?.query?.search || []).map((x) => x.title);
   if (!titles.length) return [];
   const e = await getJSON(`https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=550&redirects=1&format=json&titles=${encodeURIComponent(titles.join('|'))}`);
-  return Object.values(e?.query?.pages || {}).filter((p) => p.extract).map((p) => ({
+  return Object.values(e?.query?.pages || {}).filter((p) => p.extract).sort((a, b) => titles.indexOf(a.title) - titles.indexOf(b.title)).map((p) => ({
     title: p.title, url: `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`, site: 'Wikipedia', text: p.extract.replace(/\s+/g, ' ').trim(),
   }));
 }
@@ -1407,7 +1410,8 @@ app.post('/api/research', (req, res, next) => (async () => {
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
   const tech = /\b(code|coding|program|software|api|javascript|python|ai|llm|startup|github|framework|database|linux|chip|gpu)\b/i.test(q);
   send({ step: 'Searching Wikipedia, recent news' + (tech ? ' and tech discussions' : '') });
-  const jobs = [wikiSources(q), newsSources(q), tech ? techSources(q) : Promise.resolve([])];
+  const kw = searchWords(q);   // search with the key words, answer the full question
+  const jobs = [wikiSources(kw), newsSources(kw), tech ? techSources(kw) : Promise.resolve([])];
   const [wiki, news, hn] = (await Promise.allSettled(jobs)).map((r) => (r.status === 'fulfilled' ? r.value : []));
   const sources = [...wiki, ...news.slice(0, 4), ...hn.slice(0, 3)].slice(0, 9).map((s, i) => ({ n: i + 1, ...s }));
   if (!sources.length) { send({ error: 'I could not reach any sources just now — please try again.' }); send({ done: true }); return res.end(); }
@@ -1418,7 +1422,8 @@ app.post('/api/research', (req, res, next) => (async () => {
   await streamAnswer(res, [
     { role: 'system', content: SYSTEM },
     // the small model follows instructions in the user turn far better than in the system prompt
-    { role: 'user', content: `Sources:\n${block}\n\nQuestion: ${q}\n\nAnswer using ONLY the sources above. Write one short summary line, then 3-5 bullet points. End EVERY bullet with the number of the source it came from, like [1] or [3]. Copy numbers and dates exactly as the sources say. If the sources do not answer the question, say so.` }], 0.2);
+    { role: 'user', content: `Sources:\n${block}\n\nQuestion: ${q}\n\nAnswer using ONLY the sources above. Write one short summary line, then 3-5 short bullet points, each with a different fact. Copy names, numbers and dates exactly as the sources say. If the sources do not answer the question, say so.` }],
+  0.3, null, { max_tokens: 450, frequency_penalty: 0.7, presence_penalty: 0.4 });   // penalties stop the small model looping
 })().catch(next));
 
 // ---- Send to Slack, Discord, Telegram or any webhook (Zapier, Make, n8n, IFTTT…) — only after the user presses Send ----
