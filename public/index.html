@@ -256,6 +256,7 @@
   /* Library */
   .libhead{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:10px;padding:16px 22px 10px;background:#1a1a1a}
   .libhead h1{font-size:20px;font-weight:600;margin:0;flex:1}
+  .libhead .msend{white-space:nowrap}
   .libsearch{display:flex;align-items:center;gap:8px;width:300px;max-width:40vw;border:1px solid #363636;border-radius:10px;padding:0 10px;color:#595959}
   .libsearch input{flex:1;min-width:0;background:none;border:none;color:var(--fg);font:inherit;font-size:14px;padding:8px 0}
   .libsearch input:focus{outline:none}.libsearch input::placeholder{color:#595959}
@@ -294,6 +295,64 @@
   .burger{display:none}
   body.collapsed .burger{display:flex}
   @media(max-width:720px){ .burger{display:flex} }
+  /* top bar: AI status dot + details button */
+  .topdot{width:8px;height:8px;border-radius:50%;background:#595959;flex:0 0 auto}
+  .topdot.online{background:#7bd88f}.topdot.busy{background:#f2c200}.topdot.offline{background:#e5534b}
+  .topright{margin-left:auto}
+  /* details panel (right side) */
+  .side{width:300px;flex:0 0 300px;background:#1f1f1f;border-left:1px solid #2c2c2c;display:none;flex-direction:column;overflow-y:auto}
+  body.panel .side{display:flex}
+  .sidehead{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 4px 18px;color:#e6e6e6}
+  .sidesec{padding:12px 18px 14px;border-bottom:1px solid #2c2c2c}
+  .sidesec h3{margin:0 0 10px;font-size:14px;font-weight:600;color:#e6e6e6}
+  .srow{display:flex;align-items:center;gap:10px;font-size:14px;color:#e6e6e6;padding:5px 0}
+  .srow .ico{width:18px;height:18px;color:#b3b3b3}.srow .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .srow .dim{color:#8c8c8c;font-size:13px}
+  .srow button{background:none;border:none;color:#e6e6e6;text-decoration:underline;font:inherit;font-size:13px;cursor:pointer;padding:0}
+  .sbig{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;color:#e6e6e6;margin-bottom:6px}
+  .sbig span{color:#8c8c8c;font-size:13px}
+  .sbar{height:6px;border-radius:3px;background:#2c2c2c;overflow:hidden;display:flex;margin-bottom:8px}
+  .sbar i{display:block;height:100%}
+  .slegend{display:flex;align-items:center;gap:8px;font-size:13.5px;color:#b3b3b3;padding:3px 0}
+  .slegend b{width:10px;height:10px;border-radius:2px;flex:0 0 auto}.slegend span{margin-left:auto;color:#e6e6e6}
+  .sitem{display:flex;align-items:center;gap:8px;font-size:13.5px;color:#e6e6e6;padding:4px 0}
+  .sitem .ico{width:16px;height:16px;color:#8c8c8c}.sitem .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sitem .dim{color:#8c8c8c;font-size:12.5px}
+  .sempty{color:#8c8c8c;font-size:13px}
+  @media(max-width:1100px){ body.panel .side{position:fixed;right:0;top:0;bottom:0;z-index:25;box-shadow:-10px 0 30px rgba(0,0,0,.4)} }
+  /* research */
+  .resbtn{flex:0 0 auto;height:36px;display:flex;align-items:center;gap:6px;padding:0 12px;border-radius:999px;border:1px solid #353535;background:transparent;color:#b4b4b4;font:inherit;font-size:13.5px;cursor:pointer}
+  .resbtn svg{width:16px;height:16px}.resbtn:hover{background:#2a2a2a;color:#e6e6e6}
+  .resbtn.on{background:#1a93fe22;border-color:#1a93fe;color:#5cb3ff}
+  @media(max-width:520px){ .resbtn span{display:none} .resbtn{padding:0 10px} }
+  .srcs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px;white-space:normal}
+  .src{display:flex;align-items:center;gap:6px;max-width:240px;background:#232323;border:1px solid #2c2c2c;border-radius:10px;padding:6px 10px;font-size:12.5px;color:#e6e6e6;text-decoration:none}
+  .src:hover{background:#2a2a2a}.src b{color:#8c8c8c;font-weight:600}.src span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .src i{font-style:normal;color:#8c8c8c;flex:0 0 auto}
+  /* scheduled tasks page */
+  .schedtabs{padding-left:22px}.schedbody{max-width:1100px}
+  .schedempty{display:flex;flex-direction:column;align-items:center;gap:14px;padding:50px 0 40px;color:#b3b3b3;font-size:15px}
+  .schedempty svg{width:90px;height:90px;color:#e6e6e6}
+  .wavy{height:10px;margin:10px 0 26px;background:radial-gradient(circle at 5px -2px,transparent 6px,#2c2c2c 6px 7px,transparent 7px) 0 0/10px 10px repeat-x;opacity:.8}
+  .tgrid{display:grid;grid-template-columns:1fr 1fr;gap:28px 40px}
+  .tcard{display:flex;gap:14px;align-items:flex-start;cursor:pointer;background:none;border:none;color:inherit;font:inherit;text-align:left;padding:0}
+  .tcard .tic{width:42px;height:42px;flex:0 0 auto;border-radius:10px;background:#242424;display:flex;align-items:center;justify-content:center;color:#b3b3b3}
+  .tcard .tic .ico{width:20px;height:20px}
+  .tcard b{display:block;font-weight:500;font-size:16px;color:#e6e6e6}.tcard:hover b{text-decoration:underline}
+  .tcard span{display:block;color:#a8a8a8;font-size:14.5px;margin:4px 0 6px;line-height:1.45}
+  .tcard em{font-style:normal;color:#8c8c8c;font-size:13.5px;display:flex;align-items:center;gap:6px}.tcard em .ico{width:15px;height:15px}
+  .srow2{display:flex;align-items:center;gap:14px;background:#232323;border-radius:12px;padding:14px 16px;margin-bottom:10px}
+  .srow2 .tic{width:38px;height:38px;flex:0 0 auto;border-radius:10px;background:#2c2c2c;display:flex;align-items:center;justify-content:center;color:#b3b3b3}
+  .srow2 .tt{flex:1;min-width:0}.srow2 .tt b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .srow2 .tt span{color:#8c8c8c;font-size:13px}
+  .srow2 input{width:18px;height:18px;accent-color:#1a93fe}
+  .srow2 .bx{border:none;background:none;color:#8c8c8c;cursor:pointer;font-size:13px}.srow2 .bx:hover{color:#ff8a8a}
+  .fieldlbl{display:block;font-weight:600;font-size:14px;margin-top:14px}
+  .fieldlbl textarea,.fieldlbl input{display:block;width:100%;margin-top:8px;font-weight:400}
+  .fieldlbl input{background:#151515;color:var(--fg);border:1px solid #363636;border-radius:9px;padding:10px;font:inherit;font-size:14px}
+  .fieldlbl input:focus{outline:none;border-color:#4a4a4a}
+  @media(max-width:720px){ .tgrid{grid-template-columns:1fr} }
+  .plugico.small{width:30px;height:30px}.plugico.small .ico{width:17px;height:17px}
 </style>
 </head>
 <body>
@@ -320,6 +379,7 @@
       <div class="maillbl">What I remember about you</div>
       <ul id="memList"></ul>
       <label class="sndrow"><input type="checkbox" id="sndToggle" /> Play the guitar sound when an answer is ready</label>
+      <label class="sndrow"><input type="checkbox" id="panelToggle" /> Show the details panel (usage, context, connectors)</label>
       <div class="mailact"><button class="mskip" id="memClear">Clear memory</button></div>
     </div>
   </div>
@@ -443,6 +503,37 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       <div class="mailact right"><button class="mskip" id="impCancel">Cancel</button><button class="msend" id="impGo" disabled>Import</button></div>
     </div>
   </div>
+  <div class="page" id="schedPage">
+    <div class="libhead">
+      <h1>Scheduled tasks</h1>
+      <label class="libsearch"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="schedSearch" placeholder="Search tasks" autocomplete="off" /></label>
+      <button class="msend" id="schedNew">New task</button>
+      <button class="libicon" id="schedClose" title="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="libtabs schedtabs" id="schedTabs"></div>
+    <div class="libbody schedbody"><div id="schedList"></div></div>
+  </div>
+  <div class="modal" id="schedModal">
+    <div class="modalbox wide">
+      <div class="bhead"><span>New scheduled task</span><button class="bx" id="schedModalClose" title="Close">×</button></div>
+      <div class="mailsubj">It runs by itself on our server, in India time — your browser can be closed. Anything it drafts waits for your OK.</div>
+      <label class="fieldlbl">What should I do?<textarea id="schedTask" class="maildraft" rows="3" maxlength="300" placeholder="e.g. Give me today's top news in 5 short points"></textarea></label>
+      <label class="fieldlbl">When?<input type="text" id="schedWhen" placeholder="every day at 8 am · weekdays at 7 pm · every 2 hours" autocomplete="off" /></label>
+      <div class="autherr" id="schedErr"></div>
+      <div class="mailact right"><button class="mskip" id="schedCancel">Cancel</button><button class="msend" id="schedSave">Create task</button></div>
+    </div>
+  </div>
+  <div class="modal" id="plugModal">
+    <div class="modalbox wide">
+      <div class="bhead"><span class="plugico small" id="pmIcon"></span><span id="pmTitle">Connect</span><button class="bx" id="pmClose" title="Close">×</button></div>
+      <div class="btext" id="pmDesc"></div>
+      <ol class="howto" id="pmHow"></ol>
+      <div id="pmFields"></div>
+      <div class="autherr" id="pmErr"></div>
+      <div class="mailact"><button class="msend" id="pmSave">Save and send a test message</button><button class="mskip" id="pmRemove">Disconnect</button></div>
+      <div class="mailsubj" style="margin-top:10px">Kept only in this browser. CodeConClave sends a message only when you press Send on a card in the chat.</div>
+    </div>
+  </div>
   <div class="page" id="libPage">
     <div class="libhead">
       <h1>Library</h1>
@@ -547,7 +638,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   </div>
 
   <div class="main">
-    <div class="top"><button class="burger" id="burger" title="Open sidebar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button><div class="top__title">CodeConClave AI</div></div>
+    <div class="top"><button class="burger" id="burger" title="Open sidebar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button><div class="top__title">CodeConClave AI</div><span class="topdot" id="topDot" title="Checking your AI…"></span><button class="railbtn topright" id="panelBtn" title="Show details"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg></button></div>
     <div id="chat"></div>
     <div class="barwrap">
       <div class="files" id="recBar"></div>
@@ -555,6 +646,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       <div class="files" id="files"></div>
       <div class="bar">
         <button class="plus" id="plus" title="Add files">＋</button>
+        <button class="resbtn" id="researchBtn" title="Deep research: searches Wikipedia, news and tech sites and answers with sources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/></svg><span>Research</span></button>
         <div class="menu" id="menu">
           <button id="addFiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> Add files or photos</button>
           <button id="addFolder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Work in a folder</button>
@@ -570,6 +662,10 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       </div>
     </div>
   </div>
+  <aside class="side" id="side">
+    <div class="sidehead"><b>Details</b><button class="railbtn" id="sideClose" title="Close details"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+    <div id="sideBody"></div>
+  </aside>
 
 <script>
   try { if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch{}
@@ -627,6 +723,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(m.card && !m.card.skipped){ const k=draftCard(m.card,{compact:true,onChange:touch}); k.dataset.key='m'+i; b.appendChild(k); }
     if(m.fileCard && !m.fileCard.skipped){ const k=fileCard(m.fileCard,{onChange:touch}); k.dataset.key='m'+i; b.appendChild(k); }
     if(m.autoCard && !m.autoCard.skipped){ const k=autoCard(m.autoCard,{onChange:touch}); k.dataset.key='m'+i; b.appendChild(k); }
+    if(m.sources) b.appendChild(sourcesRow(m.sources));
+    if(m.plugCard && !m.plugCard.skipped) b.appendChild(plugCardEl(m.plugCard));
     return b;
   }
   function renderChat(){
@@ -634,7 +732,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if((!c||c.messages.length===0) && !withBrief){ chat.appendChild(homeScreen()); return; }
     const wrap=document.createElement('div'); wrap.className='wrap'; if(withBrief) wrap.appendChild(briefEl);
     (c?.messages||[]).forEach((m,i)=>wrap.appendChild(m.role==='user'?bubble('user',m.content):decorate(bubble('ai',m.content),m,i))); chat.appendChild(wrap);
-    chat.scrollTop = c&&c.messages.length ? chat.scrollHeight : 0;
+    chat.scrollTop = c&&c.messages.length ? chat.scrollHeight : 0; renderSide();
   }
 
   // ---- files ----
@@ -922,6 +1020,10 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     }
 
     if(recording && text && !text.startsWith('/')){ recording.steps.push(text); renderRecBar(); }
+    // "send this to slack" / "post on discord: …" — a card you check and send yourself; the AI never posts on its own
+    const pk=!files.length && plugIntent(text);
+    if(pk){ c.messages.push(plugReply(c,pk,text)); c.updated=Date.now(); saveC(); renderChat(); renderSide(); return; }
+    const research=researchOn && text && !files.length;
     busy=true; sendBtn.disabled=true;
     const wrap=chat.querySelector('.wrap')||(()=>{const w=document.createElement('div');w.className='wrap';chat.appendChild(w);return w;})();
     const aiEl=bubble('ai',''), dots=el('span','dots'); dots.innerHTML='<i></i><i></i><i></i>'; aiEl._steps.before(dots);
@@ -937,8 +1039,13 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     // One round of the conversation with the server. A file action may need a second round: the
     // server asks for a file ("needFile"), this browser reads it from your folder and sends the text.
     const round=async(extra)=>{
-      const resp=await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
-        body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text})), memory:memory.join('\n'), profile, folder:folderInfo(), ...extra})});
+      const resp=research
+        ? await fetch('/api/research',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({question:text})})
+        : await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
+          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text})), memory:memory.join('\n'), profile, folder:folderInfo(), ...extra})});
+      if(!resp.ok && !/event-stream/.test(resp.headers.get('content-type')||'')){   // e.g. the usage limit is reached
+        const d=await resp.json().catch(()=>({})); dots.remove(); wrap.appendChild(el('div','err',d.error||'Something went wrong — please try again.'));
+        if(d.usage) usageNow=d.usage; renderSide(); return; }
       if(!resp.body) throw new Error('no stream');
       const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
       while(true){ const {done,value}=await reader.read(); if(done)break; buf+=dec.decode(value,{stream:true});
@@ -951,6 +1058,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
           else if(j.step){ dots.remove(); stepsDone(); const s=el('div'); s.dataset.t=j.step; s.innerHTML='<span class="dots"><i></i><i></i><i></i></span> '; s.append(j.step+'…');
             aiEl._steps.appendChild(s); (msg.steps=msg.steps||[]).push(j.step); }
           else if(j.mailList){ msg.list=j.mailList; aiEl.appendChild(mailListCard(j.mailList)); }
+          else if(j.sources){ msg.sources=j.sources; aiEl.appendChild(sourcesRow(j.sources)); }
           else if(j.card){ msg.card=j.card; msg.pending='m'+at; const k=draftCard(j.card,{compact:true,onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
           else if(j.remember){ const line='Remember: '+j.remember; if(!memAdded && !memory.includes(line)){ memory.push(line); saveM(); } }
           else if(j.delta){ dots.remove(); stepsDone(); full+=j.delta; aiEl._text.nodeValue=full; chat.scrollTop=chat.scrollHeight; }
@@ -967,12 +1075,12 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
         if(text!==null) await round({fileResult:{...n, content:text.slice(0,20000)}});
       }
       stepsDone();
-      if(full||msg.card||msg.list||msg.fileCard||msg.autoCard){ msg.content=full; c.messages.push(msg); c.updated=Date.now(); saveC(); notify(); }
+      if(full||msg.card||msg.list||msg.fileCard||msg.autoCard){ msg.content=full; if(research) msg.research=true; c.messages.push(msg); c.updated=Date.now(); saveC(); notify(); nameChat(c); }
       else { aiEl.remove(); }
     }catch{
       aiEl.remove(); wrap.appendChild(el('div','err','Could not reach the server.'));
     }
-    busy=false; sendBtn.disabled=false; chat.scrollTop=chat.scrollHeight; input.focus();
+    busy=false; sendBtn.disabled=false; chat.scrollTop=chat.scrollHeight; input.focus(); refreshUsage();
   }
 
   // Draft cards the AI's latest turn is asking about ("send it like this, or change something?").
@@ -1056,12 +1164,13 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
   function plugOn(id){
     if(id==='gmail') return Boolean(plugState?.gmail);
+    if(SEND_PLUGS[id]) return Boolean(plugCfg[id]);
     if(id==='folder') return Boolean(folder&&folder.files);
     return true; // built in
   }
   function renderPlugins(){
     const tabs=$('plugTabs'); tabs.innerHTML='';
-    ['All','Productivity','Data','Development'].forEach(t=>{ const b=el('button',t===plugTab?'on':'',t); b.onclick=()=>{ plugTab=t; renderPlugins(); }; tabs.appendChild(b); });
+    ['All','Productivity','Messaging','Automation','Data','Development'].forEach(t=>{ const b=el('button',t===plugTab?'on':'',t); b.onclick=()=>{ plugTab=t; renderPlugins(); }; tabs.appendChild(b); });
     const q=$('plugSearch').value.toLowerCase(), grid=$('plugGrid'); grid.innerHTML='';
     PLUGINS.filter(x=>(plugTab==='All'||x.cat===plugTab) && (x.name+' '+x.desc).toLowerCase().includes(q)).forEach(x=>{
       const c=el('div','plug'), ic=el('span','plugico'); ic.innerHTML=x.icon();
@@ -1074,7 +1183,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   function openPlugin(id){
     if(id==='gmail') return showGmail(false);
     if(id==='folder'){ $('plugPage').classList.remove('open'); return folder&&folder.files?showFiles():folder?wakeFolder():openFolder(); }
-    if(id==='auto'){ $('plugPage').classList.remove('open'); return showAutomations(); }
+    if(id==='auto'){ $('plugPage').classList.remove('open'); return showSched(); }
+    if(SEND_PLUGS[id]) return openPlugConnect(id);
     if(id==='memory'){ $('plugPage').classList.remove('open'); return showMemory(); }
     if(id==='live'){ $('plugPage').classList.remove('open'); input.value='What is the weather in Hyderabad right now?'; input.focus(); }
   }
@@ -1457,7 +1567,220 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   $('fsText').addEventListener('keydown',(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){ e.preventDefault(); saveOpenFile(); } });
   $('fsAsk').onclick=()=>{ const p=$('fsPath').value.trim(); $('fsModal').classList.remove('open'); input.value=p?'What does '+p+' do?':''; input.focus(); };
   document.addEventListener('click',()=>$('menu').classList.remove('open'));
-  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/automations',desc:'See your automations — tasks on a schedule'},{cmd:'/skills',desc:'Reusable skills — built in and your own'},{cmd:'/record',desc:'Record a skill — do a task once, reuse it'},{cmd:'/library',desc:'Your files, reusable in any chat'},{cmd:'/creations',desc:'Everything I made for you'},{cmd:'/personalize',desc:'Your profile and custom instructions'},{cmd:'/plugins',desc:'Gmail, folder, live data and more'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
+  // ---- Deep research: Wikipedia + recent news + tech discussions, answered with numbered sources ----
+  let researchOn=false;
+  $('researchBtn').onclick=()=>{ researchOn=!researchOn; $('researchBtn').classList.toggle('on',researchOn); input.placeholder=researchOn?'Ask a research question — I will read real sources':'Assign a task or ask anything'; input.focus(); };
+  function sourcesRow(list){
+    const row=el('div','srcs');
+    list.forEach(s=>{ const a=el('a','src'); a.href=s.url; a.target='_blank'; a.rel='noopener noreferrer'; a.title=s.title;
+      a.append(el('b',null,'['+s.n+']'), el('span',null,s.title), el('i',null,s.site)); row.appendChild(a); });
+    return row;
+  }
+
+  // ---- Messaging plugins: Slack, Discord, Telegram and any webhook (Zapier, Make, n8n, IFTTT → thousands of apps) ----
+  const PCKEY='cc_plugcfg_v1';
+  let plugCfg=(()=>{ try{ return JSON.parse(localStorage.getItem(PCKEY)||'{}')||{}; }catch{ return {}; } })();
+  const savePlugCfg=()=>{ try{ localStorage.setItem(PCKEY,JSON.stringify(plugCfg)); }catch{} };
+  const svgIco=(d)=>`<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const SEND_PLUGS={
+    slack:{name:'Slack', icon:svgIco('<path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3 8 21"/><path d="M16 3l-2 18"/>'), desc:'Post a message to a Slack channel.',
+      how:['In Slack, open <b>Apps</b> → search <b>Incoming Webhooks</b> → <b>Add to Slack</b>.','Pick the channel and copy the <b>Webhook URL</b>.','Paste it below.'],
+      fields:[['url','Webhook URL','https://hooks.slack.com/services/…']]},
+    discord:{name:'Discord', icon:svgIco('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'), desc:'Post a message to a Discord channel.',
+      how:['In Discord, open the channel’s <b>Edit Channel</b> → <b>Integrations</b> → <b>Webhooks</b> → <b>New Webhook</b>.','Press <b>Copy Webhook URL</b>.','Paste it below.'],
+      fields:[['url','Webhook URL','https://discord.com/api/webhooks/…']]},
+    telegram:{name:'Telegram', icon:svgIco('<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>'), desc:'Send a message from your own bot to you or a group.',
+      how:['In Telegram, message <b>@BotFather</b>, send <b>/newbot</b> and copy the token it gives you.','Send any message to your new bot, then get your chat id from <b>@userinfobot</b>.','Paste both below.'],
+      fields:[['token','Bot token','123456789:AAH…'],['chat','Chat id','123456789 or @yourchannel']]},
+    webhook:{name:'Webhook (Zapier, Make, n8n)', icon:svgIco('<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'), desc:'Reach thousands of apps: anything Zapier, Make, n8n or IFTTT can do starts from here.',
+      how:['Make a webhook trigger: Zapier <b>Webhooks by Zapier → Catch Hook</b>, Make <b>Custom webhook</b>, n8n <b>Webhook</b> node, or IFTTT <b>Webhooks</b>.','Copy its URL (https://…) and paste it below.','CodeConClave sends <code>{"text", "source", "sentAt"}</code> — use it in any next step: Sheets, Notion, WhatsApp, email, CRM…'],
+      fields:[['url','Webhook URL','https://hooks.zapier.com/… or your Make / n8n URL']]}};
+  PLUGINS.push(...Object.entries(SEND_PLUGS).map(([id,p])=>({id, name:p.name, cat:id==='webhook'?'Automation':'Messaging', icon:()=>p.icon, desc:p.desc})));
+  let pmKind=null;
+  function openPlugConnect(kind){
+    const p=SEND_PLUGS[kind]; pmKind=kind;
+    $('pmIcon').innerHTML=p.icon; $('pmTitle').textContent=(plugCfg[kind]?'':'Connect ')+p.name; $('pmDesc').textContent=p.desc;
+    $('pmHow').innerHTML=p.how.map(h=>'<li>'+h+'</li>').join(''); $('pmErr').textContent=''; $('pmErr').style.color='';
+    const f=$('pmFields'); f.innerHTML='';
+    p.fields.forEach(([k,label,ph])=>{ const l=el('label','fieldlbl',label), i=document.createElement('input'); i.type=k==='token'?'password':'text'; i.id='pm_'+k; i.placeholder=ph; i.autocomplete='off'; i.value=plugCfg[kind]?.[k]||''; l.appendChild(i); f.appendChild(l); });
+    $('pmRemove').style.display=plugCfg[kind]?'':'none'; $('plugModal').classList.add('open');
+  }
+  async function plugSend(kind,cfg,text){
+    const r=await fetch('/api/plugins/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,config:cfg,text})});
+    const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'Could not send.');
+  }
+  $('pmSave').onclick=async()=>{
+    const cfg={}; SEND_PLUGS[pmKind].fields.forEach(([k])=>cfg[k]=$('pm_'+k).value.trim());
+    $('pmSave').disabled=true; $('pmErr').style.color=''; $('pmErr').textContent='Sending a test message…';
+    try{ await plugSend(pmKind,cfg,'✅ CodeConClave AI is connected. Ask me to "send this to '+SEND_PLUGS[pmKind].name.split(' ')[0].toLowerCase()+'" any time.');
+      plugCfg[pmKind]=cfg; savePlugCfg(); $('plugModal').classList.remove('open'); toast('✅ '+SEND_PLUGS[pmKind].name+' connected — test message sent.'); renderPlugins(); renderSide(); }
+    catch(e){ $('pmErr').textContent=e.message; }
+    $('pmSave').disabled=false;
+  };
+  $('pmRemove').onclick=()=>{ delete plugCfg[pmKind]; savePlugCfg(); $('plugModal').classList.remove('open'); toast(SEND_PLUGS[pmKind].name+' disconnected.'); renderPlugins(); renderSide(); };
+  $('pmClose').onclick=()=>$('plugModal').classList.remove('open');
+  // "send this to slack", "post on discord: …", "tell my telegram that …", "send to zapier …"
+  const PLUG_RE=/\b(send|post|share|message|tell|notify|forward|drop)\b[\s\S]*?\b(?:on|to|in|into|via|through)\s+(?:my\s+|the\s+|our\s+)?(slack|discord|telegram|webhook|zapier|make|n8n|ifttt)\b/i;
+  function plugIntent(text){ const m=text.match(PLUG_RE); if(!m) return null; const k=m[2].toLowerCase(); return ['zapier','make','n8n','ifttt'].includes(k)?'webhook':k; }
+  function plugReply(c,kind,text){
+    const p=SEND_PLUGS[kind];
+    if(!plugCfg[kind]) return {role:'assistant',content:`${p.name} isn’t connected yet. Open Plugins (left side) → ${p.name} to connect it — it takes a minute — then ask me again.`};
+    // what to send: the words after ":" or "saying/that", else my last answer ("send this to slack")
+    let body=(text.match(/:\s*([\s\S]+)$/)||text.match(/\b(?:saying|that says|that)\s+([\s\S]+)$/i)||[])[1]||'';
+    if(!body.trim()) body=[...c.messages].reverse().find(m=>m.role==='assistant' && m.content && !m.plugCard)?.content||'';
+    body=body.replace(/\s*📊\s*Source:[^\n]*/g,'').trim().slice(0,3500);
+    if(!body) return {role:'assistant',content:`What should I send to ${p.name}? Say it like: send to ${kind}: your message.`};
+    return {role:'assistant',content:`Here’s the message for ${p.name}. Check it, change it if you like, and press Send.`, plugCard:{kind,text:body}};
+  }
+  function plugCardEl(m){
+    const p=SEND_PLUGS[m.kind], card=el('div','mailcard');
+    const head=el('div','bnote'); head.innerHTML=p.icon+' '; head.appendChild(el('b',null,'To '+p.name)); card.appendChild(head);
+    const box=el('textarea','maildraft'); box.value=m.text; box.rows=4; box.disabled=Boolean(m.sent); box.oninput=()=>{ m.text=box.value; touch(); };
+    const act=el('div','mailact'), sendB=el('button','msend','Send'), skip=el('button','mskip','Cancel'), st=el('span','mstatus');
+    card.append(box,act); act.append(sendB,skip,st);
+    const done=()=>{ sendB.remove(); skip.remove(); st.textContent='✅ Sent to '+p.name; };
+    if(m.sent) done();
+    skip.onclick=()=>{ m.skipped=true; touch(); card.remove(); };
+    sendB.onclick=async()=>{ if(!plugCfg[m.kind]){ st.textContent=p.name+' is not connected on this device.'; return; }
+      sendB.disabled=true; st.textContent='Sending…';
+      try{ await plugSend(m.kind,plugCfg[m.kind],box.value.trim()); m.sent=true; m.text=box.value.trim(); box.disabled=true; touch(); done(); }
+      catch(e){ sendB.disabled=false; st.textContent=e.message; } };
+    return card;
+  }
+
+  // ---- Chat names: after the first answer, the AI gives the chat a short name ----
+  async function nameChat(c){
+    if(c.named || c.id==='automations') return;
+    const firstQ=c.messages.find(m=>m.role==='user')?.content, firstA=c.messages.find(m=>m.role==='assistant')?.content;
+    if(!firstQ || !firstA) return;
+    c.named=true;
+    try{ const r=await fetch('/api/title',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:firstQ.replace(/\n📄.*/g,''),answer:firstA})});
+      const d=await r.json(); if(r.ok && d.title){ c.title=d.title; saveC(); renderSidebar(); } }catch{}
+  }
+
+  // ---- Details panel: your AI, context, usage, connectors, outputs and changes ----
+  let usageNow=null, aiState='offline';
+  const PANKEY='cc_panel_v1';
+  const panelPref=()=>{ try{ const v=localStorage.getItem(PANKEY); return v===null ? innerWidth>1200 : v==='1'; }catch{ return false; } };
+  function setPanel(on,save=true){ document.body.classList.toggle('panel',on); $('panelToggle').checked=on; $('panelBtn').title=on?'Hide details':'Show details';
+    if(save){ try{ localStorage.setItem(PANKEY,on?'1':'0'); }catch{} } if(on){ refreshUsage(); refreshStatus(); renderSide(); } }
+  $('panelBtn').onclick=()=>setPanel(!document.body.classList.contains('panel'));
+  $('sideClose').onclick=()=>setPanel(false);
+  $('panelToggle').onchange=()=>setPanel($('panelToggle').checked);
+  async function refreshUsage(){ try{ const r=await fetch('/api/usage'); if(r.ok){ usageNow=await r.json(); renderSide(); } }catch{} }
+  async function refreshStatus(){
+    try{ const d=await (await fetch('/api/status')).json(); aiState=d.state; }catch{ aiState='offline'; }
+    const dot=$('topDot'); dot.className='topdot '+aiState; dot.title={online:'Your AI is online',busy:'Your AI is busy answering',offline:'Your AI is offline right now'}[aiState]||'';
+    renderSide();
+  }
+  const when=(t)=>{ const d=new Date(t), today=new Date(); const time=d.toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'});
+    return d.toDateString()===today.toDateString() ? time : d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})+', '+time; };
+  function renderSide(){
+    if(!document.body.classList.contains('panel')) return;
+    const b=$('sideBody'); b.innerHTML=''; const c=current();
+    const sec=(title)=>{ const s=el('div','sidesec'); if(title) s.appendChild(el('h3',null,title)); b.appendChild(s); return s; };
+    const row=(s,icon,text,dim,btn)=>{ const r=el('div','srow'); r.innerHTML=svgIco(icon); r.appendChild(el('span','grow',text)); if(dim) r.appendChild(el('span','dim',dim)); if(btn){ const x=el('button',null,btn[0]); x.onclick=btn[1]; r.appendChild(x); } s.appendChild(r); };
+    // Environment
+    const env=sec('Environment');
+    row(env,'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>','CodeConClave AI',{online:'● Online',busy:'● Busy',offline:'● Offline'}[aiState]);
+    env.lastChild.querySelector('.dim').style.color={online:'#7bd88f',busy:'#f2c200',offline:'#e5534b'}[aiState];
+    row(env,'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',folder?folder.name:'No folder connected',null,folder?null:['Connect',()=>openFolder()]);
+    const standalone=matchMedia('(display-mode: standalone)').matches;
+    row(env,'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M12 7v6"/><path d="m9 10 3 3 3-3"/>',standalone?'Desktop app':'Web app',null,!standalone&&installPrompt?['Install',()=>$('installBtn').click()]:null);
+    // Context: how much of the AI's reading window this chat fills (about 4 characters per token)
+    const tok=(n)=>Math.ceil(n/3.6);
+    const msgs=tok((c?.messages||[]).slice(-24).reduce((n,m)=>n+(m.content||'').length,0));
+    const instr=tok(900+JSON.stringify(profile||{}).length+memory.join('\n').length);
+    const fil=tok(pending.reduce((n,f)=>n+Math.min((f.text||'').length,20000),0));
+    const total=msgs+instr+fil, pct=Math.min(100,Math.round(total/4096*100));
+    const ctx=sec('Context'); const big=el('div','sbig'); big.append(pct+'% used'); big.appendChild(el('span',null,'about '+total.toLocaleString('en-IN')+' / 4,096 tokens')); ctx.appendChild(big);
+    const bar=el('div','sbar'); [[msgs,'#1a93fe'],[instr,'#c57f16'],[fil,'#23998d']].forEach(([n,col])=>{ const i=document.createElement('i'); i.style.width=Math.min(100,n/4096*100)+'%'; i.style.background=col; bar.appendChild(i); }); ctx.appendChild(bar);
+    [['Messages',msgs,'#1a93fe'],['Instructions & memory',instr,'#c57f16'],['Attached files',fil,'#23998d'],['Free space',Math.max(0,4096-total),'#2c2c2c']].forEach(([l,n,col])=>{ const r=el('div','slegend'); const sw=document.createElement('b'); sw.style.background=col; r.append(sw,l); r.appendChild(el('span',null,n.toLocaleString('en-IN'))); ctx.appendChild(r); });
+    if(pct>=80) ctx.appendChild(el('div','sempty','This chat is long — older messages will drop out. Start a new task for a fresh window.'));
+    // Usage
+    const us=sec('Usage');
+    if(!usageNow) us.appendChild(el('div','sempty','Loading…'));
+    else [['5-hour window',usageNow.fiveHour],['Weekly',usageNow.weekly]].forEach(([l,u])=>{
+      const big=el('div','sbig'); big.append(l); big.appendChild(el('span',null,usageNow.unlimited?u.used+' used · unlimited':u.used+' / '+u.limit+' messages')); us.appendChild(big);
+      const bar=el('div','sbar'), i=document.createElement('i'), p=usageNow.unlimited?0:Math.min(100,u.used/u.limit*100); i.style.width=p+'%'; i.style.background=p>=90?'#e5534b':p>=70?'#f2c200':'#1a93fe'; bar.appendChild(i); us.appendChild(bar);
+      us.appendChild(el('div','sempty',u.resetsAt?'Resets '+when(u.resetsAt):'Starts with your next message')); us.lastChild.style.marginBottom='10px'; });
+    // Connectors
+    const conns=[['Gmail',Boolean(plugState?.gmail)],['Local folder',Boolean(folder&&folder.files)],...Object.entries(SEND_PLUGS).map(([k,p])=>[p.name.split(' (')[0],Boolean(plugCfg[k])]),['Live data',true],['Memory',true]];
+    const on=conns.filter(x=>x[1]); const cs=sec('Connectors · '+on.length+' connected');
+    on.forEach(([n])=>{ const r=el('div','sitem'); r.innerHTML=svgIco('<path d="M20 6 9 17l-5-5"/>'); r.appendChild(el('span','grow',n)); cs.appendChild(r); });
+    const more=el('div','srow'); const mb=el('button',null,'Connect more'); mb.onclick=()=>showPlugins(); more.appendChild(mb); cs.appendChild(more);
+    // Outputs and changes in this chat
+    const outs=[], changes=[];
+    (c?.messages||[]).forEach(m=>{
+      if(m.card) outs.push(['<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>','Email: '+(m.card.subject||m.card.fromName||'draft'),m.card.sent?'sent':'draft']);
+      if(m.autoCard) outs.push(['<rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/>',m.autoCard.task,m.autoCard.on?'on':'not on']);
+      if(m.plugCard) outs.push([SEND_PLUGS[m.plugCard.kind]?.icon.replace(/^<svg[^>]*>|<\/svg>$/g,'')||'','To '+SEND_PLUGS[m.plugCard.kind]?.name.split(' (')[0],m.plugCard.sent?'sent':'not sent']);
+      if(m.sources) outs.push(['<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/>','Research · '+m.sources.length+' sources','']);
+      if(m.fileCard) changes.push([m.fileCard.path,m.fileCard.kind==='create'?'new file':'edit']);
+    });
+    const os=sec('Outputs'); if(!outs.length) os.appendChild(el('div','sempty','Emails, automations and research from this chat show here.'));
+    outs.forEach(([ic,t,d])=>{ const r=el('div','sitem'); r.innerHTML=svgIco(ic); r.appendChild(el('span','grow',t)); if(d) r.appendChild(el('span','dim',d)); os.appendChild(r); });
+    const ch=sec('Changes'); if(!changes.length) ch.appendChild(el('div','sempty','File edits in your folder show here.'));
+    changes.forEach(([p,d])=>{ const r=el('div','sitem'); r.innerHTML=svgIco('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'); r.appendChild(el('span','grow',p)); r.appendChild(el('span','dim',d)); ch.appendChild(r); });
+  }
+
+  // ---- Scheduled tasks: your tasks on a schedule, plus ready-made templates ----
+  const STOPWATCH='<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><circle cx="50" cy="56" r="34" fill="#3a3a3a"/><path d="M42 14h16"/><path d="M50 14v8"/><path d="M50 56V34"/><path d="M50 56l13 8"/></svg>';
+  const TEMPLATES=[
+    {t:'Morning mail brief',d:'What came in, what is important, with replies drafted for you.',task:'Check my mail and tell me what is important',when:'every day at 8 am',icon:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>'},
+    {t:'Weather today',d:'The real weather for your city, every morning.',task:'What is the weather in Hyderabad today?',when:'every day at 7 am',icon:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/>'},
+    {t:'Top news',d:'Today’s top news in five short points.',task:'Give me today’s top news in 5 short points',when:'every day at 8 pm',icon:'<path d="M4 4h13v16H6a2 2 0 0 1-2-2z"/><path d="M17 8h3v10a2 2 0 0 1-2 2"/><path d="M8 8h5"/><path d="M8 12h5"/>'},
+    {t:'Bitcoin price check',d:'The live Bitcoin price, every morning.',task:'What is the Bitcoin price right now?',when:'every day at 9 am',icon:'<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>'},
+    {t:'Drink water',d:'A gentle reminder to drink water.',task:'Remind me to drink water',when:'every 2 hours',icon:'<path d="M12 2.7S6 9.5 6 14a6 6 0 0 0 12 0c0-4.5-6-11.3-6-11.3z"/>'},
+    {t:'Study plan',d:'A short plan for your day of study.',task:'Give me a 3-point study plan for today',when:'weekdays at 7 am',icon:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>'},
+    {t:'Weekly review',d:'Three questions to look back on your week.',task:'Give me 3 short questions to review my week',when:'every sunday at 6 pm',icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>'}];
+  let schedTab='Yours', schedRows=null;
+  async function showSched(){ closeRail(); $('schedPage').classList.add('open'); schedRows=null; renderSched();
+    if(me){ try{ schedRows=(await (await fetch('/api/automations')).json()).automations||[]; }catch{ schedRows=[]; } } else schedRows=[]; renderSched(); }
+  function tmplCard(x){ const b=el('button','tcard'); b.innerHTML=`<span class="tic">${svgIco(x.icon)}</span>`; const t=el('div');
+    t.append(el('b',null,x.t), el('span',null,x.d)); const em=el('em'); em.innerHTML=svgIco('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'); em.append(x.when.replace(/^./,ch=>ch.toUpperCase())); t.appendChild(em);
+    b.appendChild(t); b.onclick=()=>openSchedNew(x.task,x.when); return b; }
+  function renderSched(){
+    const tabs=$('schedTabs'); tabs.innerHTML=''; ['Yours','Templates'].forEach(t=>{ const b=el('button',t===schedTab?'on':null,t); b.onclick=()=>{ schedTab=t; renderSched(); }; tabs.appendChild(b); });
+    const L=$('schedList'), q=$('schedSearch').value.trim().toLowerCase(); L.innerHTML='';
+    const grid=()=>{ const g=el('div','tgrid'); TEMPLATES.filter(x=>(x.t+' '+x.d).toLowerCase().includes(q)).forEach(x=>g.appendChild(tmplCard(x))); return g; };
+    if(schedTab==='Templates'){ L.appendChild(grid()); return; }
+    if(schedRows===null){ L.appendChild(el('div','libempty','Loading…')); return; }
+    const rows=schedRows.filter(a=>a.task.toLowerCase().includes(q));
+    if(!rows.length){ const e=el('div','schedempty'); e.innerHTML=STOPWATCH; e.append(me?'No scheduled tasks yet.':'Sign in to schedule tasks — they run on our server even when your computer is off.');
+      const nb=el('button','mskip',me?'New task':'Sign in'); nb.onclick=()=>me?openSchedNew():showAuth(false); e.appendChild(nb); L.appendChild(e);
+      L.appendChild(el('div','wavy')); L.appendChild(grid()); return; }
+    rows.forEach(a=>{ const r=el('div','srow2'), ic=el('span','tic'); ic.innerHTML=CLOCK_SVG; const t=el('div','tt');
+      t.append(el('b',null,a.task), el('span',null,a.when+(a.enabled&&a.next?' · next '+a.next:' · paused')+(a.lastStatus==='failed'?' · last run failed':a.lastRun?' · last ran '+when(a.lastRun):'')));
+      const sw=document.createElement('input'); sw.type='checkbox'; sw.checked=a.enabled; sw.title=a.enabled?'Pause':'Turn on';
+      sw.onchange=async()=>{ const x=await fetch('/api/automations/'+a.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:sw.checked})}); const j=await x.json().catch(()=>({})); if(!x.ok){ sw.checked=!sw.checked; toast(j.error||'Could not change it.'); } showSched(); };
+      const del=el('button','bx','Delete'); del.onclick=async()=>{ if(del.dataset.sure){ await fetch('/api/automations/'+a.id,{method:'DELETE'}); showSched(); } else { del.dataset.sure='1'; del.textContent='Delete?'; } };
+      r.append(ic,t,sw,del); L.appendChild(r); });
+    L.appendChild(el('div','wavy')); L.appendChild(el('h3',null,'Templates')).style.cssText='font-weight:500;margin:0 0 18px'; L.appendChild(grid());
+  }
+  function openSchedNew(task='',whenText=''){
+    if(!me){ toast('Sign in first — scheduled tasks are kept on your account.'); showAuth(false); return; }
+    $('schedTask').value=task; $('schedWhen').value=whenText; $('schedErr').textContent=''; $('schedModal').classList.add('open'); (task?$('schedWhen'):$('schedTask')).focus();
+  }
+  $('schedSave').onclick=async()=>{
+    const task=$('schedTask').value.trim(), text=$('schedWhen').value.trim();
+    if(!task||!text){ $('schedErr').textContent='Say what to do and when.'; return; }
+    $('schedSave').disabled=true;
+    try{ const p=await (await fetch('/api/parse-schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})).json();
+      if(!p.schedule) throw new Error('I could not understand that time — try “every day at 8 am”, “weekdays at 7 pm” or “every 2 hours”.');
+      const r=await fetch('/api/automations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task,schedule:p.schedule})});
+      const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not create it.');
+      $('schedModal').classList.remove('open'); toast('Scheduled: '+d.when+' — next run '+d.next); schedTab='Yours'; showSched();
+    }catch(e){ $('schedErr').textContent=e.message; }
+    $('schedSave').disabled=false;
+  };
+  $('schedNew').onclick=()=>openSchedNew(); $('schedClose').onclick=()=>$('schedPage').classList.remove('open');
+  $('schedModalClose').onclick=$('schedCancel').onclick=()=>$('schedModal').classList.remove('open');
+  $('schedSearch').oninput=renderSched;
+  $('autoBtn').onclick=showSched;
+  setPanel(panelPref(),false); refreshStatus(); setInterval(refreshStatus,30000);
+
+  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/schedule',desc:'Scheduled tasks — run by themselves, India time'},{cmd:'/research',desc:'Deep research — answers from real sources'},{cmd:'/skills',desc:'Reusable skills — built in and your own'},{cmd:'/record',desc:'Record a skill — do a task once, reuse it'},{cmd:'/library',desc:'Your files, reusable in any chat'},{cmd:'/creations',desc:'Everything I made for you'},{cmd:'/personalize',desc:'Your profile and custom instructions'},{cmd:'/plugins',desc:'Gmail, folder, live data and more'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
   function slashRender(q){ const el=$('slash');
     const list=[...COMMANDS, ...mySkills.map(k=>({cmd:'/'+slug(k.name), desc:k.steps?.length?'Recorded skill · '+k.steps.length+' step'+(k.steps.length===1?'':'s'):(k.prompt||'').slice(0,60), skill:k}))].filter(c=>c.cmd.startsWith(q.toLowerCase())); el.innerHTML='';
     list.forEach((c,i)=>{ const r=document.createElement('button'); r.className='slashrow'+(i===0?' sel':''); r.dataset.cmd=c.cmd;
@@ -1470,7 +1793,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     else if(c==='/clear'){ const cur=current(); if(cur){cur.messages=[]; cur.title='New chat'; saveC(); renderSidebar(); renderChat();} }
     else if(c==='/memory') showMemory();
     else if(c==='/mail') mailBrief(true);
-    else if(c==='/automations') showAutomations();
+    else if(c==='/schedule'||c==='/automations') showSched();
+    else if(c==='/research'){ if(!researchOn) $('researchBtn').click(); }
     else if(c==='/skills') showSkills();
     else if(c==='/record') startRecording();
     else if(c==='/library') showLibrary();

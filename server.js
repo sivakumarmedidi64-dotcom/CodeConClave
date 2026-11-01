@@ -664,7 +664,11 @@ async function streamAnswer(res, messages, temperature = 0.7, guard = null) {
   return 'done';
 }
 
-app.post('/api/chat', (req, res, next) => chatHandler(req, res).catch(next));
+app.post('/api/chat', (req, res, next) => (async () => {
+  // The second round of a file action belongs to the same message, so it is not counted again.
+  if (!req.body?.fileResult && await overLimit(req, res)) return;
+  return chatHandler(req, res);
+})().catch(next));
 async function chatHandler(req, res) {
   let convo = [];
   if (Array.isArray(req.body?.messages)) {
@@ -1287,6 +1291,190 @@ app.put('/api/library', wrap(async (req, res) => {
     .filter((f) => /^[\w-]+$/.test(f.id) && f.name);
   await store.putPref(req.user.id, 'library', files);
   res.json({ ok: true });
+}));
+
+// ---- Usage: a 5-hour window and a weekly window per person, shown live in the side panel ----
+// A window starts with your first message and resets fully when it ends (5 hours / 7 days later).
+const LIMIT_5H = Number(process.env.LIMIT_5H) || 40;
+const LIMIT_WEEK = Number(process.env.LIMIT_WEEK) || 300;
+const usage = new Map(); // who -> { h5Start, h5, wkStart, wk }
+function whoIs(req, res) {
+  if (req.user) return `u:${req.user.id}`;
+  let a = readCookie(req, 'cc_anon');
+  if (!/^[a-f0-9]{24}$/.test(a)) { a = crypto.randomBytes(12).toString('hex'); res.append('Set-Cookie', cookie('cc_anon', a, 365 * 86400)); }
+  return `a:${a}`;
+}
+async function usageOf(who) {
+  let u = usage.get(who);
+  if (!u && store && who.startsWith('u:')) { try { u = await store.getPref(who.slice(2), 'usage'); } catch { /* start fresh */ } }
+  u = { h5Start: 0, h5: 0, wkStart: 0, wk: 0, ...(u || {}) };
+  const now = Date.now();
+  if (u.h5Start && now >= u.h5Start + 5 * 3600000) { u.h5Start = 0; u.h5 = 0; }
+  if (u.wkStart && now >= u.wkStart + 7 * 86400000) { u.wkStart = 0; u.wk = 0; }
+  usage.set(who, u);
+  return u;
+}
+const unlimited = (req) => keyOk(req) || req.user?.role === 'owner';
+const usageView = (u, req) => ({
+  unlimited: unlimited(req),
+  fiveHour: { used: u.h5, limit: LIMIT_5H, resetsAt: u.h5Start ? u.h5Start + 5 * 3600000 : null },
+  weekly: { used: u.wk, limit: LIMIT_WEEK, resetsAt: u.wkStart ? u.wkStart + 7 * 86400000 : null },
+});
+// true = the request was refused (limit reached); otherwise the message is counted
+async function overLimit(req, res) {
+  const who = whoIs(req, res), u = await usageOf(who);
+  if (!unlimited(req)) {
+    const v = usageView(u, req);
+    const hit = u.h5 >= LIMIT_5H ? ['5-hour window', v.fiveHour] : u.wk >= LIMIT_WEEK ? ['week', v.weekly] : null;
+    if (hit) {
+      res.status(429).json({ error: `You have used all ${hit[1].limit} messages for this ${hit[0]}. It resets ${describeWhen(hit[1].resetsAt)}.`, usage: v });
+      return true;
+    }
+  }
+  const now = Date.now();
+  if (!u.h5Start) u.h5Start = now;
+  if (!u.wkStart) u.wkStart = now;
+  u.h5 += 1; u.wk += 1;
+  if (store && who.startsWith('u:')) store.putPref(who.slice(2), 'usage', u).catch(() => {});
+  return false;
+}
+app.get('/api/usage', wrap(async (req, res) => res.json(usageView(await usageOf(whoIs(req, res)), req))));
+
+// Is the AI (the tuned model on the founder's computer) reachable right now? A slow answer means it is busy.
+let modelStatus = { at: 0, state: 'offline' };
+app.get('/api/status', wrap(async (_req, res) => {
+  if (Date.now() - modelStatus.at > 15000) {
+    let state = 'offline';
+    if (BASE) {
+      try { const r = await fetch(`${BASE}/models`, { headers: KEY ? { Authorization: `Bearer ${KEY}` } : {}, signal: AbortSignal.timeout(4000) }); state = r.ok ? 'online' : 'offline'; }
+      catch (e) { state = e?.name === 'TimeoutError' ? 'busy' : 'offline'; }
+    }
+    modelStatus = { at: Date.now(), state };
+  }
+  res.json({ model: MODEL, state: modelStatus.state, contextTokens: 4096, limits: { fiveHour: LIMIT_5H, weekly: LIMIT_WEEK } });
+}));
+
+// A short name for a chat, from its first question and answer.
+app.post('/api/title', wrap(async (req, res) => {
+  const text = String(req.body?.text || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  const answer = String(req.body?.answer || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  if (!text) return res.status(400).json({ error: 'Nothing to name.' });
+  let title = '';
+  if (BASE) {
+    try {
+      title = await callModel([
+        { role: 'system', content: 'You name chats. Reply with only a short title of 2 to 5 words that says what this chat is about. No quotes.' },
+        { role: 'user', content: `User: ${text}\nAssistant: ${answer}\n\nTitle:` }], 16, 0.2);
+    } catch { /* fall back to the question */ }
+  }
+  title = title.split('\n')[0].replace(/^title\s*:\s*/i, '').replace(/^["'*#\s]+|["'*.!\s]+$/g, '').slice(0, 48);
+  if (!title || title.split(/\s+/).length > 8 || /language model|as an ai/i.test(title)) title = text.slice(0, 40);
+  res.json({ title });
+}));
+
+// ---- Deep research: search several real sources, read them, answer with numbered citations ----
+const RESEARCH_UA = { 'User-Agent': 'CodeConClave-AI/1.0 (research; https://codeconclave-ww5x.onrender.com)' };
+async function getJSON(url, ms = 9000) {
+  const r = await fetch(url, { headers: RESEARCH_UA, signal: AbortSignal.timeout(ms) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+async function wikiSources(q) {
+  const s = await getJSON(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=3&format=json&utf8=1`, 8000);
+  const titles = (s?.query?.search || []).map((x) => x.title);
+  if (!titles.length) return [];
+  const e = await getJSON(`https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=550&redirects=1&format=json&titles=${encodeURIComponent(titles.join('|'))}`);
+  return Object.values(e?.query?.pages || {}).filter((p) => p.extract).map((p) => ({
+    title: p.title, url: `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`, site: 'Wikipedia', text: p.extract.replace(/\s+/g, ' ').trim(),
+  }));
+}
+async function newsSources(q) {
+  const d = await getJSON(`https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}%20sourcelang:english&mode=artlist&format=json&maxrecords=6&sort=datedesc`, 16000);
+  return (d?.articles || []).slice(0, 5).map((a) => ({ title: a.title, url: a.url, site: a.domain, text: `News headline (${String(a.seendate || '').slice(0, 8)}): ${a.title}` }));
+}
+async function techSources(q) {
+  const d = await getJSON(`https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(q)}&tags=story&hitsPerPage=4`);
+  return (d?.hits || []).filter((h) => h.title).map((h) => ({ title: h.title, url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`, site: 'Hacker News', text: `Tech discussion (${h.points || 0} points): ${h.title}` }));
+}
+app.post('/api/research', (req, res, next) => (async () => {
+  const q = String(req.body?.question || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (!q) return res.status(400).json({ error: 'Ask a question first.' });
+  if (!BASE) return res.status(503).json({ error: 'CodeConClave AI is not connected yet (no model endpoint set).' });
+  if (await overLimit(req, res)) return;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.flushHeaders?.();
+  const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+  const tech = /\b(code|coding|program|software|api|javascript|python|ai|llm|startup|github|framework|database|linux|chip|gpu)\b/i.test(q);
+  send({ step: 'Searching Wikipedia, recent news' + (tech ? ' and tech discussions' : '') });
+  const jobs = [wikiSources(q), newsSources(q), tech ? techSources(q) : Promise.resolve([])];
+  const [wiki, news, hn] = (await Promise.allSettled(jobs)).map((r) => (r.status === 'fulfilled' ? r.value : []));
+  const sources = [...wiki, ...news.slice(0, 4), ...hn.slice(0, 3)].slice(0, 9).map((s, i) => ({ n: i + 1, ...s }));
+  if (!sources.length) { send({ error: 'I could not reach any sources just now — please try again.' }); send({ done: true }); return res.end(); }
+  send({ step: `Reading ${sources.length} sources` });
+  send({ sources: sources.map(({ n, title, url, site }) => ({ n, title, url, site })) });
+  const block = sources.map((s) => `[${s.n}] ${s.site} — ${s.title}\n${s.text}`).join('\n\n');
+  send({ step: 'Writing the answer' });
+  await streamAnswer(res, [
+    { role: 'system', content: SYSTEM },
+    // the small model follows instructions in the user turn far better than in the system prompt
+    { role: 'user', content: `Sources:\n${block}\n\nQuestion: ${q}\n\nAnswer using ONLY the sources above. Write one short summary line, then 3-5 bullet points. End EVERY bullet with the number of the source it came from, like [1] or [3]. Copy numbers and dates exactly as the sources say. If the sources do not answer the question, say so.` }], 0.2);
+})().catch(next));
+
+// ---- Send to Slack, Discord, Telegram or any webhook (Zapier, Make, n8n, IFTTT…) — only after the user presses Send ----
+function postPublic(url, payload) {
+  return new Promise((resolve, reject) => {
+    let u;
+    try { u = new URL(url); } catch { return reject(new Error('That is not a valid link.')); }
+    if (u.protocol !== 'https:') return reject(new Error('Only https:// links work.'));
+    const literal = u.hostname.replace(/^\[|\]$/g, '');
+    if (net.isIP(literal) && privateIp(literal)) return reject(new Error('That link points to a private address.'));
+    const data = Buffer.from(JSON.stringify(payload));
+    const req = https.request(u, { method: 'POST', lookup: publicLookup, timeout: 12000, maxHeaderSize: 65536,
+      headers: { 'Content-Type': 'application/json', 'Content-Length': data.length, 'User-Agent': 'CodeConClave-AI' } }, (r) => {
+      let body = '';
+      r.on('data', (c) => { if (body.length < 4000) body += c; });
+      r.on('end', () => resolve({ status: r.statusCode, body }));
+      r.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error('That service took too long to answer.')));
+    req.on('error', (e) => reject(e.message === 'private address' ? new Error('That link points to a private address.') : e));
+    req.end(data);
+  });
+}
+const sendTimes = new Map();
+app.post('/api/plugins/send', wrap(async (req, res) => {
+  const kind = String(req.body?.kind || ''), cfg = req.body?.config || {}, text = String(req.body?.text || '').trim().slice(0, 3500);
+  if (!text) return res.status(400).json({ error: 'There is nothing to send.' });
+  const now = Date.now(), times = (sendTimes.get(req.ip) || []).filter((t) => now - t < 600000);   // 30 sends / 10 min
+  if (times.length >= 30) return res.status(429).json({ error: 'Too many sends — wait a few minutes.' });
+  times.push(now); sendTimes.set(req.ip, times);
+  let url, payload;
+  if (kind === 'slack') {
+    url = String(cfg.url || '').trim();
+    if (!/^https:\/\/hooks\.slack\.com\/services\/[\w/-]+$/.test(url)) return res.status(400).json({ error: 'That is not a Slack webhook link (it starts with https://hooks.slack.com/services/).' });
+    payload = { text };
+  } else if (kind === 'discord') {
+    url = String(cfg.url || '').trim();
+    if (!/^https:\/\/(discord|discordapp)\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(url)) return res.status(400).json({ error: 'That is not a Discord webhook link (it starts with https://discord.com/api/webhooks/).' });
+    payload = { content: text.slice(0, 2000) };
+  } else if (kind === 'telegram') {
+    const token = String(cfg.token || '').trim(), chat = String(cfg.chat || '').trim();
+    if (!/^\d{5,}:[\w-]{30,}$/.test(token)) return res.status(400).json({ error: 'That bot token does not look right — it looks like 123456789:AAH…' });
+    if (!/^(-?\d{3,}|@\w{4,})$/.test(chat)) return res.status(400).json({ error: 'The chat id should be a number like 123456789, or @yourchannel.' });
+    url = `https://api.telegram.org/bot${token}/sendMessage`;
+    payload = { chat_id: chat, text: text.slice(0, 4000) };
+  } else if (kind === 'webhook') {
+    url = String(cfg.url || '').trim();
+    payload = { text, source: 'CodeConClave AI', sentAt: new Date().toISOString() };
+  } else return res.status(400).json({ error: 'Unknown plugin.' });
+  try {
+    const r = await postPublic(url, payload);
+    if (r.status >= 200 && r.status < 300) return res.json({ ok: true });
+    let why = '';
+    try { const j = JSON.parse(r.body); why = j?.description || j?.message || ''; } catch { why = r.body.slice(0, 120); }
+    res.status(502).json({ error: `The service said no (error ${r.status})${why ? `: ${why}` : ''}.` });
+  } catch (e) { res.status(502).json({ error: e.message || 'Could not reach that service.' }); }
 }));
 
 // ---- Import memory from a share link (the chat where the user ran our transfer prompt in another AI) ----
