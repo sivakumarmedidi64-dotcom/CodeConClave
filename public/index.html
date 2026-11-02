@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>CodeConClave AI</title>
+<title>CodeConClave — Your Autonomous Intelligence Workspace</title>
+<meta name="description" content="CodeConClave AI — your autonomous intelligence workspace: research with real sources, code, files, mail, voice and automations.">
 <link rel="manifest" href="/manifest.webmanifest" />
 <meta name="theme-color" content="#1f1f1f" />
 <link rel="icon" href="/icon-192.png" />
@@ -92,6 +93,17 @@
   .spill .fav{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-size:10px;font-weight:700;color:#111;margin-left:-5px;border:2px solid var(--bg)}
   .spill .fav:first-child{margin-left:0}
   .srcs.hidden{display:none}
+  .docpv{max-height:280px;overflow:auto;margin:8px 0;font-size:13px}
+  .docpv table{border-collapse:collapse;width:100%}
+  .docpv th,.docpv td{border:1px solid #2f2f2f;padding:5px 8px;text-align:left;white-space:nowrap}
+  .docpv th{background:#232323}
+  .docpv b{display:block;margin-top:8px}
+  .slidepv{padding:6px 0;border-bottom:1px solid #262626}
+  .home__tag{margin:-6px 0 22px;color:var(--dim);font-size:15px;letter-spacing:.2px;text-align:center}
+  .voicerow{display:flex;align-items:center;gap:10px}
+  .voicerow select{margin-left:auto;background:#151515;color:var(--fg);border:1px solid #363636;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px}
+  .supportrow{margin:10px 0 2px;font-size:13px;color:var(--dim)}
+  .supportrow a{color:var(--accent)}
   #pfLang{display:block;width:100%;margin-top:8px;background:#151515;color:var(--fg);border:1px solid #363636;border-radius:9px;padding:10px;font:inherit;font-size:14px}
   .editsum{margin-top:10px;border:1px solid #2f2f2f;border-radius:12px;background:#1b1b1b;white-space:normal;font-size:14px}
   .eshead{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #2a2a2a}
@@ -463,6 +475,8 @@
       <ul id="memList"></ul>
       <label class="sndrow"><input type="checkbox" id="sndToggle" /> Play the guitar sound when an answer is ready</label>
       <label class="sndrow"><input type="checkbox" id="panelToggle" /> Show the details panel (usage, context, connectors)</label>
+      <label class="sndrow voicerow">AI voice <select id="voicePick"><option value="male">Male (CodeConClave voice)</option><option value="female">Female (CodeConClave voice)</option><option value="standard">Standard</option></select></label>
+      <div class="supportrow">Support &amp; collaboration: <a href="mailto:medidisaharsh@gmail.com">medidisaharsh@gmail.com</a></div>
       <div class="mailact"><button class="mskip" id="memClear">Clear memory</button></div>
     </div>
   </div>
@@ -788,7 +802,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   // Start screen: the CodeConClave logo and two things the AI can really do for you.
   const CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
   function homeScreen(){
-    const h=el('div','home'); h.innerHTML='<img class="home__logo" src="/logo.png" alt="CodeConClave" />';
+    const h=el('div','home'); h.innerHTML='<img class="home__logo" src="/logo.png" alt="CodeConClave" /><div class="home__tag">Your Autonomous Intelligence Workspace</div>';
     const card=(color,icon,title,sub,go)=>{ const b=el('button','hcard'); b.innerHTML=`<svg class="hico" style="color:${color}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg><b></b><span></span>`;
       b.querySelector('b').append(title); b.querySelector('b').insertAdjacentHTML('beforeend',CHEV); b.querySelector('span').textContent=sub; b.onclick=go; return b; };
     h.append(
@@ -844,6 +858,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(m.appList) b.appendChild(appListCard(m.appList));
     if(m.appCard && !m.appCard.skipped) b.appendChild(appCardEl(m.appCard));
     if(m.deskCard) b.appendChild(deskCardEl(m.deskCard));
+    if(m.docCard) b.appendChild(docCardEl(m.docCard));
     if(m.role!=='user'){ const rr=codeRunRow(m.content); if(rr) b.appendChild(rr); const pv=previewRow(m.content); if(pv) b.appendChild(pv); }
     if(m.role!=='user' && m.content && !m.appCard && !m.plugCard) b.appendChild(actionBar(m,i,b));
     return b;
@@ -1187,6 +1202,9 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     // "my github issues", "what's on my calendar", "add task to todoist: …" - the app answers (creating waits for your button)
     // a share link from another AI: read that conversation and continue it here
     if(!files.length && SHARE_RE.test(text)){ await importChat(c,text); return; }
+    // "make an Excel sheet / PowerPoint / Word document / PDF about …"
+    const dc=!files.length && !researchOn && docIntent(text);
+    if(dc){ await makeDoc(c,dc.kind,text); return; }
     const dk=!files.length && deskIntent(text);
     if(dk){ await runDesk(c,dk); return; }
     const ak=!files.length && !researchOn && appIntent(text);
@@ -2075,6 +2093,70 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     return row;
   }
 
+  // ---- Office files: real .xlsx / .pptx / .docx / .pdf made from the chat ----
+  const DOC_LIBS={sheet:['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',()=>window.XLSX],
+    slides:['https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',()=>window.PptxGenJS],
+    doc:['https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js',()=>window.docx],
+    pdf:['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',()=>window.jspdf]};
+  const DOC_NAMES={sheet:'Excel sheet',slides:'PowerPoint deck',doc:'Word document',pdf:'PDF'};
+  const DOC_EXT={sheet:'xlsx',slides:'pptx',doc:'docx',pdf:'pdf'};
+  function loadLib(kind){ const [src,get]=DOC_LIBS[kind]; if(get()) return Promise.resolve(get());
+    return new Promise((ok,no)=>{ const sc=document.createElement('script'); sc.src=src; sc.onload=()=>get()?ok(get()):no(new Error('The file maker did not load.')); sc.onerror=()=>no(new Error('Could not load the file maker - check your internet.')); document.head.appendChild(sc); }); }
+  function docIntent(t){
+    if(!/\b(make|create|generate|build|write|prepare|draft|design|give me)\b/i.test(t)) return null;
+    const k=/\b(excel|spreadsheet|xlsx|csv)\b|\b(?<!style ?)sheet\b/i.test(t)?'sheet':/\b(power ?point|pptx?|slides?|presentation|deck)\b/i.test(t)?'slides':/\bpdf\b/i.test(t)?'pdf':/\b(word (doc|document|file)|docx)\b/i.test(t)?'doc'
+      // "report / essay / letter" only when the message is not about code ("a report card component in React" stays code)
+      :/\b(document|report|essay|letter|resume|cv)\b/i.test(t)&&!/\b(code|component|function|react|html|css|api|class|python|javascript|sql|app|website|bug)\b/i.test(t)?'doc':null;
+    return k?{kind:k}:null;
+  }
+  const safeName=(t)=>String(t||'CodeConClave').replace(/[^\p{L}\p{N} _-]+/gu,'').trim().slice(0,60)||'CodeConClave';
+  async function buildDoc(d){
+    const kind=d.kind, name=safeName(d.title)+'.'+DOC_EXT[kind];
+    if(kind==='sheet'){ const X=await loadLib('sheet'); const ws=X.utils.aoa_to_sheet([d.columns,...d.rows.map(r=>r.map(v=>/^-?\d+(\.\d+)?$/.test(v)?Number(v):v))]);
+      ws['!cols']=d.columns.map((c,i)=>({wch:Math.min(40,Math.max(c.length,...d.rows.map(r=>String(r[i]||'').length))+2)}));
+      const wb=X.utils.book_new(); X.utils.book_append_sheet(wb,ws,'Sheet1'); return {name,blob:new Blob([X.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}; }
+    if(kind==='slides'){ const P=await loadLib('slides'); const p=new P(); p.layout='LAYOUT_WIDE';
+      const t=p.addSlide(); t.background={color:'1A1A1A'}; t.addText(d.title,{x:0.6,y:2.2,w:12,h:1.2,fontSize:40,bold:true,color:'F2C200'}); if(d.subtitle) t.addText(d.subtitle,{x:0.6,y:3.5,w:12,h:0.8,fontSize:20,color:'E6E6E6'});
+      t.addText('Made with CodeConClave AI',{x:0.6,y:6.6,w:6,h:0.4,fontSize:12,color:'8C8C8C'});
+      d.slides.forEach(sl=>{ const x=p.addSlide(); x.background={color:'1A1A1A'}; x.addText(sl.title,{x:0.6,y:0.4,w:12,h:0.9,fontSize:30,bold:true,color:'F2C200'});
+        x.addText(sl.bullets.map(b=>({text:b,options:{bullet:true,breakLine:true}})),{x:0.8,y:1.5,w:11.6,h:5,fontSize:20,color:'E6E6E6',valign:'top',paraSpaceAfter:10}); });
+      return {name,blob:await p.write({outputType:'blob'})}; }
+    if(kind==='doc'){ const D=await loadLib('doc'); const kids=[new D.Paragraph({text:d.title,heading:D.HeadingLevel.TITLE})];
+      d.sections.forEach(sec=>{ kids.push(new D.Paragraph({text:sec.heading,heading:D.HeadingLevel.HEADING_1})); sec.paragraphs.forEach(t=>kids.push(new D.Paragraph({children:[new D.TextRun(t)],spacing:{after:160}}))); });
+      return {name,blob:await D.Packer.toBlob(new D.Document({creator:'CodeConClave AI',title:d.title,sections:[{children:kids}]}))}; }
+    const J=(await loadLib('pdf')).jsPDF, pdf=new J({unit:'pt',format:'a4'}), W=pdf.internal.pageSize.getWidth()-96; let y=64;
+    const line=(txt,size,bold,gap)=>{ pdf.setFont('helvetica',bold?'bold':'normal'); pdf.setFontSize(size); pdf.splitTextToSize(txt,W).forEach(l=>{ if(y>780){ pdf.addPage(); y=64; } pdf.text(l,48,y); y+=size*1.35; }); y+=gap; };
+    line(d.title,22,true,10); d.sections.forEach(sec=>{ line(sec.heading,15,true,4); sec.paragraphs.forEach(t=>line(t,11,false,8)); });
+    return {name,blob:pdf.output('blob')};
+  }
+  async function makeDoc(c,kind,text){
+    busy=true; sendBtn.disabled=true;
+    const wrap=chat.querySelector('.wrap'), wait=bubble('ai',''); wait._steps.appendChild(el('div',null,'Writing your '+DOC_NAMES[kind]+'…'));
+    wait.insertAdjacentHTML('beforeend','<span class="dots"><i></i><i></i><i></i></span>'); wrap.appendChild(wait); chat.scrollTop=chat.scrollHeight;
+    let msg;
+    try{ const r=await fetch('/api/doc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,request:text})}); const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(d.error||'I could not make that file.');
+      msg={role:'assistant',content:'Here’s your '+DOC_NAMES[kind]+': “'+d.title+'”.'+(d.grounded?' I used facts from Wikipedia.':'')+' Check the preview and download it.',docCard:d,steps:['Wrote the '+DOC_NAMES[kind]]}; }
+    catch(e){ msg={role:'assistant',content:e.message}; }
+    busy=false; sendBtn.disabled=false; c.messages.push(msg); c.updated=Date.now(); saveC(); renderChat(); refreshUsage();
+  }
+  function docCardEl(d){
+    const card=el('div','mailcard doccard'), head=el('div','bnote');
+    head.appendChild(el('b',null,(DOC_EXT[d.kind]||'file').toUpperCase()+' · '+d.title)); card.appendChild(head);
+    const pv=el('div','docpv');
+    if(d.kind==='sheet'){ const tb=document.createElement('table'); const tr=document.createElement('tr'); d.columns.forEach(c=>tr.appendChild(el('th',null,c))); tb.appendChild(tr);
+      d.rows.slice(0,12).forEach(r=>{ const x=document.createElement('tr'); r.forEach(v=>x.appendChild(el('td',null,v))); tb.appendChild(x); }); pv.appendChild(tb); if(d.rows.length>12) pv.appendChild(el('div','dim','…and '+(d.rows.length-12)+' more rows')); }
+    else if(d.kind==='slides'){ d.slides.forEach((sl,i)=>{ const x=el('div','slidepv'); x.appendChild(el('b',null,(i+1)+'. '+sl.title)); x.appendChild(el('div','dim',sl.bullets.join(' · '))); pv.appendChild(x); }); }
+    else d.sections.forEach(sec=>{ pv.appendChild(el('b',null,sec.heading)); pv.appendChild(el('div','dim',(sec.paragraphs[0]||'').slice(0,220)+((sec.paragraphs[0]||'').length>220?'…':''))); });
+    card.appendChild(pv);
+    const act=el('div','mailact'), dl=el('button','msend','Download .'+DOC_EXT[d.kind]), st=el('span','mstatus'); act.append(dl,st); card.appendChild(act);
+    dl.onclick=async()=>{ dl.disabled=true; st.textContent='Making the file…';
+      try{ const f=await buildDoc(d); const a=document.createElement('a'); a.href=URL.createObjectURL(f.blob); a.download=f.name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+        st.textContent='✅ '+f.name; try{ addFilesToLibrary([new File([f.blob],f.name,{type:f.blob.type})]); }catch{} }
+      catch(e){ st.textContent=e.message; } dl.disabled=false; };
+    return card;
+  }
+
   // ---- Live preview: a web page the AI wrote runs right here, in a sandboxed frame (no access to this app) ----
   function previewRow(content){
     if(!content) return null;
@@ -2125,13 +2207,16 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
   $('micBtn').onclick=micClick;
   // read an answer aloud: the AI's cloud voice where it has one, else the device's voice for that language
+  const VKEY='cc_voice_v1';
+  const voicePref=()=>{ try{ return localStorage.getItem(VKEY)||'male'; }catch{ return 'male'; } };
+  $('voicePick').value=voicePref(); $('voicePick').onchange=()=>{ try{ localStorage.setItem(VKEY,$('voicePick').value); }catch{} toast('Voice set to '+$('voicePick').selectedOptions[0].text+'.'); };
   function stopSpeaking(){ if(speaking){ try{ speaking.pause?.(); }catch{} speaking=null; } try{ speechSynthesis.cancel(); }catch{} }
   async function speak(text,btn){
     if(speaking||speechSynthesis.speaking){ stopSpeaking(); btn?.classList.remove('on'); return; }
     const clean=String(text||'').replace(/\s*📊\s*Source:[^\n]*/g,'').replace(/```[\s\S]*?```/g,' code shown on screen. ').trim().slice(0,1500); if(!clean) return;
     const lang=langOf(clean); btn?.classList.add('on');
     const done=()=>{ speaking=null; btn?.classList.remove('on'); };
-    try{ const r=await fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:clean,lang})}); const d=await r.json().catch(()=>({}));
+    try{ const r=await fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:clean,lang,voice:voicePref()})}); const d=await r.json().catch(()=>({}));
       if(r.ok&&d.audio){ const a=new Audio(d.audio); speaking=a; a.onended=done; a.onerror=done; await a.play(); return; } }catch{}
     const u=new SpeechSynthesisUtterance(clean); u.lang=lang; const v=speechSynthesis.getVoices().find(x=>x.lang?.toLowerCase().startsWith(lang)); if(v) u.voice=v;
     else if(lang!=='en'){ toast('Your device has no '+lang+' voice — showing the text only.'); done(); return; }

@@ -29,9 +29,9 @@ save_report = lambda: REPORT.write_text(json.dumps(report, indent=2, ensure_asci
 
 BASE = "HuggingFaceTB/SmolLM2-135M-Instruct" if SMOKE else "unsloth/Llama-3.2-3B-Instruct"   # ungated copy of Meta's weights
 START_ADAPTER = None if SMOKE else "SaharshMedidi/codeconclave-scout"
-N = {"code": 8, "chat": 8, "math": 8} if SMOKE else {"code": 2000, "chat": 2500, "math": 1200}
+N = {"code": 8, "chat": 8, "math": 8} if SMOKE else {"code": 2500, "chat": 1200, "math": 2000}   # round 2: more code + math, less chat
 MAX_LEN = 256 if SMOKE else 1024
-BATCH, ACCUM, LR, EPOCHS = (2, 1, 1e-4, 1) if SMOKE else (2, 8, 1e-4, 1)
+BATCH, ACCUM, LR, EPOCHS = (2, 1, 1e-4, 1) if SMOKE else (2, 8, 5e-5, 1)   # round 2: gentler (round 1 lost a little math/code)
 MAX_STEPS = 2 if SMOKE else None
 SYSTEM_FULL = ("You are CodeConClave AI, made by your founder Saharsh Medidi from India. Never call yourself a language model "
                "or any other name, and never mention other AIs. Be warm and direct. Lead with the answer.")
@@ -91,6 +91,16 @@ def identity_examples():
                 pairs.append((q, a))
     for q, ans in fav:
         pairs += [(q, a) for a in ans]
+    # round 2: round 1 still invented the founder's age ("25 years old") and had no favourite colour -
+    # so the "I don't know" and favourites answers come many more times, in more wordings
+    unknown_more = ["What is Saharsh's age?", "How old is Saharsh Medidi?", "When was your founder born?", "What is your founder's birthday?",
+                    "Is your founder a student?", "Where does your founder live?"]
+    for q in unknown + unknown_more:
+        pairs += [(q, a) for a in unknown_a]
+    fav_more = [("What's your favourite color?", "Saffron! 🧡"), ("Which colour do you like the most?", "Saffron - warm and bright! 🧡"),
+                ("Do you have a favourite colour?", "Yes - saffron! 🧡"), ("What food do you like?", "Chicken biryani! 🍛"),
+                ("Do you have a favourite food?", "Yes - chicken biryani! 🍛")]
+    pairs += fav_more * 3
     pairs += telugu + hindi
     out = []
     for q, a in pairs:

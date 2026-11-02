@@ -1694,6 +1694,66 @@ app.post('/api/import-link', wrap(async (req, res) => {
   res.json(found);
 }));
 
+// ---- Office files: the AI writes the content in a fixed shape; the browser builds the real .xlsx / .pptx / .docx / .pdf ----
+const DOC_SCHEMAS = {
+  sheet: { type: 'object', properties: { title: { type: 'string' }, columns: { type: 'array', items: { type: 'string' } },
+    rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } } }, required: ['title', 'columns', 'rows'] },
+  slides: { type: 'object', properties: { title: { type: 'string' }, subtitle: { type: 'string' },
+    slides: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, bullets: { type: 'array', items: { type: 'string' } } }, required: ['title', 'bullets'] } } },
+    required: ['title', 'slides'] },
+  doc: { type: 'object', properties: { title: { type: 'string' },
+    sections: { type: 'array', items: { type: 'object', properties: { heading: { type: 'string' }, paragraphs: { type: 'array', items: { type: 'string' } } }, required: ['heading', 'paragraphs'] } } },
+    required: ['title', 'sections'] },
+};
+const DOC_ASK = {
+  sheet: 'a spreadsheet: a title, 3 to 8 column names, and 5 to 30 rows (each row has one value per column; numbers as plain digits)',
+  slides: 'a slide deck: a title, a one-line subtitle, and 5 to 8 slides, each with a short title and 3 to 5 short bullet points',
+  doc: 'a document: a title and 4 to 7 sections, each with a heading and 1 to 3 clear paragraphs',
+};
+async function topicFacts(request) {
+  try {
+    const q = searchWords(request);
+    const s = await (await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=1&format=json`, { headers: RESEARCH_HEADERS, signal: AbortSignal.timeout(7000) })).json();
+    const title = s?.query?.search?.[0]?.title;
+    if (!title) return '';
+    const e = await (await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars=3500&redirects=1&format=json&titles=${encodeURIComponent(title)}`, { headers: RESEARCH_HEADERS, signal: AbortSignal.timeout(7000) })).json();
+    const text = Object.values(e?.query?.pages || {})[0]?.extract || '';
+    return text ? `Facts from Wikipedia ("${title}"):\n${text}` : '';
+  } catch { return ''; }
+}
+const RESEARCH_HEADERS = { 'User-Agent': 'CodeConClave-AI/1.0 (https://codeconclave-ww5x.onrender.com)' };
+app.post('/api/doc', (req, res, next) => (async () => {
+  const want = String(req.body?.kind || '');
+  const kind = want === 'pdf' ? 'doc' : want;
+  const request = String(req.body?.request || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  if (!DOC_SCHEMAS[kind] || !request) return res.status(400).json({ error: 'Say what the file should be about.' });
+  if (!BASE) return res.status(503).json({ error: 'CodeConClave AI is offline right now.' });
+  if (await overLimit(req, res)) return;
+  const facts = await topicFacts(request);
+  const raw = await callModel([
+    { role: 'system', content: 'You are CodeConClave AI. You write clear, correct content for files. Use the facts given; never invent numbers.' },
+    { role: 'user', content: `${facts ? `${facts}\n\n` : ''}Request: ${request}\n\nWrite the content for ${DOC_ASK[kind]}. Reply only as JSON in this shape: ${JSON.stringify(DOC_SCHEMAS[kind].properties)}` }],
+  1800, 0.4, { type: 'json_object', schema: DOC_SCHEMAS[kind] });
+  let d;
+  try { d = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)); } catch { return res.status(502).json({ error: 'I could not shape that into a file - try saying it a bit differently.' }); }
+  const t = (x, n) => String(x ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+  const out = { kind: want, title: t(d.title, 120) || t(request, 80) };
+  if (kind === 'sheet') {
+    out.columns = (d.columns || []).map((c) => t(c, 60)).filter(Boolean).slice(0, 12);
+    out.rows = (d.rows || []).filter(Array.isArray).slice(0, 100).map((r) => out.columns.map((_, i) => t(r[i], 200)));
+    if (!out.columns.length || !out.rows.length) return res.status(502).json({ error: 'The table came out empty - try again with a little more detail.' });
+  } else if (kind === 'slides') {
+    out.subtitle = t(d.subtitle, 160);
+    out.slides = (d.slides || []).slice(0, 12).map((s) => ({ title: t(s?.title, 100), bullets: (s?.bullets || []).map((b) => t(b, 220)).filter(Boolean).slice(0, 6) })).filter((s) => s.title);
+    if (!out.slides.length) return res.status(502).json({ error: 'The slides came out empty - try again.' });
+  } else {
+    out.sections = (d.sections || []).slice(0, 12).map((s) => ({ heading: t(s?.heading, 120), paragraphs: (s?.paragraphs || []).map((p) => t(p, 1500)).filter(Boolean).slice(0, 5) })).filter((s) => s.heading);
+    if (!out.sections.length) return res.status(502).json({ error: 'The document came out empty - try again.' });
+  }
+  out.grounded = Boolean(facts);
+  res.json(out);
+})().catch(next));
+
 // ---- Voice: talk in any language (Whisper, ~99 languages) and hear answers (MeloTTS; other languages use the device voice) ----
 const voiceTimes = new Map(); // ip -> times, 80 voice calls / 10 min
 function voiceOk(req) {

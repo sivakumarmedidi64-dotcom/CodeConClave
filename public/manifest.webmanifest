@@ -1,7 +1,7 @@
 {
   "name": "CodeConClave AI",
   "short_name": "CodeConClave",
-  "description": "Your own AI — chat, mail, local files and automations.",
+  "description": "CodeConClave — Your Autonomous Intelligence Workspace.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
