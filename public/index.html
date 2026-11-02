@@ -472,6 +472,114 @@
   .fieldlbl input:focus{outline:none;border-color:#4a4a4a}
   @media(max-width:720px){ .tgrid{grid-template-columns:1fr} }
   .plugico.small{width:30px;height:30px}.plugico.small .ico{width:17px;height:17px}
+  /* studio: pictures, audio, video, preview panel */
+  .mcard{margin:10px 0 4px;max-width:560px}
+  .mcard img{display:block;width:100%;max-width:520px;border-radius:14px;cursor:zoom-in;background:#232323}
+  .mcard video{display:block;width:100%;border-radius:14px;background:#000}
+  .mcard audio{display:block;width:100%;max-width:440px}
+  .mcacts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .lightbox{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
+  .lightbox img{max-width:100%;max-height:100%;border-radius:10px}
+  .artcard{display:flex;align-items:center;gap:12px;width:100%;max-width:440px;margin:10px 0 4px;padding:12px 14px;background:#232323;border:1px solid #2c2c2c;border-radius:14px;color:#e6e6e6;font:inherit;text-align:left;cursor:pointer}
+  .artcard:hover{background:#282828}.artcard b{display:block;font-weight:600;font-size:15px}.artcard span{color:#8c8c8c;font-size:13px}
+  .artic{width:42px;height:42px;flex:0 0 auto;border-radius:10px;background:#2c2c2c;display:flex;align-items:center;justify-content:center;color:#f2c200}.artic .ico{width:22px;height:22px}
+  .artp{display:none;flex:0 0 min(50vw,820px);min-width:0;flex-direction:column;background:#1a1a1a;border-left:1px solid #2c2c2c}
+  body.art .artp{display:flex}
+  .arthead{display:flex;align-items:center;gap:4px;padding:10px 10px 10px 16px;border-bottom:1px solid #2c2c2c}
+  .arttitle{flex:1;min-width:0;display:flex;flex-direction:column}.arttitle b{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.arttitle span{color:#8c8c8c;font-size:12px}
+  .arttabs{display:flex;background:#151515;border-radius:10px;padding:3px;margin-right:6px}
+  .arttabs button{border:none;background:none;color:#8c8c8c;font:inherit;font-size:13px;padding:5px 12px;border-radius:8px;cursor:pointer}.arttabs button.on{background:#2c2c2c;color:#e6e6e6}
+  .artback{display:none}
+  .artbody{flex:1;position:relative;display:flex;flex-direction:column;min-height:0;background:#111}
+  .artbody iframe{flex:1;width:100%;border:0;background:#fff}
+  .artbody pre{flex:1;margin:0;overflow:auto;padding:14px 16px;font:12.5px/1.55 ui-monospace,Consolas,monospace;color:#d4d4d4;background:#111;white-space:pre-wrap;word-break:break-word}
+  .artlive{padding:8px 16px;color:#f2c200;font-size:13px;border-bottom:1px solid #2c2c2c;background:#151515}
+  .updlist{margin:8px 0 2px;padding-left:18px}.updlist li{margin:6px 0}.updlist a{color:#5cb3ff;text-decoration:none}.updlist a:hover{text-decoration:underline}
+  .updlist span{display:block;color:#8c8c8c;font-size:13px}
+  @media(max-width:900px){ .artp{position:fixed;inset:0;z-index:40;flex-basis:auto} .artback{display:flex} .artcol{display:none} .arttabs button{padding:5px 9px} }
+  /* pages sit beside the sidebar; the ✕ is gone (← only when the sidebar is hidden) */
+  .page{left:272px}
+  body.collapsed .page{left:0}
+  .pagehead .bx,.libhead .bx{display:none}
+  .pback{display:none;flex:0 0 auto}
+  body.collapsed .pback{display:flex}
+  .sidelink.on{background:#2c2c2c}
+  @media(max-width:720px){ .page{left:0} .pback{display:flex} body.open .rail{z-index:45} }
+  /* top bar: no dot while all is well - only a small "offline" note when the AI can't answer */
+  .topdot.online,.topdot.busy{display:none}
+  .topdot.offline{width:auto;height:auto;padding:2px 9px;border-radius:999px;background:#3a1d1d;color:#ff8a8a;font-size:12px;line-height:18px}
+  .topdot.offline::after{content:'offline'}
+  /* live voice */
+  .livego{color:#f2c200}
+  .liveov{position:fixed;inset:0;z-index:70;background:radial-gradient(circle at 50% 38%,#232016 0%,#111 55%,#0b0b0b 100%);display:none;flex-direction:column;align-items:center;padding:22px 18px 30px;color:#e6e6e6}
+  .liveov.open{display:flex}
+  .livetop{width:100%;max-width:720px;display:flex;justify-content:space-between;align-items:center;color:#8c8c8c;font-size:14px}
+  .livebrand{color:#e6e6e6;font-weight:600}.livelang{color:#f2c200}
+  .liveorb{--lvl:0;margin:6vh 0 18px;width:190px;height:190px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center;transition:transform .08s linear}
+  .liveorb i{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe27a,#f2c200 35%,#c57f16 70%,#5a3a06 100%);box-shadow:0 0 60px rgba(242,194,0,.35)}
+  .liveorb.listen{transform:scale(calc(1 + var(--lvl) * .35))}
+  .liveorb.think i{animation:lvspin 1.2s linear infinite;background:conic-gradient(from 0deg,#f2c200,#1a93fe,#23998d,#f2c200)}
+  .liveorb.speak i{animation:lvpulse 1s ease-in-out infinite}
+  @keyframes lvspin{to{transform:rotate(360deg)}}
+  @keyframes lvpulse{50%{transform:scale(1.08);box-shadow:0 0 90px rgba(242,194,0,.55)}}
+  .livestate{font-size:17px;color:#e6e6e6;min-height:26px;text-align:center}
+  .livelog{flex:1;width:100%;max-width:720px;overflow-y:auto;margin:18px 0;display:flex;flex-direction:column;gap:10px}
+  .ll{background:#1c1c1c;border-radius:12px;padding:9px 12px;font-size:14.5px;line-height:1.5}.ll b{display:block;font-size:12px;color:#8c8c8c;margin-bottom:2px}
+  .ll.me{align-self:flex-end;background:#2c2c2c;max-width:85%}.ll.ai{max-width:92%}
+  .livebtns{display:flex;gap:22px}
+  .livebtn{width:62px;height:62px;border-radius:50%;border:none;background:#2c2c2c;color:#e6e6e6;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .livebtn .ico{width:26px;height:26px}.livebtn.off{background:#5a1f1f;color:#ff8a8a}.livebtn.end{background:#e5534b;color:#fff}
+  /* automations page */
+  .autohead h1{flex:1}
+  .autotabs{padding-left:22px;border-bottom:1px solid #2c2c2c;margin:0 22px 0 22px;padding-left:0}
+  .autotabs button{border-radius:0;padding:10px 4px;margin-right:22px;border-bottom:2px solid transparent}.autotabs button.on{background:none;border-bottom-color:#e6e6e6}
+  .autobody{max-width:1100px;padding-top:18px}
+  .ddwrap{position:relative}
+  .ddmenu{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:5;min-width:220px;background:#2a2a2a;border:1px solid #363636;border-radius:12px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+  .ddmenu.right{left:auto;right:0}.ddmenu.open{display:block}
+  .dditem{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:#e6e6e6;font:inherit;font-size:14.5px;padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left}
+  .dditem:hover{background:#333}.dditem .ico{width:17px;height:17px;color:#b3b3b3}.dditem i{font-style:normal;font-size:11px;color:#b3b3b3;background:#3a3a3a;border-radius:6px;padding:1px 6px;margin-left:4px}
+  .ddcheck{margin-left:auto;color:#e6e6e6}
+  .createbtn{display:flex;align-items:center;gap:6px;height:38px;padding:0 14px;border:1px solid #363636;background:none;color:#e6e6e6;border-radius:10px;font:inherit;font-size:14.5px;cursor:pointer}
+  .createbtn:hover{background:#242424}.createbtn .ico{width:16px;height:16px}
+  .libicon.on{color:#1a93fe;border-color:#1a93fe}
+  .autoempty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:110px 10px;color:#8c8c8c;text-align:center}
+  .autoempty .ico{width:34px;height:34px;color:#8c8c8c}.autoempty div{color:#b3b3b3;font-size:15px}.autoempty span{font-size:13px}
+  .autorowx{display:flex;align-items:center;gap:14px;width:100%;background:#232323;border:none;border-radius:12px;padding:12px 16px;margin-bottom:8px;color:#e6e6e6;font:inherit;text-align:left;cursor:pointer}
+  .autorowx:hover{background:#282828}.autorowx .tic{width:34px;height:34px;flex:0 0 auto;border-radius:9px;background:#2c2c2c;display:flex;align-items:center;justify-content:center;color:#b3b3b3}
+  .autorowx .tt{flex:1;min-width:0}.autorowx b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.autorowx span{color:#8c8c8c;font-size:13px}
+  .autonote{color:#8c8c8c;font-size:14px;margin:10px 2px}.linkbtn{border:none;background:none;color:#5cb3ff;font:inherit;cursor:pointer;padding:0}
+  .autoh3{font-weight:500;margin:0 0 18px}
+  .calhead{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px}.calhead b{font-size:18px}
+  .calnav{display:flex;align-items:center;gap:6px}.calnav .railbtn{font-size:20px}
+  .calToday{border:none;background:none;color:#e6e6e6;font:inherit;font-weight:600;cursor:pointer;padding:4px 10px;border-radius:8px}.calToday:hover{background:#2a2a2a}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid #2c2c2c;border-left:1px solid #2c2c2c}
+  .caldow{text-align:center;color:#8c8c8c;font-size:13px;padding:8px 0;border-right:1px solid transparent}
+  .calcell{min-height:104px;border-right:1px solid #2c2c2c;border-bottom:1px solid #2c2c2c;padding:8px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
+  .calcell.other .caln{color:#8c8c8c}
+  .caln{align-self:flex-end;font-weight:600;font-size:14px;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+  .caln.today{background:#e6e6e6;color:#1a1a1a}
+  .calev{font-size:11.5px;background:#1a93fe26;color:#9ccdff;border-radius:6px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .calev.trigger{background:#f2c20026;color:#f2d36b}
+  .autonew{max-width:560px;background:#242424;border:1px solid #353535;border-radius:20px;padding:22px}
+  .anhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .anhead h2{margin:0;font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:30px;color:#f3f3f3}
+  .anhead .bx{border:none;background:none;color:#8c8c8c;cursor:pointer}.anhead .bx .ico{width:20px;height:20px}
+  .beta{font-style:normal;font-family:var(--sans);font-size:12px;color:#b3b3b3;background:#333;border-radius:6px;padding:2px 7px;vertical-align:middle}
+  .ancard{display:flex;flex-direction:column;gap:8px}
+  .anlbl{font-weight:600;font-size:14.5px;margin-top:6px}
+  .anrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid #353535;border-radius:12px;padding:10px 12px}
+  .anrow .ico{width:18px;height:18px;color:#b3b3b3}
+  .anrow select,.anrow input{background:#2e2e2e;border:none;color:#e6e6e6;border-radius:8px;padding:7px 10px;font:inherit;font-size:14px}
+  .antext,.aninput{width:100%;background:#1e1e1e;border:1px solid #353535;border-radius:12px;color:#e6e6e6;font:inherit;font-size:14.5px;padding:11px 12px;resize:vertical}
+  .antext.big{min-height:120px}.antext:focus,.aninput:focus{outline:none;border-color:#4a4a4a}
+  .anact{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:14px}.anact .autherr{flex:1;margin:0}
+  .trgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:340px;overflow:auto}
+  .trcard{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:#202020;border:1px solid #353535;border-radius:12px;padding:12px;color:#e6e6e6;font:inherit;text-align:left;cursor:pointer}
+  .trcard:hover{background:#2a2a2a}.trcard.on{border-color:#1a93fe;background:#1a93fe14}.trcard .ico{width:20px;height:20px}
+  .trcard b{font-weight:500;font-size:14.5px}.trcard span{color:#8c8c8c;font-size:12.5px}
+  .trform{display:flex;flex-direction:column;gap:8px}.annote{color:#b3b3b3;font-size:14px;line-height:1.5}
+  @media(max-width:720px){ .trgrid{grid-template-columns:1fr} .calcell{min-height:64px;padding:4px} .calev{display:none} .autohead{flex-wrap:wrap} }
 </style>
 </head>
 <body>
@@ -628,25 +736,16 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     </div>
   </div>
   <div class="page" id="schedPage">
-    <div class="libhead">
-      <h1>Scheduled tasks</h1>
-      <label class="libsearch"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="schedSearch" placeholder="Search tasks" autocomplete="off" /></label>
-      <button class="msend" id="schedNew">New task</button>
-      <button class="libicon" id="schedClose" title="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <div class="libhead autohead">
+      <h1>Automations</h1>
+      <div class="libview" id="autoView"><button data-v="list" class="on" title="List"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg></button><button data-v="cal" title="Calendar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg></button></div>
+      <div class="ddwrap"><button class="libicon" id="autoFilterBtn" title="Filter"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/></svg></button><div class="ddmenu" id="autoFilter"></div></div>
+      <div class="ddwrap"><button class="createbtn" id="autoCreateBtn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg> Create</button><div class="ddmenu right" id="autoCreate"></div></div>
     </div>
-    <div class="libtabs schedtabs" id="schedTabs"></div>
-    <div class="libbody schedbody"><div id="schedList"></div></div>
+    <div class="libtabs autotabs" id="autoTabs"></div>
+    <div class="libbody autobody" id="autoBody"></div>
   </div>
-  <div class="modal" id="schedModal">
-    <div class="modalbox wide">
-      <div class="bhead"><span>New scheduled task</span><button class="bx" id="schedModalClose" title="Close">×</button></div>
-      <div class="mailsubj">It runs by itself on our server, in India time — your browser can be closed. Anything it drafts waits for your OK.</div>
-      <label class="fieldlbl">What should I do?<textarea id="schedTask" class="maildraft" rows="3" maxlength="300" placeholder="e.g. Give me today's top news in 5 short points"></textarea></label>
-      <label class="fieldlbl">When?<input type="text" id="schedWhen" placeholder="every day at 8 am · weekdays at 7 pm · every 2 hours" autocomplete="off" /></label>
-      <div class="autherr" id="schedErr"></div>
-      <div class="mailact right"><button class="mskip" id="schedCancel">Cancel</button><button class="msend" id="schedSave">Create task</button></div>
-    </div>
-  </div>
+  <div class="modal" id="autoNewModal"><div class="modalbox autonew" id="autoNewBox"></div></div>
   <div class="modal" id="plugModal">
     <div class="modalbox wide">
       <div class="bhead"><span class="plugico small" id="pmIcon"></span><span id="pmTitle">Connect</span><button class="bx" id="pmClose" title="Close">×</button></div>
@@ -790,6 +889,19 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       <button class="useline" id="useLine" title="See your usage limits"></button>
     </div>
   </div>
+  <aside class="artp" id="artp" aria-label="Preview">
+    <div class="arthead">
+      <button class="railbtn artback" id="artBack" title="Back to the chat"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+      <div class="arttitle"><b id="artTitle"></b><span id="artMeta"></span></div>
+      <div class="arttabs"><button id="artTabPv" class="on">Preview</button><button id="artTabCode">Code</button></div>
+      <button class="railbtn" id="artRestart" title="Restart"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+      <button class="railbtn" id="artFull" title="Full screen"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+      <button class="railbtn" id="artCopy" title="Copy the code"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg></button>
+      <button class="railbtn" id="artDl" title="Download"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></button>
+      <button class="railbtn artcol" id="artHide" title="Hide the preview"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/><path d="m8 9 3 3-3 3"/></svg></button>
+    </div>
+    <div class="artbody" id="artBody"><div class="artlive" id="artLive" hidden></div><iframe id="artFrame" title="Live preview" sandbox="allow-scripts allow-forms allow-modals allow-pointer-lock allow-popups" referrerpolicy="no-referrer"></iframe><pre id="artCode" hidden></pre></div>
+  </aside>
   <aside class="side" id="side">
     <div class="sidehead"><b>Details</b><button class="railbtn" id="sideClose" title="Close details"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
     <div id="sideBody"></div>
@@ -813,8 +925,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   const current=()=>convos.find(c=>c.id===currentId);
   const uid=()=>'c'+Date.now()+Math.random().toString(36).slice(2,6);
 
-  function newChat(){ currentId=uid(); convos.unshift({id:currentId,title:'New chat',messages:[],updated:Date.now()}); saveC(); renderSidebar(); renderChat(); input.focus(); closeRail(); }
-  function selectChat(id){ currentId=id; renderSidebar(); renderChat(); closeRail(); }
+  function newChat(){ closePages(); currentId=uid(); convos.unshift({id:currentId,title:'New chat',messages:[],updated:Date.now()}); saveC(); renderSidebar(); renderChat(); input.focus(); closeRail(); }
+  function selectChat(id){ closePages(); currentId=id; renderSidebar(); renderChat(); closeRail(); }
   function deleteChat(id,e){ e.stopPropagation(); convos=convos.filter(c=>c.id!==id); pushed.delete(id);
     if(me) fetch('/api/chats/'+encodeURIComponent(id),{method:'DELETE'}).catch(()=>{}); if(currentId===id){currentId=convos[0]?.id||null; if(!currentId)newChat();} saveC(); renderSidebar(); renderChat(); }
 
@@ -886,6 +998,11 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(m.deskCard) b.appendChild(deskCardEl(m.deskCard));
     if(m.docCard) b.appendChild(docCardEl(m.docCard));
     if(m.planCard) b.appendChild(planCardEl(m.planCard));
+    if(m.media) b.appendChild(mediaCardEl(m.media));
+    if(m.artifact) b.appendChild(artCardEl(m.artifact));
+    if(m.linkCard) b.appendChild(linkCardEl(m.linkCard));
+    if(m.updates) b.appendChild(updatesEl(m.updates));
+    if(m.folderAsk){ const row=el('div','mailact'), go=el('button','msend',folder?'📁 Folder connected: '+(folder.name||'folder'):'📁 Choose a folder'); go.onclick=()=>folder&&folder.files?showFiles():folder?wakeFolder():openFolder(); row.appendChild(go); b.appendChild(row); }
     if(m.role!=='user'){ const rr=codeRunRow(m.content); if(rr) b.appendChild(rr); const pv=previewRow(m.content); if(pv) b.appendChild(pv); }
     if(m.role!=='user' && m.content && !m.appCard && !m.plugCard) b.appendChild(actionBar(m,i,b));
     return b;
@@ -1199,7 +1316,11 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
 
   async function send(){
     if(busy) return;
-    const text=input.value.trim(); if(!text && pending.length===0) return;
+    // "/remind me…", "/remember…" are just the words; "/watch movies" starts a watch right here
+    const text=input.value.trim().replace(/^\/(remind|remember)\s+/i,(m,w)=>w.toLowerCase()+' '); if(!text && pending.length===0) return;
+    const wm=!pending.length && text.match(/^\/watch\s+(.{2,40})$/i);
+    if(wm){ let c0=current(); if(!c0){ newChat(); c0=current(); } input.value=''; c0.messages.push({role:'user',content:text}); addWatch(wm[1]);
+      addMsg(c0,{role:'assistant',content:'Done 🔔 I’m watching “'+wm[1].trim()+'” for you. When something new comes out, you’ll hear my guitar sound and see it in 🔔 Updates. You can see or stop watches in Automations.'},true); return; }
     let c=current(); if(!c){ newChat(); c=current(); }
     const files=pending.slice(); pending=[]; renderFiles(); addToLibrary(files.filter(f=>!f.noLib));
     const shown = text + (files.length?('\n'+files.map(f=>'📄 '+f.name).join('\n')):'');
@@ -1252,7 +1373,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const outMsgs=c.messages.map(m=>({role:m.role,content:m.ctx||m.content}));
     outMsgs[outMsgs.length-1]={role:'user',content:text||'(see attached file)'};
     if(currentId===briefChatId && briefText) outMsgs.unshift({role:'assistant',content:briefText});
-    let full='', need=null;
+    let full='', need=null, toolCall=null;
     // One round of the conversation with the server. A file action may need a second round: the
     // server asks for a file ("needFile"), this browser reads it from your folder and sends the text.
     const round=async(extra)=>{
@@ -1269,6 +1390,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
         let idx; while((idx=buf.indexOf('\n\n'))>=0){ const block=buf.slice(0,idx); buf=buf.slice(idx+2);
           const dl=block.split('\n').find(l=>l.startsWith('data:')); if(!dl)continue; let j; try{j=JSON.parse(dl.slice(5).trim());}catch{continue;}
           if(j.needFile){ need=j.needFile; }
+          else if(j.tool){ toolCall=j.tool; }
+          else if(j.interest){ addWatch(j.interest); }
           else if(j.autoCard){ msg.autoCard=j.autoCard; msg.pending='m'+at; const k=autoCard(j.autoCard,{onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
           else if(j.fileCard){ msg.fileCard=j.fileCard; msg.pending='m'+at; const k=fileCard(j.fileCard,{onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
           else if(j.think){ dots.remove(); msg.thought=j.think; aiEl._think.textContent='💭 '+j.think; }
@@ -1285,6 +1408,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     };
     try{
       await round({});
+      // the router picked a tool this browser runs: a picture, a game, a video, opening a site…
+      if(toolCall){ aiEl.remove(); voiceTurn=false; busy=false; sendBtn.disabled=false; await runTool(c,toolCall,text); input.focus(); refreshUsage(); return; }
       if(need){ // the AI asked to read a file from your folder
         const n=need; need=null; let text=null;
         try{ text=await readLocal(n.path); }
@@ -1319,6 +1444,14 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
 
   function closeRail(){ document.body.classList.remove('open'); }
+  // Pages (Library, Automations, Plugins…) open in the main area next to the sidebar, like a normal app:
+  // the sidebar item stays lit, and clicking a chat / New task / another item takes you there. No ✕ needed.
+  const PAGE_LINK={plugPage:'plugBtn',skillPage:'skillBtn',libPage:'libBtn',createPage:'createBtn',schedPage:'autoBtn'};
+  function closePages(){ document.querySelectorAll('.page.open').forEach(p=>p.classList.remove('open')); document.querySelectorAll('.sidelink.on').forEach(b=>b.classList.remove('on')); }
+  function showPage(id){ closePages(); $(id).classList.add('open'); $(id).scrollTop=0; if(PAGE_LINK[id]) $(PAGE_LINK[id]).classList.add('on'); closeRail(); }
+  document.querySelectorAll('.page').forEach(p=>{ const head=p.querySelector('.pagehead,.libhead'); if(!head) return;
+    const back=el('button','railbtn pback'); back.title='Back'; back.innerHTML='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>'; back.onclick=closePages; head.prepend(back); });
+  document.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && document.querySelector('.page.open') && !document.querySelector('.modal.open')) closePages(); });
   $('newBtn').onclick=newChat;
   $('autoBtn').onclick=()=>{ closeRail(); showAutomations(); };
   $('autoClose').onclick=()=>$('autoModal').classList.remove('open');
@@ -1378,7 +1511,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   ];
   let plugState=null, plugTab='All';
   async function showPlugins(){
-    $('featGmail').innerHTML=GMAIL_SVG; $('plugPage').classList.add('open'); renderPlugins();
+    $('featGmail').innerHTML=GMAIL_SVG; showPage('plugPage'); renderPlugins();
     try{ plugState=await (await fetch('/api/plugins',{headers:mailHeaders()})).json(); }catch{ plugState=null; }
     renderPlugins();
   }
@@ -1448,7 +1581,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   ];
   let mySkills=[], skillTab='All';
   async function showSkills(){
-    $('skillPage').classList.add('open'); renderSkills();
+    showPage('skillPage'); renderSkills();
     if(me){ try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{} renderSkills(); }
   }
   function useSkill(k){
@@ -1488,7 +1621,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   function showPersonalization(){
     $('profModal').classList.remove('open');
     $('pfLang').value=profile.language||''; $('pfNick').value=profile.nickname||''; $('pfJob').value=profile.occupation||''; $('pfAbout').value=profile.about||''; $('pfInstr').value=profile.instructions||'';
-    countPf(); $('pfStatus').textContent=''; $('persPage').classList.add('open');
+    countPf(); $('pfStatus').textContent=''; showPage('persPage');
   }
   function countPf(){ $('pfAboutN').textContent=$('pfAbout').value.length+' / 2000'; $('pfInstrN').textContent=$('pfInstr').value.length+' / 1000'; }
   async function saveProfile(){
@@ -1595,7 +1728,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(n){ trimLibrary(); saveLibrary(); }
     return n;
   }
-  function showLibrary(){ $('libPage').classList.add('open'); renderLibrary(); }
+  function showLibrary(){ showPage('libPage'); renderLibrary(); }
   let libTab='All', libSort=0, libUrls=[], libView=(()=>{ try{ return localStorage.getItem('cc_libview')||'grid'; }catch{ return 'grid'; } })();
   const LIB_SORTS=[['newest first',(a,b)=>b.added-a.added],['oldest first',(a,b)=>a.added-b.added],['name A–Z',(a,b)=>a.name.localeCompare(b.name)]];
   function renderLibrary(){
@@ -1655,7 +1788,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
 
   // ---- Creations: everything the AI made for you, across all chats ----
   let createTab='All';
-  function showCreations(){ $('createPage').classList.add('open'); renderCreations(); }
+  function showCreations(){ showPage('createPage'); renderCreations(); }
   function renderCreations(){
     const items=[];
     for(const c of convos) c.messages.forEach(m=>{
@@ -2289,6 +2422,280 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     return box;
   }
 
+  // ---- The studio: pictures, audio, videos and games/websites the AI makes (the server's router picks the tool) ----
+  // Big files live in this browser's IndexedDB ("cc_media"); a chat keeps only a small thumbnail and an id.
+  function mediaDb(){ return new Promise((ok,no)=>{ const r=indexedDB.open('cc_media',1); r.onupgradeneeded=()=>r.result.createObjectStore('m'); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error); }); }
+  async function mediaPut(id,blob){ const db=await mediaDb(); return new Promise((ok,no)=>{ const t=db.transaction('m','readwrite'); t.objectStore('m').put(blob,id); t.oncomplete=()=>ok(); t.onerror=()=>no(t.error); }); }
+  async function mediaGet(id){ try{ const db=await mediaDb(); return await new Promise(ok=>{ const q=db.transaction('m').objectStore('m').get(id); q.onsuccess=()=>ok(q.result||null); q.onerror=()=>ok(null); }); }catch{ return null; } }
+  const dataToBlob=async(u)=>(await fetch(u)).blob();
+  function thumbOf(src,max=360){ return new Promise(ok=>{ const im=new Image(); im.onload=()=>{ const k=Math.min(1,max/Math.max(im.width,im.height)), cv=document.createElement('canvas'); cv.width=Math.round(im.width*k); cv.height=Math.round(im.height*k); cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height); ok(cv.toDataURL('image/jpeg',0.72)); }; im.onerror=()=>ok(''); im.src=src; }); }
+  function download(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),8000); }
+  async function poolMap(list,n,fn){ const out=[]; let i=0; await Promise.all(Array.from({length:Math.min(n,list.length)},async()=>{ while(i<list.length){ const k=i++; out[k]=await fn(list[k],k); } })); return out; }
+  // A "working on it" bubble with live steps (removed when the real answer is added).
+  function working(first){
+    let wrap=chat.querySelector('.wrap'); if(!wrap){ chat.innerHTML=''; wrap=el('div','wrap'); chat.appendChild(wrap); }
+    const b=bubble('ai',''); wrap.appendChild(b);
+    const step=(t)=>{ b._steps.querySelectorAll('div:not(.done)').forEach(s=>{ s.className='done'; s.textContent=s.dataset.t; }); const s=el('div'); s.dataset.t=t; s.innerHTML='<span class="dots"><i></i><i></i><i></i></span> '; s.append(t+'…'); b._steps.appendChild(s); chat.scrollTop=chat.scrollHeight; return s; };
+    if(first) step(first);
+    return {el:b, step, steps:()=>[...b._steps.querySelectorAll('div')].map(d=>d.dataset.t), end(){ b.remove(); }};
+  }
+  function addMsg(c,m,quiet){ c.messages.push(m); c.updated=Date.now(); saveC(); if(currentId===c.id) renderChat(); renderSide(); if(!quiet) notify(); }
+  const DOC_FROM_ROUTER={sheet:'sheet',slides:'slides',word:'doc',doc:'doc',pdf:'pdf'};
+  // Do what the router picked. text = what the user typed.
+  async function runTool(c,t,text){
+    const a=t.args||{};
+    if(t.tool==='image') return makeImage(c,a.prompt||text,t.say);
+    if(t.tool==='audio') return makeAudio(c,a.text||text);
+    if(t.tool==='video') return makeVideo(c,a.topic||text);
+    if(t.tool==='build') return makeBuild(c,a.request||text,a.kind,text);
+    if(t.tool==='doc') return makeDoc(c,DOC_FROM_ROUTER[a.kind]||'doc',a.request||text);
+    if(t.tool==='browser') return openSite(c,a.url,t.say);
+    if(t.tool==='files') return addMsg(c,{role:'assistant',content:'I can read, search and edit the files on your computer. Pick the folder you want me to work in — I only see that folder, and nothing changes until you press Save.',folderAsk:true},true);
+    if(t.tool==='plan') return startPlan(c,a.goal||text);
+    return addMsg(c,{role:'assistant',content:'I wasn’t sure how to do that — could you say it another way?'},true);
+  }
+
+  // Pictures (FLUX on the always-on brain)
+  async function makeImage(c,prompt,say){
+    prompt=String(prompt||'').trim().slice(0,1400);
+    if(!prompt) return addMsg(c,{role:'assistant',content:'Tell me what to draw, like “a tiger walking in the snow”.'},true);
+    busy=true; sendBtn.disabled=true; const w=working(say||'Drawing your picture');
+    try{
+      const r=await fetch('/api/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt})}); const d=await r.json().catch(()=>({}));
+      if(!r.ok||!d.image) throw new Error(d.error||'I couldn’t draw that one — try saying it a little differently.');
+      const blob=await dataToBlob(d.image), id='img'+uid(), ext=blob.type.includes('png')?'png':'jpg';
+      await mediaPut(id,blob).catch(()=>{});
+      const thumb=await thumbOf(d.image,420), st=w.steps(); w.end();
+      addMsg(c,{role:'assistant',content:'Here’s your picture 🎨',steps:st,media:{kind:'image',id,thumb,prompt,name:safeName(prompt).slice(0,48)+'.'+ext},ctx:'[I made a picture for the user: '+prompt+']'});
+    }catch(e){ w.end(); addMsg(c,{role:'assistant',content:e.message},true); }
+    busy=false; sendBtn.disabled=false; refreshUsage();
+  }
+  function viewImage(src,alt){
+    const box=el('div','lightbox'); const im=document.createElement('img'); im.src=src; im.alt=alt||''; box.appendChild(im);
+    const close=()=>{ box.remove(); document.removeEventListener('keydown',esc); }; const esc=(e)=>{ if(e.key==='Escape') close(); };
+    box.onclick=close; document.addEventListener('keydown',esc); document.body.appendChild(box);
+  }
+  function mediaCardEl(md){
+    const card=el('div','mcard '+md.kind);
+    if(md.kind==='image'){ const im=document.createElement('img'); im.alt=md.prompt||'picture'; im.src=md.thumb||''; card.appendChild(im);
+      mediaGet(md.id).then(b=>{ if(b) im.src=URL.createObjectURL(b); }); im.onclick=()=>viewImage(im.src,md.prompt); }
+    if(md.kind==='audio'||md.kind==='video'){ const m=document.createElement(md.kind); m.controls=true; if(md.kind==='video'){ m.playsInline=true; if(md.thumb) m.poster=md.thumb; } card.appendChild(m);
+      mediaGet(md.id).then(b=>{ if(b) m.src=URL.createObjectURL(b); else m.replaceWith(el('div','dim','This '+md.kind+' was made on another device.')); }); }
+    const acts=el('div','mcacts'), dl=el('button','mskip','⬇ Download');
+    dl.onclick=async()=>{ const b=await mediaGet(md.id); if(b) download(b,md.name||'codeconclave'); else toast('That file isn’t on this device.'); };
+    acts.appendChild(dl);
+    if(md.kind==='image'){ const again=el('button','mskip','↻ Draw another'); again.onclick=()=>{ const c=current(); if(c&&!busy){ c.messages.push({role:'user',content:'Another one: '+md.prompt}); saveC(); renderChat(); makeImage(c,md.prompt); } }; acts.appendChild(again); }
+    card.appendChild(acts); return card;
+  }
+
+  // Audio files (the AI's voice speaking any text)
+  async function makeAudio(c,text){
+    text=String(text||'').trim().slice(0,1400);
+    if(!text) return addMsg(c,{role:'assistant',content:'Tell me what the audio should say.'},true);
+    busy=true; sendBtn.disabled=true; const w=working('Recording the audio');
+    try{
+      const r=await fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,lang:langOf(text),voice:voicePref()})}); const d=await r.json().catch(()=>({}));
+      if(!r.ok||!d.audio) throw new Error(d.device?'I can make audio files in English, Spanish, French, Chinese, Japanese and Korean right now — this language isn’t ready for files yet (I can still read answers aloud in it).':(d.error||'I couldn’t make the audio.'));
+      const blob=await dataToBlob(d.audio), id='aud'+uid(), ext=blob.type.includes('wav')?'wav':'mp3';
+      await mediaPut(id,blob); const st=w.steps(); w.end();
+      addMsg(c,{role:'assistant',content:'Here’s your audio 🎧',steps:st,media:{kind:'audio',id,prompt:text,name:safeName(text).slice(0,40)+'.'+ext},ctx:'[I made an audio file saying: '+text.slice(0,300)+']'});
+    }catch(e){ w.end(); addMsg(c,{role:'assistant',content:e.message},true); }
+    busy=false; sendBtn.disabled=false;
+  }
+
+  // Videos: a script with scenes -> a picture per scene -> the narration -> put together right here into a video file
+  async function makeVideo(c,topic){
+    topic=String(topic||'').trim().slice(0,500);
+    if(!topic) return addMsg(c,{role:'assistant',content:'Tell me what the video should be about.'},true);
+    busy=true; sendBtn.disabled=true; const w=working('Writing the script');
+    try{
+      const r=await fetch('/api/video/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic})}); const plan=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(plan.error||'I couldn’t plan that video.');
+      const drawing=w.step('Drawing '+plan.scenes.length+' scenes'); let made=0;
+      const imgs=await poolMap(plan.scenes,3,async(s)=>{ const q=await fetch('/api/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:s.image+', cinematic lighting, highly detailed, no text, no letters',shape:'wide'})});
+        const d=await q.json().catch(()=>({})); if(!q.ok||!d.image) throw new Error(d.error||'A scene could not be drawn — please try again.'); made++; drawing.lastChild.nodeValue=' Drawing scenes ('+made+'/'+plan.scenes.length+')…'; return d.image; });
+      w.step('Recording the voice');
+      let voice=null;
+      try{ const v=await fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:plan.scenes.map(s=>s.narration).join(' ').slice(0,1400),lang:'en',voice:voicePref()})}); const d=await v.json(); if(v.ok&&d.audio) voice=d.audio; }catch{}
+      const making=w.step('Putting the video together — keep this tab open');
+      const out=await renderVideo(plan,imgs,voice,(p)=>{ making.lastChild.nodeValue=' Putting the video together — keep this tab open ('+Math.round(p*100)+'%)…'; });
+      const id='vid'+uid(); await mediaPut(id,out.blob);
+      const thumb=await thumbOf(imgs[0],480), st=w.steps(); w.end();
+      addMsg(c,{role:'assistant',content:'Here’s your video: “'+plan.title+'” ('+Math.round(out.seconds)+' seconds) 🎬'+(voice?'':' — no narration this time, the voice wasn’t available.'),steps:st,
+        media:{kind:'video',id,thumb,prompt:topic,name:safeName(plan.title)+'.'+out.ext},ctx:'[I made a '+Math.round(out.seconds)+'-second video for the user: "'+plan.title+'". Scenes: '+plan.scenes.map(s=>s.caption).join('; ')+']'});
+    }catch(e){ w.end(); addMsg(c,{role:'assistant',content:e.message||'The video could not be made.'},true); }
+    busy=false; sendBtn.disabled=false; refreshUsage();
+  }
+  async function renderVideo(plan,imgs,voice,onPct){
+    const W=1280,H=720, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const g=cv.getContext('2d');
+    const pics=await Promise.all(imgs.map(src=>new Promise((ok,no)=>{ const im=new Image(); im.onload=()=>ok(im); im.onerror=()=>no(new Error('A scene picture did not load.')); im.src=src; })));
+    const ac=new (window.AudioContext||window.webkitAudioContext)(); try{ await ac.resume(); }catch{}
+    const dest=ac.createMediaStreamDestination();
+    let buf=null; if(voice){ try{ buf=await ac.decodeAudioData(await (await fetch(voice)).arrayBuffer()); }catch{} }
+    const intro=2.2, tail=1.4, lens=plan.scenes.map(s=>Math.max(10,(s.narration||s.caption||'').length)), total=lens.reduce((a,b)=>a+b,0);
+    const speech=buf?buf.duration:plan.scenes.length*4.5, durs=lens.map(l=>Math.max(3,speech*l/total)), length=intro+durs.reduce((a,b)=>a+b,0)+tail;
+    const starts=[]; let acc=intro; durs.forEach(d=>{ starts.push(acc); acc+=d; });
+    const stream=cv.captureStream(30); dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+    const type=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t));
+    if(!type) throw new Error('This browser can’t record video — please use Chrome or Edge.');
+    const recd=new MediaRecorder(stream,{mimeType:type,videoBitsPerSecond:5000000}), parts=[]; recd.ondataavailable=e=>{ if(e.data.size) parts.push(e.data); };
+    const stopped=new Promise(ok=>{ recd.onstop=ok; });
+    const cover=(im,zoom,alpha,pan)=>{ const s=Math.max(W/im.width,H/im.height)*zoom, w=im.width*s, h=im.height*s; g.globalAlpha=alpha; g.drawImage(im,(W-w)/2+pan*40,(H-h)/2,w,h); g.globalAlpha=1; };
+    const lines=(t,maxW)=>{ const out=[]; let cur=''; for(const wd of String(t).split(/\s+/)){ const n=cur?cur+' '+wd:wd; if(g.measureText(n).width>maxW&&cur){ out.push(cur); cur=wd; } else cur=n; } if(cur) out.push(cur); return out.slice(0,3); };
+    const mark=()=>{ g.font='600 18px system-ui,sans-serif'; g.textAlign='right'; g.fillStyle='rgba(255,255,255,.6)'; g.fillText('CodeConClave AI',W-26,38); };
+    function frame(t){
+      g.fillStyle='#000'; g.fillRect(0,0,W,H);
+      if(t<intro){ cover(pics[0],1.06+0.02*t,0.45,0); g.fillStyle='rgba(0,0,0,.45)'; g.fillRect(0,0,W,H);
+        g.textAlign='center'; g.fillStyle='#fff'; g.font='bold 60px system-ui,sans-serif'; const L=lines(plan.title,W-220); L.forEach((l,i)=>g.fillText(l,W/2,H/2-(L.length-1)*36+i*72+20));
+        g.font='600 22px system-ui,sans-serif'; g.fillStyle='#f2c200'; g.fillText('CodeConClave AI',W/2,H-64); return; }
+      let i=starts.findIndex((s,k)=>t>=s&&t<s+durs[k]); if(i<0) i=pics.length-1;
+      const local=Math.min(1,(t-starts[i])/durs[i]);
+      cover(pics[i],1.04+0.10*local,1,(i%2?-1:1)*(local-0.5));
+      if(i+1<pics.length){ const left=starts[i]+durs[i]-t; if(left<0.7) cover(pics[i+1],1.04,1-left/0.7,(i%2?1:-1)*0.5); }
+      const cap=plan.scenes[i].caption||'';
+      if(cap){ const grd=g.createLinearGradient(0,H-220,0,H); grd.addColorStop(0,'rgba(0,0,0,0)'); grd.addColorStop(1,'rgba(0,0,0,.78)'); g.fillStyle=grd; g.fillRect(0,H-220,W,220);
+        g.font='bold 46px system-ui,sans-serif'; g.textAlign='center'; g.fillStyle='#fff'; const L=lines(cap,W-180); L.forEach((l,k)=>g.fillText(l,W/2,H-62-(L.length-1-k)*54)); }
+      if(t>length-tail){ g.fillStyle='rgba(0,0,0,'+Math.min(1,(t-(length-tail))/tail)+')'; g.fillRect(0,0,W,H); }
+      mark();
+    }
+    frame(0); recd.start(250);
+    const t0=ac.currentTime+0.05;
+    if(buf){ const src=ac.createBufferSource(); src.buffer=buf; src.connect(dest); src.start(t0+intro); }
+    await new Promise(ok=>{ const tick=()=>{ const t=ac.currentTime-t0; if(t>=length) return ok(); frame(Math.max(0,t)); onPct&&onPct(t/length); requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
+    recd.stop(); await stopped; try{ ac.close(); }catch{}
+    return {blob:new Blob(parts,{type:type.split(';')[0]}),seconds:length,ext:type.startsWith('video/mp4')?'mp4':'webm'};
+  }
+
+  // Websites in the user's own browser (the desktop app sends them to the default browser; the helper extension
+  // opens them in their Chrome, where the AI can then read and click with their OK).
+  async function openSite(c,url,say){
+    let u; try{ u=new URL(/^https?:\/\//i.test(url||'')?url:'https://'+String(url||'').trim()); }catch{}
+    if(!u||!/^https?:$/.test(u.protocol)||!u.hostname.includes('.')) return addMsg(c,{role:'assistant',content:'I couldn’t tell which site to open — say it like “open youtube” or “search amazon for shoes”.'},true);
+    const host=u.hostname.replace(/^www\./,'');
+    if(EXT_OK && !DESK) return runDesk(c,{kind:'browse',url:u.href});
+    const win=window.open(u.href,'_blank'); try{ if(win) win.opener=null; }catch{}
+    addMsg(c,{role:'assistant',content:win||DESK?'Opened '+host+' in your browser ✅':'Your browser blocked the new tab — tap the button to open '+host+'.',linkCard:{url:u.href,title:say||host},ctx:'[I opened '+u.href+' in the user’s browser.]'},true);
+  }
+  function linkCardEl(l){
+    const box=el('div','termcard'), head=el('div','termhead'); head.innerHTML=svgIco('<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>');
+    head.appendChild(el('b',null,l.title||'Website')); box.appendChild(head);
+    box.appendChild(Object.assign(document.createElement('a'),{href:l.url,target:'_blank',rel:'noopener noreferrer',className:'turl',textContent:l.url}));
+    const acts=el('div','mailact'), go=el('button','msend','Open ↗'); go.onclick=()=>{ const w=window.open(l.url,'_blank'); try{ if(w) w.opener=null; }catch{} }; acts.appendChild(go); box.appendChild(acts);
+    return box;
+  }
+
+  // ---- Games, websites and apps: built by the AI, running live in the preview panel ----
+  let artShown=null, artTab='preview';
+  function lastArtifact(c){ for(let i=c.messages.length-1;i>=0;i--){ if(c.messages[i].artifact) return c.messages[i].artifact; } return null; }
+  async function makeBuild(c,request,kind,said){
+    request=String(request||'').trim().slice(0,3000);
+    if(!request) return addMsg(c,{role:'assistant',content:'Tell me what to build, like “a snake game” or “a website for my bakery”.'},true);
+    const prev=lastArtifact(c), fresh=/\b(make|create|build|code|generate|design|write|develop)\s+(me\s+)?(a|an|another|new|one more)\b/i.test(said||request);
+    const editing=Boolean(prev && !fresh);
+    kind=['game','website','app'].includes(kind)?kind:(prev?.kind||'app');
+    busy=true; sendBtn.disabled=true;
+    const w=working(editing?'Changing your '+prev.kind+' “'+prev.title+'”':'Building your '+kind);
+    const art={id:'art'+uid(),kind,title:editing?prev.title:'',code:'',version:editing?(prev.version||1)+1:1};
+    showArtifact(art,true);
+    let full='';
+    try{
+      const r=await fetch('/api/build',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request:editing?(said||request):request,kind,current:editing?prev.code:''})});
+      if(!r.ok && !/event-stream/.test(r.headers.get('content-type')||'')){ const d=await r.json().catch(()=>({})); throw new Error(d.error||'I couldn’t build that.'); }
+      const rd=r.body.getReader(), dec=new TextDecoder(); let buf='';
+      while(true){ const {done,value}=await rd.read(); if(done) break; buf+=dec.decode(value,{stream:true}); let idx;
+        while((idx=buf.indexOf('\n\n'))>=0){ const blk=buf.slice(0,idx); buf=buf.slice(idx+2); const dl=blk.split('\n').find(l=>l.startsWith('data:')); if(!dl) continue;
+          let j; try{ j=JSON.parse(dl.slice(5)); }catch{ continue; }
+          if(j.delta){ full+=j.delta; if(artShown===art) paintArtLive(full); }
+          if(j.error) throw new Error(j.error); } }
+      const m=full.match(/```(?:html?)?[ \t]*\n([\s\S]*?)(?:```|$)/i), code=(m?m[1]:full).trim();
+      if(!/<(html|body|canvas|div|script|svg)\b/i.test(code)) throw new Error('The builder didn’t send working code — please try again.');
+      const note=full.slice(m?m.index+m[0].length:full.length).replace(/```/g,'').trim().split('\n').map(s=>s.trim()).filter(Boolean).pop()||'';
+      art.code=code.slice(0,160000);
+      art.title=((code.match(/<title>([^<]{1,80})<\/title>/i)||[])[1]||'').trim()||art.title||safeName(request).slice(0,40);
+      const st=w.steps(); w.end();
+      addMsg(c,{role:'assistant',content:(note||('Here’s your '+kind+': '+art.title))+(editing?' (version '+art.version+')':''),steps:st,artifact:art,
+        ctx:'[I built a '+kind+' for the user: "'+art.title+'", version '+art.version+'. It runs in the preview panel; they can use it, download it, or ask me for changes.]'});
+      if(artShown===art) showArtifact(art);
+    }catch(e){ w.end(); addMsg(c,{role:'assistant',content:e.message||'Building stopped — please try again.'},true); if(artShown===art) hideArtifact(); }
+    busy=false; sendBtn.disabled=false; refreshUsage();
+  }
+  const ART_ICON={game:'<rect x="2" y="6" width="20" height="12" rx="4"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="16" cy="11" r="1"/><circle cx="18" cy="13" r="1"/>',website:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',app:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 9l-2 3 2 3"/><path d="M16 9l2 3-2 3"/>'};
+  function artCardEl(a){
+    const b=el('button','artcard'); b.innerHTML='<span class="artic">'+svgIco(ART_ICON[a.kind]||ART_ICON.app)+'</span>';
+    const t=el('div'); t.appendChild(el('b',null,a.title||'Untitled')); t.appendChild(el('span',null,({game:'Game',website:'Website',app:'App'}[a.kind]||'App')+' · version '+(a.version||1)+' · click to open'));
+    b.appendChild(t); b.onclick=()=>showArtifact(a); return b;
+  }
+  function showArtifact(a,live){
+    artShown=a; document.body.classList.add('art');
+    $('artTitle').textContent=a.title||(live?'Building…':'Untitled'); $('artMeta').textContent=({game:'Game',website:'Website',app:'App'}[a.kind]||'App')+' · v'+(a.version||1);
+    if(live){ artTab='code'; $('artCode').textContent=''; $('artLive').hidden=false; $('artLive').textContent='Writing the code…'; }
+    else { $('artLive').hidden=true; if(artTab==='code'&&a.code) $('artCode').textContent=a.code; else artTab='preview'; runArtifact(); }
+    paintArtTabs();
+  }
+  function paintArtLive(full){
+    const code=full.replace(/^[\s\S]*?```(?:html?)?[ \t]*\n/i,'').replace(/```[\s\S]*$/,'');
+    const pre=$('artCode'); pre.textContent=code; pre.scrollTop=pre.scrollHeight; $('artLive').textContent='Writing the code… '+(code.length/1000).toFixed(1)+'k characters';
+  }
+  function runArtifact(){ const f=$('artFrame'); if(!artShown?.code) return; f.srcdoc=artShown.code; }
+  function paintArtTabs(){ $('artTabPv').classList.toggle('on',artTab==='preview'); $('artTabCode').classList.toggle('on',artTab==='code'); $('artFrame').hidden=artTab!=='preview'; $('artCode').hidden=artTab!=='code'; }
+  function hideArtifact(){ document.body.classList.remove('art'); artShown=null; $('artFrame').srcdoc=''; }
+  $('artTabPv').onclick=()=>{ if(!artShown?.code) return; artTab='preview'; $('artLive').hidden=true; runArtifact(); paintArtTabs(); };
+  $('artTabCode').onclick=()=>{ artTab='code'; if(artShown?.code) $('artCode').textContent=artShown.code; paintArtTabs(); };
+  $('artRestart').onclick=()=>{ if(artShown?.code){ artTab='preview'; paintArtTabs(); $('artFrame').srcdoc=''; setTimeout(runArtifact,30); } };
+  $('artFull').onclick=()=>{ const box=$('artBody'); (box.requestFullscreen||box.webkitRequestFullscreen||(()=>{})).call(box); };
+  $('artDl').onclick=()=>{ if(artShown?.code) download(new Blob([artShown.code],{type:'text/html'}),safeName(artShown.title)+'.html'); };
+  $('artCopy').onclick=async()=>{ if(!artShown?.code) return; try{ await navigator.clipboard.writeText(artShown.code); toast('Code copied'); }catch{ toast('Copy did not work in this browser.'); } };
+  $('artHide').onclick=hideArtifact; $('artBack').onclick=hideArtifact;
+
+  // ---- Interest watches: "I love movies" -> the guitar sound + a message when something new comes out ----
+  const WKEY='cc_watch_v1';
+  let watches=(()=>{ try{ return JSON.parse(localStorage.getItem(WKEY)||'[]')||[]; }catch{ return []; } })();
+  const saveW=()=>{ try{ localStorage.setItem(WKEY,JSON.stringify(watches.slice(0,12))); }catch{} };
+  function addWatch(topic){
+    topic=String(topic||'').toLowerCase().replace(/[^\p{L}\p{N} &+-]/gu,'').trim().slice(0,40); if(!topic) return;
+    if(!watches.some(w=>w.topic===topic)){ watches.push({id:'w'+uid(),topic,seen:[],added:Date.now(),last:0,on:true}); saveW(); }
+    try{ if(window.Notification && Notification.permission==='default') Notification.requestPermission().catch(()=>{}); }catch{}
+    setTimeout(()=>checkWatches(topic),3000);
+  }
+  // the newest items for one watch: a topic/movies (our server), a news feed, a GitHub project, a calendar
+  async function watchFetch(w){
+    const post=(u,b)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json().catch(()=>({})));
+    if(w.type==='feed'){ const d=await post('/api/apps/feeds/latest',{config:{urls:w.url}}); return (d.items||[]).slice(0,10).map(x=>({id:x.url||x.title,title:x.title,url:x.url||'',text:x.sub||w.label||'',date:x.at?new Date(x.at).toLocaleDateString('en-IN'):''})); }
+    if(w.type==='github'){ const d=await fetch('https://api.github.com/repos/'+w.repo+'/releases?per_page=5').then(r=>r.json()).catch(()=>[]); return Array.isArray(d)?d.map(x=>({id:'gh'+x.id,title:w.repo+' '+(x.name||x.tag_name)+' is out',url:x.html_url,text:'New release',date:String(x.published_at||'').slice(0,10)})):[]; }
+    if(w.type==='calendar'){ const d=await post('/api/apps/calendar/events',{config:{url:w.url},args:{range:'today'}}); const now=Date.now();
+      return (d.items||[]).filter(e=>e.at>now && e.at-now<20*60*1000).map(e=>({id:'cal'+e.at+e.title,title:'Starting soon: '+e.title,url:'',text:e.sub||'',date:''})); }
+    const d=await fetch('/api/watch?topic='+encodeURIComponent(w.topic)+'&lang='+encodeURIComponent(profile.language||'')).then(r=>r.json()).catch(()=>({}));
+    return d.items||[];
+  }
+  async function checkWatches(only){
+    for(const w of watches){
+      const gap=(w.type==='calendar'?9:30)*60*1000;
+      if(w.on===false || (only && w.topic!==only) || (!only && Date.now()-w.last<gap)) continue;
+      w.last=Date.now(); saveW();
+      try{ const items=await watchFetch(w), first=!w.seen.length, fresh=items.filter(x=>x.id && !w.seen.includes(x.id));
+        if(fresh.length){ w.seen=[...w.seen,...items.map(x=>x.id)].slice(-300); w.hits=(w.hits||0)+fresh.length; saveW(); await postUpdate(w,fresh.slice(0,first&&w.type!=='topic'&&w.type!=='movies'?2:5)); } }catch{}
+    }
+  }
+  async function postUpdate(w,items){
+    const topic=w.type==='github'?w.repo:w.type==='feed'?w.label:w.topic;
+    let c=convos.find(x=>x.id==='updates'); if(!c){ c={id:'updates',title:'🔔 Updates',messages:[],updated:Date.now()}; }
+    convos=[c,...convos.filter(x=>x!==c)];
+    c.messages.push({role:'assistant',at:Date.now(),content:'🔔 Something new about '+topic+':',updates:items,ctx:'[Update about '+topic+' for the user: '+items.map(x=>x.title).join('; ')+']'});
+    c.updated=Date.now(); saveC(); renderSidebar(); if(currentId==='updates') renderChat();
+    notify(); toast('🔔 New about '+topic+' — see Updates in your tasks');
+    try{ if(window.Notification && Notification.permission==='granted' && !looking()){ const n=new Notification('CodeConClave AI · '+topic,{body:items[0].title,icon:'/icon-192.png',tag:'cc-'+w.id}); n.onclick=()=>{ window.focus(); selectChat('updates'); n.close(); }; } }catch{}
+    // "then CodeConClave will…": do the user's task with what just came in
+    if(w.task){ try{ const out=await askOnce(w.task+'\n\nHere is what just came in:\n'+items.map(x=>'- '+x.title+(x.text?' ('+x.text+')':'')).join('\n'));
+      if(out){ c.messages.push({role:'assistant',at:Date.now(),content:out}); c.updated=Date.now(); saveC(); if(currentId==='updates') renderChat(); } }catch{} }
+  }
+  function updatesEl(items){
+    const ul=el('ul','updlist');
+    items.forEach(x=>{ const li=el('li'); const a=Object.assign(document.createElement('a'),{href:x.url||'#',target:'_blank',rel:'noopener noreferrer'}); a.textContent=x.title; li.appendChild(a);
+      if(x.text||x.date) li.appendChild(el('span',null,[x.text,x.date].filter(Boolean).join(' · '))); ul.appendChild(li); });
+    return ul;
+  }
+  setTimeout(()=>checkWatches(),8000); setInterval(()=>checkWatches(),10*60*1000);
+
   // ---- Voice: talk in any language, hear the answers ----
   let rec=null, recChunks=[], recTimer=null, voiceTurn=false, speaking=null;
   const SCRIPTS=[[/[\u0C00-\u0C7F]/,'te'],[/[\u0900-\u097F]/,'hi'],[/[\u0B80-\u0BFF]/,'ta'],[/[\u0C80-\u0CFF]/,'kn'],[/[\u0D00-\u0D7F]/,'ml'],[/[\u0980-\u09FF]/,'bn'],
@@ -2357,6 +2764,122 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     else if(lang!=='en'){ toast('Your device has no '+lang+' voice — showing the text only.'); done(); return; }
     u.onend=done; u.onerror=done; speechSynthesis.speak(u);
   }
+
+  // ---- Live: talk with the AI by voice, hands free, in any language (like a phone call) ----
+  // It listens, notices when you stop talking, understands any language, answers out loud and listens again.
+  // Talk over it to interrupt. What you both say is saved in the chat.
+  let live=null;
+  const LIVE_ICO={mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',end:'<path d="M10.7 13.3a16 16 0 0 0 3.4 2.6l1.3-1.3a1.5 1.5 0 0 1 1.6-.3c1 .4 2 .6 3 .7a1.5 1.5 0 0 1 1.3 1.5v2.4a1.5 1.5 0 0 1-1.6 1.5A19 19 0 0 1 3.6 4.6 1.5 1.5 0 0 1 5.1 3h2.4A1.5 1.5 0 0 1 9 4.3c.1 1 .3 2 .7 3a1.5 1.5 0 0 1-.3 1.6L8.1 10.2"/><path d="m2 2 20 20"/>',wave:'<path d="M3 12h2"/><path d="M7 8v8"/><path d="M11 5v14"/><path d="M15 8v8"/><path d="M19 10v4"/>'};
+  function liveEl(){
+    let o=$('liveOv'); if(o) return o;
+    o=el('div','liveov'); o.id='liveOv';
+    o.innerHTML='<div class="livetop"><span class="livebrand">CodeConClave AI · Live</span><span class="livelang" id="liveLang"></span></div><div class="liveorb" id="liveOrb"><i></i></div><div class="livestate" id="liveState"></div><div class="livelog" id="liveLog"></div>'+
+      '<div class="livebtns"><button class="livebtn" id="liveMute" title="Mute the microphone">'+svgIco(LIVE_ICO.mic)+'</button><button class="livebtn end" id="liveEnd" title="End the live chat">'+svgIco(LIVE_ICO.end)+'</button></div>';
+    document.body.appendChild(o);
+    $('liveEnd').onclick=stopLive;
+    $('liveMute').onclick=()=>{ if(!live) return; live.muted=!live.muted; $('liveMute').classList.toggle('off',live.muted); if(live.muted){ dropRec(); liveState('Muted — tap the mic to talk again'); } else { liveState('Listening… just talk'); beginRec(); } };
+    return o;
+  }
+  const liveState=(t)=>{ const s=$('liveState'); if(s) s.textContent=t; };
+  const setOrb=(mode,lvl=0)=>{ const o=$('liveOrb'); if(!o) return; o.className='liveorb '+mode; o.style.setProperty('--lvl',String(Math.min(1,lvl))); };
+  function liveLog(who,text){ const l=$('liveLog'); if(!l) return; const p=el('div','ll '+who); p.appendChild(el('b',null,who==='me'?'You':'CodeConClave AI')); p.appendChild(el('span',null,text)); l.appendChild(p); l.scrollTop=l.scrollHeight; }
+  async function startLive(){
+    if(live) return;
+    if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder) return toast('Your browser can’t use the microphone here.');
+    let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); }catch{ return toast('Allow the microphone to talk live.'); }
+    stopSpeaking(); liveEl().classList.add('open'); $('liveLog').innerHTML=''; $('liveLang').textContent='';
+    const ac=new (window.AudioContext||window.webkitAudioContext)(); try{ await ac.resume(); }catch{}
+    const an=ac.createAnalyser(); an.fftSize=1024; ac.createMediaStreamSource(stream).connect(an);
+    let c=current(); if(!c){ newChat(); c=current(); }
+    live={stream,ac,an,data:new Float32Array(an.fftSize),state:'listening',muted:false,rec:null,chunks:[],heardMs:0,quietAt:0,loudAt:0,recAt:0,noise:0.008,chatId:c.id,lang:''};
+    liveState('Listening… just talk, in any language'); setOrb('listen'); beginRec();
+    live.timer=setInterval(liveTick,50);
+  }
+  function stopLive(){
+    if(!live) return; const L=live; live=null;
+    clearInterval(L.timer); try{ L.rec&&L.rec.state!=='inactive'&&L.rec.stop(); }catch{} L.stream.getTracks().forEach(t=>t.stop()); try{ L.ac.close(); }catch{}
+    stopSpeaking(); $('liveOv')?.classList.remove('open'); renderChat();
+  }
+  function beginRec(){
+    if(!live||live.muted||(live.rec&&live.rec.state==='recording')) return;
+    const type=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4'].find(t=>MediaRecorder.isTypeSupported?.(t))||'';
+    const r=new MediaRecorder(live.stream,type?{mimeType:type}:{}); const chunks=[]; r.ondataavailable=(e)=>{ if(e.data.size) chunks.push(e.data); };
+    r._chunks=chunks; live.rec=r; live.heardMs=0; live.quietAt=0; live.recAt=performance.now(); r.start(200);
+  }
+  function dropRec(){ if(!live?.rec) return; const r=live.rec; live.rec=null; r.onstop=null; try{ r.state!=='inactive'&&r.stop(); }catch{} }
+  function liveTick(){
+    if(!live) return;
+    const {an,data}=live; an.getFloatTimeDomainData(data); let sum=0; for(let i=0;i<data.length;i++) sum+=data[i]*data[i];
+    const rms=Math.sqrt(sum/data.length), now=performance.now();
+    if(live.state==='listening') setOrb('listen',rms*14);
+    if(live.muted||live.state==='thinking') return;
+    const thr=Math.max(0.018,live.noise*3)*(live.state==='speaking'?2.4:1), loud=rms>thr;
+    if(live.state==='speaking'){   // talking over the AI interrupts it
+      if(loud){ if(!live.loudAt) live.loudAt=now; if(now-live.loudAt>280){ live.loudAt=0; stopSpeaking(); live.state='listening'; liveState('Listening…'); beginRec(); } }
+      else live.loudAt=0;
+      return;
+    }
+    if(!live.rec) return;
+    if(loud){ live.heardMs+=50; live.quietAt=0; }
+    else { if(!live.heardMs) live.noise=live.noise*0.97+rms*0.03; if(live.heardMs>250){ if(!live.quietAt) live.quietAt=now; if(now-live.quietAt>950){ const r=live.rec; live.rec=null; r.onstop=()=>liveTurn(new Blob(r._chunks,{type:r.mimeType||'audio/webm'})); r.stop(); } } }
+    // nothing said for a while: start a fresh recording so it stays small
+    if(!live.heardMs && now-live.recAt>12000){ dropRec(); beginRec(); }
+  }
+  async function liveTurn(blob){
+    if(!live) return;
+    live.state='thinking'; liveState('Thinking…'); setOrb('think');
+    const back=(msg)=>{ if(!live) return; live.state='listening'; liveState(msg||'Listening…'); setOrb('listen'); beginRec(); };
+    try{
+      const tr=await fetch('/api/voice/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio:await toB64(blob),lock:isOwner()&&lockOn()})});
+      const d=await tr.json().catch(()=>({}));
+      if(!live) return;
+      if(!tr.ok) return back(d.error||'I didn’t catch that — say it again?');
+      const said=String(d.text||'').trim(); if(said.length<2) return back('Listening…');
+      const lang=LANG_LIVE.has(d.language)?d.language:(profile.language||'');
+      live.lang=lang; $('liveLang').textContent=lang&&lang!=='en'?(document.querySelector('#pfLang option[value="'+lang+'"]')?.textContent||lang):'';
+      liveLog('me',said);
+      const c=convos.find(x=>x.id===live.chatId)||current(); if(!c) return back();
+      c.messages.push({role:'user',content:'🎙 '+said}); c.updated=Date.now(); saveC(); if(currentId===c.id) renderChat();
+      const outMsgs=c.messages.slice(-14).map(m=>({role:m.role,content:String(m.ctx||m.content).replace(/^🎙 /,'')}));
+      const r=await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({messages:outMsgs,memory:memory.join('\n'),profile:{...profile,language:lang},live:true})});
+      let answer='', tool=null;
+      if(r.body){ const rd=r.body.getReader(), dec=new TextDecoder(); let buf='';
+        while(true){ const {done,value}=await rd.read(); if(done) break; buf+=dec.decode(value,{stream:true}); let i;
+          while((i=buf.indexOf('\n\n'))>=0){ const blk=buf.slice(0,i); buf=buf.slice(i+2); const dl=blk.split('\n').find(l=>l.startsWith('data:')); if(!dl) continue;
+            try{ const j=JSON.parse(dl.slice(5)); if(j.delta) answer+=j.delta; if(j.tool) tool=j.tool; if(j.error&&!answer) answer=j.error; if(j.interest) addWatch(j.interest); }catch{} } } }
+      else { const e=await r.json().catch(()=>({})); answer=e.error||'Something went wrong.'; }
+      if(!live) return;
+      if(tool){ liveState('Working on it…'); answer=tool.say||'On it — I’m putting it in the chat for you.'; runTool(c,tool,said); }
+      answer=answer.replace(/\s*📊\s*Source:[^\n]*/g,'').trim()||'Sorry, I lost my words there — say that again?';
+      if(!tool){ c.messages.push({role:'assistant',content:answer}); c.updated=Date.now(); saveC(); if(currentId===c.id) renderChat(); }
+      liveLog('ai',answer);
+      live.state='speaking'; liveState('Speaking… talk anytime to interrupt'); setOrb('speak');
+      await liveSpeak(answer);
+      back();
+    }catch{ back('I had a hiccup — try again.'); }
+  }
+  const LANG_LIVE=new Set(['en','te','hi','ta','kn','ml','mr','bn','gu','pa','ur','es','fr','de','pt','ar','ru','zh','ja','ko','id','tr','it','sw']);
+  // say the answer: sentence by sentence (the next one is made while this one plays); stops when interrupted
+  async function liveSpeak(text){
+    const clean=String(text).replace(/```[\s\S]*?```/g,' ').replace(/[*#_`>|]/g,'').trim().slice(0,1200); if(!clean) return;
+    const lang=langOf(clean), token={}; speaking=token;
+    const pieces=[]; let cur=''; for(const sn of clean.match(/[^.!?।\n]+[.!?।]*\s*/g)||[clean]){ if(cur&&(cur+sn).length>220){ pieces.push(cur.trim()); cur=''; } cur+=sn; } if(cur.trim()) pieces.push(cur.trim());
+    const get=(t)=>fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,lang,voice:voicePref()})}).then(r=>r.ok?r.json():null).catch(()=>null);
+    let next=get(pieces[0]), played=false;
+    for(let i=0;i<pieces.length;i++){
+      const d=await next; if(!live||live.state!=='speaking') return;
+      if(!d?.audio) break;
+      next=i+1<pieces.length?get(pieces[i+1]):null;
+      const a=new Audio(d.audio); a._token=token; speaking=a; played=true;
+      try{ await a.play(); await new Promise(ok=>{ a.onended=ok; a.onerror=ok; a.onpause=ok; }); }catch{ break; }
+      if(!live||live.state!=='speaking') return;
+    }
+    if(played) return;
+    // languages without a cloud voice: this device's own voice, if it has one
+    await new Promise(ok=>{ try{ const u=new SpeechSynthesisUtterance(clean); u.lang=lang; const v=speechSynthesis.getVoices().find(x=>x.lang?.toLowerCase().startsWith(lang)); if(v) u.voice=v; else if(lang!=='en'){ liveState('Your device has no voice for this language — read my answer above'); return setTimeout(ok,2500); }
+      u.onend=ok; u.onerror=ok; speechSynthesis.speak(u); const w=setInterval(()=>{ if(!live||live.state!=='speaking'){ speechSynthesis.cancel(); clearInterval(w); ok(); } if(!speechSynthesis.speaking){ clearInterval(w); ok(); } },200); }catch{ ok(); } });
+  }
+  { const b=el('button','mic livego'); b.id='liveBtn'; b.title='Talk live (hands-free, any language)'; b.setAttribute('aria-label','Talk live'); b.innerHTML=svgIco(LIVE_ICO.wave); b.onclick=startLive; $('micBtn').before(b); }
 
   // ---- Memory search: earlier chats that match a message that refers back to them ----
   const RECALL_STOP=new Set('this that with from have what when where which your about there their would could should them they were been into just like know need want will make tell more some time also then than only very okay please thanks'.split(' '));
@@ -2589,53 +3112,178 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     {t:'Drink water',d:'A gentle reminder to drink water.',task:'Remind me to drink water',when:'every 2 hours',icon:'<path d="M12 2.7S6 9.5 6 14a6 6 0 0 0 12 0c0-4.5-6-11.3-6-11.3z"/>'},
     {t:'Study plan',d:'A short plan for your day of study.',task:'Give me a 3-point study plan for today',when:'weekdays at 7 am',icon:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/>'},
     {t:'Weekly review',d:'Three questions to look back on your week.',task:'Give me 3 short questions to review my week',when:'every sunday at 6 pm',icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>'}];
-  let schedTab='Yours', schedRows=null;
-  async function showSched(){ closeRail(); $('schedPage').classList.add('open'); schedRows=null; renderSched();
-    if(me){ try{ schedRows=(await (await fetch('/api/automations')).json()).automations||[]; }catch{ schedRows=[]; } } else schedRows=[]; renderSched(); }
+  // ---- Automations: Updates (what ran / what came in) and Manage (everything set up), list or calendar ----
+  // Three kinds: Schedule (a time - runs on our server, needs sign-in), Trigger (when something happens:
+  // something new about a topic, a GitHub release, a news feed, an important mail, a calendar event soon),
+  // and Advanced (say it in your own words).
+  let schedRows=null, autoTab='Updates', autoView='list', autoKind='All', calMonth=null;
+  const AUTO_ICO={sched:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',trig:'<circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6"/>',adv:'<path d="M4 7h4l3 10h3"/><circle cx="18" cy="17" r="3"/><circle cx="5" cy="7" r="2"/>',pulse:'<path d="M3 12h4l2-6 4 12 2-6h6"/>',list:'<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>',cal:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/>',filter:'<path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/>',plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',film:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16"/><path d="M17 4v16"/><path d="M3 9h4"/><path d="M3 15h4"/><path d="M17 9h4"/><path d="M17 15h4"/>',rss:'<path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>',gh:'<path d="M9 19c-4 1.5-4-2-6-2.5"/><path d="M15 21v-3.5a3 3 0 0 0-.9-2.4c3-.3 6-1.5 6-6.6a5 5 0 0 0-1.4-3.6 4.7 4.7 0 0 0-.1-3.5s-1.1-.3-3.6 1.4a12.5 12.5 0 0 0-6.5 0C6 1.1 4.9 1.4 4.9 1.4a4.7 4.7 0 0 0-.1 3.5A5 5 0 0 0 3.4 8.5c0 5.1 3 6.3 6 6.6a3 3 0 0 0-.9 2.4V21"/>',calendar:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18"/><path d="M8 14h3"/>'};
+  const TRIGGERS=[
+    {id:'mail',name:'Gmail',sub:'An important email arrives',ico:'mail',color:'#ea4335'},
+    {id:'topic',name:'Something new about…',sub:'News or releases about a topic you love',ico:'star',color:'#f2c200'},
+    {id:'movies',name:'New movies',sub:'A new movie comes out (your language)',ico:'film',color:'#c57f16'},
+    {id:'feed',name:'News feed (RSS)',sub:'A new post on any blog or news site',ico:'rss',color:'#ee802f'},
+    {id:'github',name:'GitHub',sub:'A new release of a project',ico:'gh',color:'#e6e6e6'},
+    {id:'calendar',name:'Google / Outlook Calendar',sub:'An event starts in 15 minutes',ico:'calendar',color:'#1a93fe'}];
+  const mailLinked=()=>Boolean(ownerKey())||Boolean(plugState?.gmail?.connected);
+  async function showSched(){ closeRail(); showPage('schedPage'); schedRows=null; renderAuto();
+    if(me){ try{ schedRows=(await (await fetch('/api/automations')).json()).automations||[]; }catch{ schedRows=[]; } } else schedRows=[]; renderAuto(); }
+  // everything set up, as one list: {kind:'Schedule'|'Trigger', title, sub, on, ...}
+  function autoItems(){
+    const out=[];
+    (schedRows||[]).forEach(a=>out.push({kind:'Schedule',key:'s'+a.id,title:a.task,sub:a.when+(a.enabled&&a.next?' · next '+a.next:' · paused')+(a.lastStatus==='failed'?' · last run failed':a.lastRun?' · last ran '+when(a.lastRun):''),on:a.enabled,row:a}));
+    watches.forEach(w=>{ const t=TRIGGERS.find(x=>x.id===(w.type||(w.topic==='movies'?'movies':'topic'))); out.push({kind:'Trigger',key:w.id,title:(w.type==='feed'?'New post: '+w.label:w.type==='github'?'New release: '+w.repo:w.type==='calendar'?'Calendar event starting soon':'Something new about '+w.topic)+(w.task?' → '+w.task:''),sub:(t?.name||'Trigger')+' · checks every 30 min while CodeConClave is open'+(w.hits?' · '+w.hits+' found':''),on:w.on!==false,watch:w}); });
+    out.push({kind:'Trigger',key:'mail',title:'Important email → summary + a reply ready',sub:mailLinked()?'Gmail · on while CodeConClave is open':'Gmail · connect Gmail in Plugins to turn this on',on:mailLinked(),fixed:true});
+    return out;
+  }
+  // what happened: automation runs (server) and trigger hits (Updates chat), newest first
+  function autoActivity(){
+    const acts=[];
+    for(const id of ['automations','updates']){ const c=convos.find(x=>x.id===id); if(!c) continue;
+      c.messages.forEach((m,i)=>{ if(m.role!=='assistant') return; acts.push({chat:id,i,at:m.at||c.updated,text:(m.updates?.[0]?.title?m.content+' '+m.updates.map(x=>x.title).join(' · '):m.content).replace(/\s+/g,' ').slice(0,180),kind:id==='updates'?'Trigger':'Schedule'}); }); }
+    return acts.reverse().slice(0,60);
+  }
+  function renderAuto(){
+    const tabs=$('autoTabs'); tabs.innerHTML=''; ['Updates','Manage'].forEach(t=>{ const b=el('button',t===autoTab?'on':null,t); b.onclick=()=>{ autoTab=t; renderAuto(); }; tabs.appendChild(b); });
+    $('autoView').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===autoView));
+    $('autoFilterBtn').classList.toggle('on',autoKind!=='All');
+    const B=$('autoBody'); B.innerHTML='';
+    if(autoView==='cal') return renderAutoCal(B);
+    if(autoTab==='Updates'){
+      const acts=autoActivity().filter(a=>autoKind==='All'||a.kind===autoKind);
+      if(!acts.length){ const e=el('div','autoempty'); e.innerHTML=svgIco(AUTO_ICO.pulse); e.appendChild(el('div',null,'No activity yet')); e.appendChild(el('span',null,'When an automation runs or a trigger finds something, it shows up here.')); B.appendChild(e); return; }
+      acts.forEach(a=>{ const r=el('button','autorowx'); r.innerHTML='<span class="tic">'+svgIco(a.kind==='Trigger'?AUTO_ICO.trig:AUTO_ICO.sched)+'</span>'; const t=el('div','tt'); t.appendChild(el('b',null,a.text)); t.appendChild(el('span',null,a.kind+' · '+when(a.at))); r.appendChild(t); r.onclick=()=>selectChat(a.chat); B.appendChild(r); });
+      return;
+    }
+    if(schedRows===null){ B.appendChild(el('div','libempty','Loading…')); return; }
+    const items=autoItems().filter(x=>autoKind==='All'||x.kind===autoKind||(autoKind==='Advanced'&&x.adv));
+    items.forEach(x=>{ const r=el('div','srow2'), ic=el('span','tic'); ic.innerHTML=svgIco(x.kind==='Trigger'?AUTO_ICO.trig:AUTO_ICO.sched); const t=el('div','tt'); t.append(el('b',null,x.title), el('span',null,x.sub));
+      r.append(ic,t);
+      if(!x.fixed){ const sw=document.createElement('input'); sw.type='checkbox'; sw.checked=x.on; sw.title=x.on?'Pause':'Turn on';
+        sw.onchange=async()=>{ if(x.watch){ x.watch.on=sw.checked; saveW(); renderAuto(); return; }
+          const q=await fetch('/api/automations/'+x.row.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:sw.checked})}); const j=await q.json().catch(()=>({})); if(!q.ok){ sw.checked=!sw.checked; toast(j.error||'Could not change it.'); } showSched(); };
+        const del=el('button','bx','Delete'); del.onclick=async()=>{ if(!del.dataset.sure){ del.dataset.sure='1'; del.textContent='Delete?'; return; }
+          if(x.watch){ watches=watches.filter(w=>w!==x.watch); saveW(); renderAuto(); } else { await fetch('/api/automations/'+x.row.id,{method:'DELETE'}); showSched(); } };
+        r.append(sw,del); }
+      else if(!x.on){ const go=el('button','mskip','Connect'); go.onclick=()=>showPlugins(); r.appendChild(go); }
+      B.appendChild(r); });
+    if(!me){ const n=el('div','autonote'); n.append('Scheduled automations run on our server even when your computer is off — '); const s=el('button','linkbtn','sign in'); s.onclick=()=>showAuth(false); n.append(s,' to make them.'); B.appendChild(n); }
+    B.appendChild(el('div','wavy')); B.appendChild(el('h3','autoh3','Ideas to start from')); const g=el('div','tgrid'); TEMPLATES.forEach(x=>g.appendChild(tmplCard(x))); B.appendChild(g);
+  }
   function tmplCard(x){ const b=el('button','tcard'); b.innerHTML=`<span class="tic">${svgIco(x.icon)}</span>`; const t=el('div');
-    t.append(el('b',null,x.t), el('span',null,x.d)); const em=el('em'); em.innerHTML=svgIco('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'); em.append(x.when.replace(/^./,ch=>ch.toUpperCase())); t.appendChild(em);
-    b.appendChild(t); b.onclick=()=>openSchedNew(x.task,x.when); return b; }
-  function renderSched(){
-    const tabs=$('schedTabs'); tabs.innerHTML=''; ['Yours','Templates'].forEach(t=>{ const b=el('button',t===schedTab?'on':null,t); b.onclick=()=>{ schedTab=t; renderSched(); }; tabs.appendChild(b); });
-    const L=$('schedList'), q=$('schedSearch').value.trim().toLowerCase(); L.innerHTML='';
-    const grid=()=>{ const g=el('div','tgrid'); TEMPLATES.filter(x=>(x.t+' '+x.d).toLowerCase().includes(q)).forEach(x=>g.appendChild(tmplCard(x))); return g; };
-    if(schedTab==='Templates'){ L.appendChild(grid()); return; }
-    if(schedRows===null){ L.appendChild(el('div','libempty','Loading…')); return; }
-    const rows=schedRows.filter(a=>a.task.toLowerCase().includes(q));
-    if(!rows.length){ const e=el('div','schedempty'); e.innerHTML=STOPWATCH; e.append(me?'No scheduled tasks yet.':'Sign in to schedule tasks — they run on our server even when your computer is off.');
-      const nb=el('button','mskip',me?'New task':'Sign in'); nb.onclick=()=>me?openSchedNew():showAuth(false); e.appendChild(nb); L.appendChild(e);
-      L.appendChild(el('div','wavy')); L.appendChild(grid()); return; }
-    rows.forEach(a=>{ const r=el('div','srow2'), ic=el('span','tic'); ic.innerHTML=CLOCK_SVG; const t=el('div','tt');
-      t.append(el('b',null,a.task), el('span',null,a.when+(a.enabled&&a.next?' · next '+a.next:' · paused')+(a.lastStatus==='failed'?' · last run failed':a.lastRun?' · last ran '+when(a.lastRun):'')));
-      const sw=document.createElement('input'); sw.type='checkbox'; sw.checked=a.enabled; sw.title=a.enabled?'Pause':'Turn on';
-      sw.onchange=async()=>{ const x=await fetch('/api/automations/'+a.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:sw.checked})}); const j=await x.json().catch(()=>({})); if(!x.ok){ sw.checked=!sw.checked; toast(j.error||'Could not change it.'); } showSched(); };
-      const del=el('button','bx','Delete'); del.onclick=async()=>{ if(del.dataset.sure){ await fetch('/api/automations/'+a.id,{method:'DELETE'}); showSched(); } else { del.dataset.sure='1'; del.textContent='Delete?'; } };
-      r.append(ic,t,sw,del); L.appendChild(r); });
-    L.appendChild(el('div','wavy')); L.appendChild(el('h3',null,'Templates')).style.cssText='font-weight:500;margin:0 0 18px'; L.appendChild(grid());
+    t.append(el('b',null,x.t), el('span',null,x.d)); const em=el('em'); em.innerHTML=svgIco(AUTO_ICO.sched); em.append(x.when.replace(/^./,ch=>ch.toUpperCase())); t.appendChild(em);
+    b.appendChild(t); b.onclick=()=>openAutoNew('schedule',{task:x.task,whenText:x.when}); return b; }
+  // calendar: upcoming scheduled runs + days something happened
+  function renderAutoCal(B){
+    const now=new Date(); if(!calMonth) calMonth=new Date(now.getFullYear(),now.getMonth(),1);
+    const head=el('div','calhead'); head.appendChild(el('b',null,calMonth.toLocaleDateString('en-IN',{month:'short',year:'numeric'})));
+    const nav=el('div','calnav'); const prev=el('button','railbtn','‹'), today=el('button','calToday','Today'), next=el('button','railbtn','›');
+    prev.onclick=()=>{ calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()-1,1); renderAuto(); }; next.onclick=()=>{ calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+1,1); renderAuto(); }; today.onclick=()=>{ calMonth=null; renderAuto(); };
+    nav.append(prev,today,next); head.appendChild(nav); B.appendChild(head);
+    const grid=el('div','calgrid'); ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>grid.appendChild(el('div','caldow',d)));
+    const events=new Map(); const addEv=(t,label,kind)=>{ const k=new Date(t).toDateString(); if(!events.has(k)) events.set(k,[]); events.get(k).push({label,kind}); };
+    (schedRows||[]).forEach(a=>(a.upcoming||[]).forEach(t=>addEv(t,new Date(t).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'})+' '+a.task,'Schedule')));
+    if(autoTab==='Updates') autoActivity().forEach(a=>addEv(a.at,a.text,a.kind));
+    const start=new Date(calMonth); start.setDate(1-start.getDay());
+    for(let i=0;i<42;i++){ const d=new Date(start); d.setDate(start.getDate()+i); const cell=el('div','calcell'+(d.getMonth()!==calMonth.getMonth()?' other':''));
+      const n=el('span','caln'+(d.toDateString()===now.toDateString()?' today':''),d.getDate()===1?d.toLocaleDateString('en-IN',{month:'short'})+' 1':String(d.getDate())); cell.appendChild(n);
+      (events.get(d.toDateString())||[]).filter(e=>autoKind==='All'||e.kind===autoKind).slice(0,3).forEach(e=>cell.appendChild(el('div','calev '+e.kind.toLowerCase(),e.label)));
+      grid.appendChild(cell); }
+    B.appendChild(grid);
   }
-  function openSchedNew(task='',whenText=''){
-    if(!me){ toast('Sign in first — scheduled tasks are kept on your account.'); showAuth(false); return; }
-    $('schedTask').value=task; $('schedWhen').value=whenText; $('schedErr').textContent=''; $('schedModal').classList.add('open'); (task?$('schedWhen'):$('schedTask')).focus();
+  // dropdown menus (filter, create)
+  function ddMenu(box,items,onPick,check){ box.innerHTML=''; items.forEach(([v,label,ico,beta])=>{ const b=el('button','dditem'+(check===v?' on':'')); if(ico) b.innerHTML=svgIco(ico); b.append(label); if(beta) b.appendChild(el('i',null,'Beta')); if(check===v) b.appendChild(el('span','ddcheck','✓')); b.onclick=(e)=>{ e.stopPropagation(); box.classList.remove('open'); onPick(v); }; box.appendChild(b); }); box.classList.add('open'); }
+  document.addEventListener('click',()=>document.querySelectorAll('.ddmenu.open').forEach(m=>m.classList.remove('open')));
+  $('autoFilterBtn').onclick=(e)=>{ e.stopPropagation(); ddMenu($('autoFilter'),[['All','All'],['Schedule','Schedule'],['Trigger','Trigger'],['Advanced','Advanced automation']],(v)=>{ autoKind=v; renderAuto(); },autoKind); };
+  $('autoCreateBtn').onclick=(e)=>{ e.stopPropagation(); ddMenu($('autoCreate'),[['schedule','Schedule',AUTO_ICO.sched],['trigger','Trigger',AUTO_ICO.trig],['advanced','Advanced automation',AUTO_ICO.adv,true]],(v)=>openAutoNew(v)); };
+  $('autoView').querySelectorAll('button').forEach(b=>b.onclick=()=>{ autoView=b.dataset.v; renderAuto(); });
+
+  // ---- "Automate your work": the three create forms ----
+  const FREQS=[['once','Once'],['daily','Daily'],['weekdays','Weekdays'],['weekly','Weekly'],['hourly','Every hour']];
+  const DAYS=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  function timeOptions(){ const out=[]; for(let h=0;h<24;h++) for(const m of [0,30]){ const ap=h<12?'AM':'PM', hh=(h%12)||12; out.push([`${hh}:${m?'30':'00'} ${ap.toLowerCase()}`,`${ap} ${String(hh).padStart(2,'0')}:${m?'30':'00'}`]); } return out; }
+  function openAutoNew(kind,pre={}){
+    const box=$('autoNewBox'); box.innerHTML=''; $('autoNewModal').classList.add('open');
+    const top=el('div','anhead'); top.appendChild(el('h2',null,'Automate your work')); const x=el('button','bx'); x.innerHTML=svgIco('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'); x.title='Close'; x.onclick=()=>$('autoNewModal').classList.remove('open'); top.appendChild(x); box.appendChild(top);
+    const card=el('div','ancard'); box.appendChild(card);
+    const err=el('div','autherr'); const act=el('div','anact'); const go=el('button','msend','Create'); act.append(err,go);
+    const needSign=()=>{ if(me) return false; err.textContent='Sign in first — scheduled automations are kept on your account and run on our server.'; const s=el('button','linkbtn',' Sign in'); s.onclick=()=>{ $('autoNewModal').classList.remove('open'); showAuth(false); }; err.appendChild(s); return true; };
+    if(kind==='schedule'){
+      card.appendChild(el('div','anlbl','When'));
+      const row=el('div','anrow'); row.innerHTML=svgIco(AUTO_ICO.sched);
+      const f=document.createElement('select'); FREQS.forEach(([v,l])=>f.appendChild(new Option(l,v))); f.value='daily';
+      const day=document.createElement('select'); DAYS.forEach(d=>day.appendChild(new Option(d[0].toUpperCase()+d.slice(1),d))); day.value='monday';
+      const atL=el('span','dim','at'), t=document.createElement('select'); timeOptions().forEach(([v,l])=>t.appendChild(new Option(l,v))); t.value='10:00 am';
+      const date=document.createElement('input'); date.type='date'; date.value=new Date(Date.now()+864e5).toISOString().slice(0,10);
+      row.append(f,day,date,atL,t); card.appendChild(row);
+      const paint=()=>{ day.hidden=f.value!=='weekly'; date.hidden=f.value!=='once'; atL.hidden=t.hidden=f.value==='hourly'; }; f.onchange=paint; paint();
+      if(pre.whenText){ const w=pre.whenText.toLowerCase(); if(/hour/.test(w)) f.value='hourly'; else if(/weekday/.test(w)) f.value='weekdays'; else { const d=DAYS.find(d=>w.includes(d)); if(d){ f.value='weekly'; day.value=d; } }
+        const tm=w.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/); if(tm){ const v=`${Number(tm[1])}:${tm[2]||'00'} ${tm[3]}`; if([...t.options].some(o=>o.value===v)) t.value=v; } paint(); }
+      card.appendChild(el('div','anlbl','CodeConClave will'));
+      const ta=document.createElement('textarea'); ta.className='antext'; ta.rows=3; ta.maxLength=300; ta.placeholder='Describe what CodeConClave should do, e.g. summarise the latest AI news and send me the highlights'; ta.value=pre.task||''; card.appendChild(ta);
+      go.onclick=async()=>{ err.textContent=''; if(needSign()) return; const task=ta.value.trim(); if(!task){ err.textContent='Say what I should do.'; return; }
+        const text=f.value==='hourly'?'every 1 hour':f.value==='once'?`on ${date.value} at ${t.value}`:f.value==='weekly'?`every ${day.value} at ${t.value}`:f.value==='weekdays'?`weekdays at ${t.value}`:`every day at ${t.value}`;
+        go.disabled=true;
+        try{ const p=await (await fetch('/api/parse-schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})).json();
+          if(!p.schedule) throw new Error('I could not set that time — try another one.');
+          const r=await fetch('/api/automations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task,schedule:p.schedule})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not create it.');
+          $('autoNewModal').classList.remove('open'); toast('Created: '+d.when+' — next run '+d.next); autoTab='Manage'; showSched(); }
+        catch(e){ err.textContent=e.message; } go.disabled=false; };
+      setTimeout(()=>ta.focus(),50);
+    }
+    else if(kind==='trigger'){
+      card.appendChild(el('div','anlbl','When this happens'));
+      const grid=el('div','trgrid'); const form=el('div','trform'); let pick=null;
+      TRIGGERS.forEach(tg=>{ const b=el('button','trcard'); b.innerHTML='<span style="color:'+tg.color+'">'+svgIco(AUTO_ICO[tg.ico])+'</span>'; b.appendChild(el('b',null,tg.name)); b.appendChild(el('span',null,tg.sub));
+        b.onclick=()=>{ pick=tg.id; grid.querySelectorAll('.trcard').forEach(k=>k.classList.toggle('on',k===b)); paintForm(); }; grid.appendChild(b); });
+      card.append(grid,form);
+      const inp=(ph,v='')=>{ const i=document.createElement('input'); i.className='aninput'; i.placeholder=ph; i.value=v; return i; };
+      let fields={};
+      function paintForm(){ form.innerHTML=''; fields={};
+        if(pick==='topic'){ fields.topic=inp('Topic, like cricket, ISRO, iPhone, AI',pre.topic||''); form.append(el('div','anlbl','About what?'),fields.topic); }
+        if(pick==='feed'){ fields.url=inp('Feed link, like https://feeds.bbci.co.uk/news/rss.xml'); form.append(el('div','anlbl','Feed link (RSS / Atom)'),fields.url); }
+        if(pick==='github'){ fields.repo=inp('owner/project, like facebook/react'); form.append(el('div','anlbl','GitHub project'),fields.repo); }
+        if(pick==='calendar'){ fields.url=inp('Your calendar’s secret iCal link (Google: Settings → your calendar → Secret address in iCal format)',plugCfg?.calendar?.url||''); form.append(el('div','anlbl','Calendar link'),fields.url); }
+        if(pick==='mail'){ form.appendChild(el('div','annote',mailLinked()?'✅ Gmail is connected. When an important email arrives I tell you (guitar sound), summarise it and write a reply you can send.':'Connect Gmail first (Plugins → Gmail). Then I tell you about important emails, summarise them and write a reply.')); }
+        if(pick && pick!=='mail'){ form.appendChild(el('div','anlbl','Then CodeConClave will')); fields.task=document.createElement('textarea'); fields.task.className='antext'; fields.task.rows=2; fields.task.maxLength=300; fields.task.placeholder='Tell me with the guitar sound — and optionally: summarise it, explain it simply, translate it…'; form.appendChild(fields.task); }
+        go.textContent=pick==='mail'?(mailLinked()?'Done':'Open Plugins'):'Create'; }
+      if(pre.trigger){ pick=pre.trigger; grid.querySelectorAll('.trcard')[TRIGGERS.findIndex(t=>t.id===pick)]?.classList.add('on'); }
+      paintForm();
+      go.onclick=()=>{ err.textContent='';
+        if(!pick){ err.textContent='Pick what should start it.'; return; }
+        if(pick==='mail'){ $('autoNewModal').classList.remove('open'); if(!mailLinked()) showPlugins(); return; }
+        const task=(fields.task?.value||'').trim(); let w=null;
+        if(pick==='topic'||pick==='movies'){ const topic=pick==='movies'?'movies':(fields.topic.value||'').trim(); if(!topic){ err.textContent='Say the topic.'; return; } w={type:pick==='movies'?'movies':'topic',topic:topic.toLowerCase().slice(0,40)}; }
+        if(pick==='feed'){ const u=(fields.url.value||'').trim(); if(!/^https:\/\/\S+\.\S+/.test(u)){ err.textContent='Paste a full https:// feed link.'; return; } w={type:'feed',url:u,label:u.replace(/^https:\/\/(www\.)?/,'').split('/')[0],topic:'feed'}; }
+        if(pick==='github'){ const repo=(fields.repo.value||'').trim().replace(/^https:\/\/github\.com\//,'').replace(/\/$/,''); if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){ err.textContent='Write it like owner/project.'; return; } w={type:'github',repo,topic:'github'}; }
+        if(pick==='calendar'){ const u=(fields.url.value||'').trim(); if(!/^(https|webcal):\/\/\S+/.test(u)){ err.textContent='Paste your calendar’s iCal link.'; return; } w={type:'calendar',url:u.replace(/^webcal:/,'https:'),topic:'calendar'}; }
+        watches.push({id:'w'+uid(),...w,task,seen:[],added:Date.now(),last:0,on:true}); saveW();
+        try{ if(window.Notification && Notification.permission==='default') Notification.requestPermission().catch(()=>{}); }catch{}
+        $('autoNewModal').classList.remove('open'); toast('Trigger created — I check it every 30 minutes while CodeConClave is open.'); autoTab='Manage'; renderAuto(); setTimeout(()=>checkWatches(w.topic),1500); };
+    }
+    else {   // advanced: in your own words
+      const top2=box.querySelector('.anhead h2'); top2.innerHTML=''; top2.append('Advanced automation '); top2.appendChild(el('i','beta','Beta'));
+      const ta=document.createElement('textarea'); ta.className='antext big'; ta.rows=5; ta.maxLength=500; ta.placeholder='Describe when CodeConClave should run and what it should do… e.g. “Every Monday at 9 am send me 5 tech news headlines” or “When a new Telugu movie comes out, tell me its story in 2 lines”'; card.appendChild(ta);
+      go.onclick=async()=>{ err.textContent=''; const text=ta.value.trim(); if(!text){ err.textContent='Describe it first.'; return; } go.disabled=true; go.textContent='Understanding…';
+        try{ const r=await fetch('/api/automations/understand',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'I could not understand it.');
+          if(d.type==='schedule'){ if(needSign()){ go.disabled=false; go.textContent='Create'; return; }
+            const q=await fetch('/api/automations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:d.task,schedule:d.schedule})}); const j=await q.json(); if(!q.ok) throw new Error(j.error||'Could not create it.');
+            toast('Created: '+j.when+' — '+d.task); }
+          else if(d.type==='watch'){ const topic=d.topic.toLowerCase(); const w={id:'w'+uid(),type:/movie|film|cinema/.test(topic)?'movies':'topic',topic:/movie|film|cinema/.test(topic)?'movies':topic,task:d.task||'',seen:[],added:Date.now(),last:0,on:true,adv:true}; watches.push(w); saveW(); setTimeout(()=>checkWatches(w.topic),1500); toast('Trigger created: something new about '+w.topic); }
+          else if(d.type==='mail'){ toast(mailLinked()?'Important-mail alerts are on: summary + a reply ready.':'Connect Gmail in Plugins, then important-mail alerts turn on.'); }
+          else throw new Error('I can’t automate that yet: '+d.why+' Try a time (“every day at 8 am…”) or “when something new about … comes out”.');
+          $('autoNewModal').classList.remove('open'); autoTab='Manage'; showSched(); }
+        catch(e){ err.textContent=e.message; }
+        go.disabled=false; go.textContent='Create'; };
+      setTimeout(()=>ta.focus(),50);
+    }
+    box.appendChild(act);
   }
-  $('schedSave').onclick=async()=>{
-    const task=$('schedTask').value.trim(), text=$('schedWhen').value.trim();
-    if(!task||!text){ $('schedErr').textContent='Say what to do and when.'; return; }
-    $('schedSave').disabled=true;
-    try{ const p=await (await fetch('/api/parse-schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})).json();
-      if(!p.schedule) throw new Error('I could not understand that time — try “every day at 8 am”, “weekdays at 7 pm” or “every 2 hours”.');
-      const r=await fetch('/api/automations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task,schedule:p.schedule})});
-      const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not create it.');
-      $('schedModal').classList.remove('open'); toast('Scheduled: '+d.when+' — next run '+d.next); schedTab='Yours'; showSched();
-    }catch(e){ $('schedErr').textContent=e.message; }
-    $('schedSave').disabled=false;
-  };
-  $('schedNew').onclick=()=>openSchedNew(); $('schedClose').onclick=()=>$('schedPage').classList.remove('open');
-  $('schedModalClose').onclick=$('schedCancel').onclick=()=>$('schedModal').classList.remove('open');
-  $('schedSearch').oninput=renderSched;
+  $('autoNewModal').onclick=(e)=>{ if(e.target===$('autoNewModal')) $('autoNewModal').classList.remove('open'); };
   $('autoBtn').onclick=showSched;
   setPanel(panelPref(),false); refreshStatus(); setInterval(refreshStatus,30000); refreshUsage();
 
-  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/schedule',desc:'Scheduled tasks — run by themselves, India time'},{cmd:'/research',desc:'Deep research — answers from real sources'},{cmd:'/plan',desc:'Plan a big task in steps and run them — /plan launch my bakery website'},{cmd:'/run',desc:'Run a terminal command (desktop app) — /run dir'},{cmd:'/open',desc:'Open a site in the AI’s browser (desktop app) — /open github.com'},{cmd:'/skills',desc:'Reusable skills — built in and your own'},{cmd:'/record',desc:'Record a skill — do a task once, reuse it'},{cmd:'/library',desc:'Your files, reusable in any chat'},{cmd:'/creations',desc:'Everything I made for you'},{cmd:'/personalize',desc:'Your profile and custom instructions'},{cmd:'/plugins',desc:'Gmail, folder, live data and more'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
+  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/image',desc:'Draw a picture — /image a tiger in the snow'},{cmd:'/video',desc:'Make a short narrated video — /video how rockets work'},{cmd:'/audio',desc:'Make an audio file of any text — /audio Good morning everyone'},{cmd:'/game',desc:'Build a game you can play right here — /game snake with levels'},{cmd:'/website',desc:'Build a website — /website for my bakery Sweet Spot'},{cmd:'/app',desc:'Build a small app or tool — /app a budget calculator'},{cmd:'/web',desc:'Look something up on the web now — /web new movies this week'},{cmd:'/live',desc:'Talk with me live by voice, in any language'},{cmd:'/sheet',desc:'Make an Excel sheet — /sheet my monthly budget'},{cmd:'/slides',desc:'Make PowerPoint slides — /slides climate change for class 9'},{cmd:'/word',desc:'Make a Word document — /word a leave letter'},{cmd:'/pdf',desc:'Make a PDF — /pdf my study timetable'},{cmd:'/watch',desc:'Get pinged when something new comes out — /watch movies'},{cmd:'/remember',desc:'Remember something about you — /remember I love cricket'},{cmd:'/remind',desc:'Set a reminder — /remind me tomorrow at 7 to call amma'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/schedule',desc:'Scheduled tasks — run by themselves, India time'},{cmd:'/research',desc:'Deep research — answers from real sources'},{cmd:'/plan',desc:'Plan a big task in steps and run them — /plan launch my bakery website'},{cmd:'/run',desc:'Run a terminal command (desktop app) — /run dir'},{cmd:'/open',desc:'Open a site in the AI’s browser (desktop app) — /open github.com'},{cmd:'/skills',desc:'Reusable skills — built in and your own'},{cmd:'/record',desc:'Record a skill — do a task once, reuse it'},{cmd:'/library',desc:'Your files, reusable in any chat'},{cmd:'/creations',desc:'Everything I made for you'},{cmd:'/personalize',desc:'Your profile and custom instructions'},{cmd:'/plugins',desc:'Gmail, folder, live data and more'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
   function slashRender(q){ const el=$('slash');
     const list=[...COMMANDS, ...mySkills.map(k=>({cmd:'/'+slug(k.name), desc:k.steps?.length?'Recorded skill · '+k.steps.length+' step'+(k.steps.length===1?'':'s'):(k.prompt||'').slice(0,60), skill:k}))].filter(c=>c.cmd.startsWith(q.toLowerCase())); el.innerHTML='';
     list.forEach((c,i)=>{ const r=document.createElement('button'); r.className='slashrow'+(i===0?' sel':''); r.dataset.cmd=c.cmd;
@@ -2656,7 +3304,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     else if(c==='/creations') showCreations();
     else if(c==='/personalize') showPersonalization();
     else if(c==='/plugins') showPlugins();
-    else if(c==='/run'||c==='/open'||c==='/plan'){ input.value=c+' '; input.focus(); }
+    else if(['/run','/open','/plan','/image','/video','/audio','/game','/website','/app','/web','/sheet','/slides','/word','/pdf','/watch','/remember','/remind'].includes(c)){ input.value=c+' '; input.focus(); }
+    else if(c==='/live') startLive();
     else if(c==='/folder') folder&&folder.files?showFiles():folder?wakeFolder():openFolder();
     else toast('Commands:  /new   /mail   /folder   /clear   /memory'); }
   input.addEventListener('keydown',(e)=>{ const open=$('slash').classList.contains('open');

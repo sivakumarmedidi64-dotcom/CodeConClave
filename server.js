@@ -17,6 +17,9 @@ import { registerApps } from './apps.js';
 import { gatherSources, searchWords, kindOf as researchKind } from './research.js';
 import { specialists } from './sources.js';
 import { parseSchedule, cleanSchedule, nextRun, describeSchedule, describeWhen, stripWhen } from './schedule.js';
+import { slashRoute, quickRoute, obviousChat, parseRoute, ROUTER_SYSTEM, ROUTER_EXAMPLES } from './router.js';
+import { webLookup, NEWSY, watchItems } from './web.js';
+import { registerStudio } from './studio.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -77,6 +80,40 @@ async function brainPost(pathname, body) {
   }
   throw last;
 }
+// ---- The engine: a bigger open model on the always-on brain, for choosing tools and building things ----
+const cloudBrain = () => BRAINS.find((b) => b.name === 'cloud');
+async function engineAsk(messages, { engine = 'agent', max = 600, temperature = 0.2, ms = 30000 } = {}) {
+  const b = cloudBrain();
+  if (!b) throw new Error('no cloud brain');
+  const r = await fetch(`${b.base}/engine/chat/completions`, { method: 'POST', headers: brainHeaders(b),
+    body: JSON.stringify({ engine, messages, max_tokens: max, temperature, think: false }), signal: AbortSignal.timeout(ms) });
+  if (!r.ok) throw new Error(`engine HTTP ${r.status}`);
+  return String((await r.json())?.choices?.[0]?.message?.content || '');
+}
+// Words that hint a message needs a tool; anything else ("explain recursion", "write a poem") is answered straight away.
+const TOOLISH = /\b(make|create|build|generate|draw|paint|design|render|open|launch|go to|visit|search|find|look up|google|play|watch|listen|download|read|edit|save|delete|rename|folder|files?|remind|reminder|every|daily|weekly|schedule|automate|remember|forget|i (love|like|enjoy|hate|prefer|am|work)|my (name|favou?rite|birthday|job)|weather|temperature|rain|forecast|aqi|pollution|price|cost|rate|stock|share|market|bitcoin|crypto|news|latest|today|tonight|yesterday|tomorrow|now|current|currently|recent|this (week|month|year)|new|release|released|score|won|win|winner|match|election|who is|who are|when is|when does|where is|how much|movie|movies|film|song|songs|music|video|audio|voice|image|picture|photo|logo|poster|game|website|web ?site|app|landing|excel|sheet|spreadsheet|ppt|powerpoint|slides|presentation|document|pdf|resume|mail|email|e-mail|inbox|gmail|youtube|amazon|flipkart|spotify|netflix|instagram|whatsapp|maps?|wikipedia|research|report|plan|steps|202[4-9])\b/i;
+// The browser does these itself (it shows the picture/game/video, opens the site, reads the folder).
+const CLIENT_TOOLS = new Set(['image', 'audio', 'video', 'build', 'doc', 'browser', 'plan']);
+async function routeMessage(convo, lastUser) {
+  const slash = slashRoute(lastUser);
+  if (slash) return slash;
+  if (obviousChat(lastUser)) return null;
+  const quick = quickRoute(lastUser);
+  if (quick) return quick;
+  if (!cloudBrain() || lastUser.length > 1500 || /```/.test(lastUser)) return null;   // pasted text or code: just answer it
+  const nonLatin = /[ऀ-෿؀-ۿЀ-ӿ぀-鿿가-힯]/.test(lastUser);   // Indian/other scripts: let the router read it
+  if (!TOOLISH.test(lastUser) && !nonLatin) return null;
+  // the last few turns, short - "make it faster" after a game means change that game
+  const recent = convo.slice(-5, -1).map((m) => ({ role: m.role, content: String(m.content).slice(0, 400) }));
+  try {
+    return parseRoute(await engineAsk([{ role: 'system', content: ROUTER_SYSTEM }, ...ROUTER_EXAMPLES, ...recent, { role: 'user', content: lastUser }], { max: 400, temperature: 0, ms: 9000 }));
+  } catch {
+    // the router was slow or down: a question about what is happening now still gets a web lookup
+    return /\?|^(who|what|which|when|where|how|is|are|did|does)\b/i.test(lastUser.trim()) && NEWSY.test(lastUser) && !detect(lastUser) ? { tool: 'web', args: { query: lastUser }, say: '' } : null;
+  }
+}
+const LIVE_KINDS = { weather: 'open-meteo', air: 'open-meteo-air-quality', crypto: 'coingecko', currency: 'frankfurter', earthquake: 'usgs-earthquakes', pincode: 'india-post-pincode', dictionary: 'free-dictionary' };
+
 const EDGE = (process.env.SAI_EDGE_URL || 'https://codeconclave-007.sivakumarmedidi64.workers.dev').replace(/\/+$/, '');
 // Gmail connection (the user's own mailbox, via an app password — set server-side only).
 const GUSER = (process.env.GMAIL_USER || '').trim();
@@ -259,6 +296,9 @@ const SYSTEM = [
   'Only when the user clearly says they feel sad, stressed, excited or angry, answer that feeling first in one short line - never guess feelings from a normal question.',
   'Be warm and direct. Lead with the answer. Keep it short unless the user asks for detail, code, steps or a list. If unsure, say so.',
 ].join(' ');
+// What the app really lets the AI do (said when the model starts with "I can't access…").
+const CAN_DO = "You work inside the CodeConClave app, which really gives you tools: live data and web search, making pictures, audio, videos, games, websites and Office files, opening sites in the user's own browser, reading and editing their local folder, automations and reminders, Gmail, and memory. Never say you cannot browse, have no internet or real-time access, cannot see files, or cannot make pictures, videos or files. Just answer; if they want one of those things, tell them to ask for it directly (like \"draw a cat\" or \"open youtube\").";
+const CANT = /\bi\s*(?:do not|don't|can ?not|can't|am not able to|am unable to|'m not able to|'m unable to|'m not capable of|am not capable of)\b[^.!?]{0,40}\b(?:access|browse|open|control|create|generate|make|draw|search|connect|real-?time)\b|\bas an ai\b|\bi (?:do not|don't) have (?:the )?(?:ability|capability|capabilities|access)\b|\bmy capabilities are limited\b|\bexternal (?:tasks|systems|resources)\b/i;
 const RULES_DATA = 'The message gives you LIVE DATA, an email or a file: you DO have it - use it directly. Never make up numbers or a source, and never say you cannot access real-time data or files.';
 const RULES_MAIL = "The app checks the user's Gmail and drafts emails for you (the user approves every send) - never say you cannot read or send email.";
 
@@ -323,8 +363,13 @@ function place(s) {
 function detect(message) {
   const m = message.toLowerCase();
   let x;
-  if ((x = m.match(/\b(?:weather|temperature|forecast|how hot|how cold|climate)\b[^.?!]*?\b(?:in|at|for|of)\s+([a-z][a-z .'-]{1,38})/)) ||
-      (x = m.match(/\b([a-z][a-z .'-]{1,34}?)\s+(?:weather|temperature|forecast|climate)\b/)))
+  // "weather of ongole", "ongole weather", "tell me the weather ongole today"
+  const notPlace = (p) => !p || /^(the|a|my|our|your|this|that|today|now|tomorrow)$/.test(p) || /\b(tell|me|what|whats|how|is|show|give|check|get|current|todays?)\b/.test(p);
+  if ((x = m.match(/\b(?:weather|temperature|forecast|how hot|how cold|climate)\b[^.?!]*?\b(?:in|at|for|of)\s+([a-z][a-z .'-]{1,38})/)) && !notPlace(place(x[1])))
+    return { sourceId: 'open-meteo', query: place(x[1]) };
+  if ((x = m.match(/\b([a-z][a-z .'-]{1,34}?)\s+(?:weather|temperature|forecast|climate)\b/)) && !notPlace(place(x[1])))
+    return { sourceId: 'open-meteo', query: place(x[1]) };
+  if ((x = m.match(/\b(?:weather|temperature|forecast|climate)\s+(?:today\s+|now\s+)?([a-z][a-z .'-]{1,30})/)) && !notPlace(place(x[1])))
     return { sourceId: 'open-meteo', query: place(x[1]) };
   if ((x = m.match(/\b(?:air quality|aqi|pollution|pm ?2\.?5|pm ?10|smog)\b[^.?!]*?\b(?:in|at|for|of)\s+([a-z][a-z .'-]{1,38})/)) ||
       (x = m.match(/\b([a-z][a-z .'-]{1,34}?)\s+(?:air quality|aqi|pollution)\b/)))
@@ -808,25 +853,59 @@ async function chatHandler(req, res) {
   const got = req.body?.fileResult;
   const second = folder && got && FILE_ACTIONS.has(got.action) && typeof got.path === 'string' && typeof got.content === 'string';
 
+  // 0. Route: does this message need one of the AI's tools - a picture, a game, the user's browser, the web…?
+  // (Without this the model alone said "I can't create images / I have no access to your browser".)
+  const routed = second || fileBlock || req.automationRun || req.body?.route === false ? null : await routeMessage(convo, lastUser);
+  if (routed && (CLIENT_TOOLS.has(routed.tool) || (routed.tool === 'files' && !folder))) {
+    send({ tool: routed }); send({ done: true }); return res.end();
+  }
+  if (routed?.tool === 'research') return researchAnswer(res, send, String(routed.args?.question || lastUser).replace(/\s+/g, ' ').trim().slice(0, 400));
+  const liveRoute = (r) => {
+    const kind = String(r.args?.kind || '').toLowerCase(), query = String(r.args?.query || '').trim().slice(0, 60);
+    if (kind === 'space') return { action: 'answer', space: true };
+    const sourceId = LIVE_KINDS[kind];
+    if (!sourceId) return null;
+    if (sourceId === 'coingecko') { const c = `${query} ${lastUser}`.toLowerCase().match(COINS); return { action: 'live_data', hit: { sourceId, query: c ? c[1] : 'bitcoin' } }; }
+    if (sourceId === 'usgs-earthquakes') return { action: 'live_data', hit: { sourceId, query: '' } };
+    return query ? { action: 'live_data', hit: { sourceId, query: sourceId === 'frankfurter' ? query.toUpperCase() : place(query) } } : null;
+  };
+
   // 1. Think: pick an action (only when the message might need one).
   const plan = second ? { action: got.action, target: got.path, detail: String(got.detail || '').slice(0, 500) }
-    : fileBlock ? { action: 'answer' } : await decide(convo, lastUser, folder);
+    : fileBlock ? { action: 'answer' }
+    : routed?.tool === 'chat' ? { action: 'answer' }
+    : routed?.tool === 'web' ? { action: 'web', query: String(routed.args?.query || lastUser).slice(0, 200) }
+    : routed?.tool === 'remember' && routed.args?.fact ? { action: 'remember', detail: String(routed.args.fact).slice(0, 300), interest: String(routed.args.interest || '').slice(0, 40) }
+    : (routed?.tool === 'live' && liveRoute(routed)) || await decide(convo, lastUser, folder);
   if (plan.thought) send({ think: plan.thought });
+  else if (routed?.say && routed.tool !== 'chat') send({ think: routed.say });
 
   // 2. Act.
   let ev = null, found = '';
   try {
     // "where is the ISS now?", "next ISRO launch", "asteroids passing Earth this week" - live space/Earth data
-    if (plan.action === 'answer' && !fileBlock && LIVE_SPACE.test(lastUser) && LIVE_NOW.test(lastUser)) {
+    if (plan.action === 'answer' && !fileBlock && (plan.space || (LIVE_SPACE.test(lastUser) && LIVE_NOW.test(lastUser)))) {
       send({ step: 'Getting live space data' });
       ev = await spaceLive(lastUser).catch(() => null);
     }
     if (ev) { /* live space data, used below like any live data */ } else if (plan.action === 'live_data') {
       send({ step: 'Getting live data' });
       ev = await fetchLive(plan.hit);
+      if (!ev && /^open-meteo/.test(plan.hit?.sourceId)) return say(`I couldn't find a place called "${plan.hit.query}" 🤔 Is the spelling right? Try the nearest town or city name, like "weather in Ongole".`);
       if (!ev) return say("I couldn't get that live data right now — please try again in a minute.");
+    } else if (plan.action === 'web') {
+      const list = await webLookup(plan.query, 14000, (s) => send({ step: s }));
+      if (list.length) {
+        const block = list.map((s) => `[${s.n}] ${s.site} — ${s.title}\n${s.text}`).join('\n\n');
+        send({ sources: list.map(({ n, title, url, site }) => ({ n, title, url, site })), readChars: block.length });
+        const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
+        found = `[WEB RESULTS you just found (today is ${today}). Answer from them, put the source number like [2] after each fact, copy names, dates and numbers exactly, and never say you cannot browse or lack real-time data:\n${block}]`;
+      } else {
+        found = '[You searched the web just now and found nothing about this. Say that honestly in one line, then answer from what you know and say it may be out of date.]';
+      }
     } else if (plan.action === 'remember') {
       send({ remember: plan.detail });
+      if (plan.interest) send({ interest: plan.interest });
     } else if (MAIL_ACTIONS.has(plan.action)) {
       const creds = await mailCreds(req);
       if (!creds) {
@@ -867,7 +946,9 @@ async function chatHandler(req, res) {
   // "my name is…", "remember that…", "ok", "cool" aren't questions; without a hint the small
   // model re-answers the previous question instead of replying to what was actually said.
   const hint = ev || found ? '' : moodHint(lastUser, [profileText(req.body?.profile), memory].filter(Boolean).join('\n')) ||
-    (plan.action === 'remember'
+    (plan.action === 'remember' && plan.interest
+      ? `The user is telling you they like ${plan.interest} - this is not a question. Reply in one or two short, warm sentences: you will remember it, and you will ping them (with your notification sound) when something new about ${plan.interest} comes out.`
+    : plan.action === 'remember'
       ? 'The user is telling you something about themselves to remember - this is not a question. Reply in one short, friendly sentence that confirms you will remember it.'
     :
     !lastUser.includes('?') && /\b(my name is|remember that|remember to|note that|keep in mind)\b/i.test(lastUser)
@@ -877,6 +958,11 @@ async function chatHandler(req, res) {
     : !fileBlock && lastUser.length < 160 && !/\b(detail|detailed|in depth|step|steps|how (do|to|can|should) i|code|program|function|script|list|essay|story|poem|letter|plan|compare|difference|why|examples?|full|long)\b/i.test(lastUser)
       ? 'Answer in 2-4 short sentences - the user can ask for more.'
     : '');
+  // Live voice chat: the answer is spoken, so keep it short and plain.
+  if (req.body?.live === true) {
+    const k = messages.map((m) => m.role).lastIndexOf('user');
+    messages[k] = { role: 'user', content: `${messages[k].content}\n\n[This is a live voice conversation: answer in 1-3 short, natural spoken sentences. No lists, no markdown, no code, no emojis.]` };
+  }
   if (hint) {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'user') {
@@ -921,7 +1007,13 @@ async function chatHandler(req, res) {
       if (english) return say(await translateAnswer(english, lang));
     } catch { /* fall back to answering directly below */ }
   }
-  await streamAnswer(res, messages, hint ? 0.4 : 0.7);
+  // "I don't have access to your browser / real-time data", "I can't create images": the app CAN - drop that
+  // opening unseen and answer again (the tools themselves were already picked by the router above).
+  const cant = { test: (t) => CANT.test(t) };
+  if ((await streamAnswer(res, messages, hint ? 0.4 : 0.7, cant)) === 'done') return;
+  const k = messages.map((m) => m.role).lastIndexOf('user');
+  messages[k] = { role: 'user', content: `${messages[k].content}\n[${CAN_DO}]` };
+  await streamAnswer(res, messages, 0.4);
 }
 
 // ---- Automations: your tasks on a schedule (India time), run by the server while you're away ----
@@ -940,7 +1032,39 @@ app.post('/api/parse-schedule', (req, res) => {
 app.get('/api/automations', wrap(async (req, res) => {
   if (needUser(req, res)) return;
   const list = await store.listAutomations(req.user.id);
-  res.json({ automations: list.map((a) => ({ ...a, when: describeSchedule(a.schedule), next: a.enabled && a.nextRun ? describeWhen(a.nextRun) : null })) });
+  // the next runs over ~6 weeks, for the calendar view
+  const upcoming = (a) => {
+    const out = [];
+    if (!a.enabled || !a.schedule) return out;
+    let t = nextRun(a.schedule, Date.now() - 1);
+    while (t && out.length < 60 && t < Date.now() + 42 * 864e5) { out.push(t); if (a.schedule.type === 'once') break; t = nextRun(a.schedule, t + 1000); }
+    return out;
+  };
+  res.json({ automations: list.map((a) => ({ ...a, when: describeSchedule(a.schedule), next: a.enabled && a.nextRun ? describeWhen(a.nextRun) : null, upcoming: upcoming(a) })) });
+}));
+
+// "Advanced automation": described in the user's own words. The engine turns it into a schedule (time),
+// a watch (something new about a topic), or a mail trigger - or says honestly that the app can't watch that yet.
+const AUTO_UNDERSTAND = `Turn the user's automation request into JSON only, one of:
+{"type":"schedule","when":"time words like 'every day at 8 am', 'weekdays at 7 pm', 'every monday at 9 am', 'every 2 hours', 'tomorrow at 7 am'","what":"the task to do each time, as a short instruction"}
+{"type":"watch","topic":"1-2 words to watch for news or new releases, like 'movies', 'cricket', 'isro', 'iphone'","what":"what to do when something new appears, or 'tell me'"}
+{"type":"mail","what":"what to do when an important email arrives"}
+{"type":"none","why":"a short reason"} - when it is not an automation, or needs something the app cannot watch yet (a price crossing a value, a web page changing, social media posts).`;
+const firstJsonIn = (s) => { const t = String(s || ''), a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b <= a) return null; try { return JSON.parse(t.slice(a, b + 1)); } catch { return null; } };
+app.post('/api/automations/understand', wrap(async (req, res) => {
+  const text = String(req.body?.text || '').trim().slice(0, 500);
+  if (!text) return res.status(400).json({ error: 'Describe the automation first.' });
+  const sch = parseSchedule(text);
+  let out = null;
+  try { out = firstJsonIn(await engineAsk([{ role: 'system', content: AUTO_UNDERSTAND }, { role: 'user', content: text }], { max: 300, temperature: 0, ms: 15000 })); } catch { /* the time words alone may still be enough */ }
+  if (out?.type === 'schedule') {
+    const s = parseSchedule(String(out.when || '')) || sch;
+    if (s) return res.json({ type: 'schedule', schedule: s, when: describeSchedule(s), task: String(out.what || stripWhen(text) || text).slice(0, 300) });
+  }
+  if (out?.type === 'watch' && out.topic) return res.json({ type: 'watch', topic: String(out.topic).slice(0, 40), task: /^tell me\.?$/i.test(String(out.what || '').trim()) ? '' : String(out.what || '').slice(0, 300) });
+  if (out?.type === 'mail') return res.json({ type: 'mail', task: String(out.what || '').slice(0, 300) });
+  if (sch) return res.json({ type: 'schedule', schedule: sch, when: describeSchedule(sch), task: (stripWhen(text) || text).slice(0, 300) });
+  res.json({ type: 'none', why: String(out?.why || 'I could not find a time or a trigger in that.').slice(0, 200) });
 }));
 app.post('/api/automations', wrap(async (req, res) => {
   if (needUser(req, res)) return;
@@ -1468,6 +1592,13 @@ async function overLimit(req, res) {
   if (store && who.startsWith('u:')) store.putPref(who.slice(2), 'usage', u).catch(() => {});
   return false;
 }
+// Interest watches ("I love movies"): the newest real items for a topic; the browser keeps track of what it already showed.
+app.get('/api/watch', wrap(async (req, res) => {
+  const topic = String(req.query.topic || '').slice(0, 40);
+  const lang = String(req.query.lang || '').slice(0, 3);
+  if (!topic) return res.status(400).json({ error: 'No topic.' });
+  res.json({ items: await watchItems(topic, lang).catch(() => []) });
+}));
 app.get('/api/usage', wrap(async (req, res) => res.json(usageView(await usageOf(whoIs(req, res)), req))));
 
 // Is the AI reachable right now, and which brain answers (always-on cloud, or the laptop)? A slow answer means busy.
@@ -1533,6 +1664,10 @@ app.post('/api/research', (req, res, next) => (async () => {
   res.setHeader('Cache-Control', 'no-cache');
   res.flushHeaders?.();
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+  return researchAnswer(res, send, q);
+})().catch(next));
+// Deep research, streamed into an open answer (also used by the chat when the router picks research).
+async function researchAnswer(res, send, q) {
   send({ step: 'Planning the searches' });
   const queries = await planQueries(q);
   // how much source text fits: the first brain's reading window, minus room for the answer and instructions
@@ -1551,7 +1686,7 @@ app.post('/api/research', (req, res, next) => (async () => {
     // instructions go in the user turn - the small model follows them far better there
     { role: 'user', content: `Sources:\n${block}\n\nQuestion: ${q}\n\nAnswer the question using ONLY the sources above. Start with a 1-2 sentence summary, then give the key points as short bullet points, each with a different fact and its source number like [2].${coding ? ' Then show the code from the best Stack Overflow answer that solves it (you may shorten it, keep it correct) and explain it in 2-3 lines.' : ''} Copy names, numbers and dates exactly as the sources say. If the sources do not answer part of the question, say so.` }],
   0.3, null, { max_tokens: 900, frequency_penalty: coding ? 0.2 : 0.5, presence_penalty: 0.3 });   // penalties stop looping; code needs repeats
-})().catch(next));
+}
 
 // ---- Send to Slack, Discord, Telegram or any webhook (Zapier, Make, n8n, IFTTT…) — only after the user presses Send ----
 function postPublic(url, payload) {
@@ -1576,6 +1711,7 @@ function postPublic(url, payload) {
 }
 // GitHub, Notion, Calendar, Todoist, Linear, Jira, Asana and news feeds (apps.js).
 registerApps(app, { wrap, fetchPublicPage });
+registerStudio(app, { cloud: cloudBrain, headers: brainHeaders, wrap, overLimit });
 
 const sendTimes = new Map();
 app.post('/api/plugins/send', wrap(async (req, res) => {

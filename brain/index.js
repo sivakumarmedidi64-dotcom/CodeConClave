@@ -9,6 +9,27 @@ const VISION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
 // round 2 (2026-11-02): exam 28/30 vs 25 - identity 8/8, same code/facts; 'codeconclave-scout-1' stays uploaded for a quick rollback
 const LORA = 'codeconclave-scout-2';
 const NAME = 'codeconclave-scout';
+// Pictures (FLUX, open weights). "fast" = 4 steps, a few seconds; "best" = FLUX.2 klein, sharper.
+const IMAGE_MODELS = {
+  fast: { id: '@cf/black-forest-labs/flux-1-schnell', steps: 4 },
+  best: { id: '@cf/black-forest-labs/flux-2-klein-4b', multipart: true },
+};
+// Bigger open models for building and agent work (users only ever see "CodeConClave AI").
+const ENGINES = {
+  builder: '@cf/google/gemma-4-26b-a4b-it',
+  agent: '@cf/google/gemma-4-26b-a4b-it',
+  lab1: '@cf/zai-org/glm-5.3-flash',
+  lab2: '@cf/openai/gpt-oss-120b',
+  lab3: '@cf/deepseek-ai/deepseek-v4.1-flash-1017',
+};
+// Different models answer in different shapes; pull the text out of any of them.
+function engineText(r) {
+  if (typeof r?.response === 'string') return r.response;
+  const c = r?.choices?.[0];
+  if (c) return String(c.message?.content ?? c.text ?? '');
+  if (Array.isArray(r?.output)) return r.output.flatMap((o) => o?.content || []).map((p) => p?.text || '').join('');
+  return r?.response ? JSON.stringify(r.response) : '';
+}
 
 const INDIC = { te: 'tel_Telu', hi: 'hin_Deva', ta: 'tam_Taml', kn: 'kan_Knda', ml: 'mal_Mlym', mr: 'mar_Deva', bn: 'ben_Beng', gu: 'guj_Gujr', pa: 'pan_Guru', ur: 'urd_Arab', or: 'ory_Orya', as: 'asm_Beng', ne: 'npi_Deva', sa: 'san_Deva' };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
@@ -101,7 +122,7 @@ function toOpenAIStream(stream) {
           const d = JSON.parse(payload);
           // Use the exact token text: in "response", tokens like " false" or "2" arrive as JSON
           // booleans/numbers, which loses the space in front ("returnfalse").
-          const t = d.choices?.[0]?.text;
+          const t = d.choices?.[0]?.text ?? d.choices?.[0]?.delta?.content;   // .delta = the bigger engines' OpenAI-style chunks
           const text = typeof t === 'string' ? t
             : d.response === null || d.response === undefined || typeof d.response === 'object' ? '' : String(d.response);
           if (text) {
@@ -180,6 +201,55 @@ export default {
         const out = [];
         for (const t of texts) out.push((await env.AI.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: 'en', target_lang: target }))?.translated_text || t);
         return json({ translations: out });
+      } catch (e) { return aiError(e); }
+    }
+
+    // Pictures: text -> image (FLUX, open weights). Returns base64 JPEG/PNG.
+    if (req.method === 'POST' && path === '/v1/images/generations') {
+      let body;
+      try { body = await req.json(); } catch { return json({ error: { message: 'Bad JSON.' } }, 400); }
+      const prompt = String(body?.prompt || '').trim().slice(0, 2000);
+      if (!prompt) return json({ error: { message: 'Say what to draw.' } }, 400);
+      const model = IMAGE_MODELS[body?.quality] || IMAGE_MODELS.fast;
+      const size = (v) => Math.min(1280, Math.max(256, Math.round((Number(v) || 1024) / 64) * 64));
+      try {
+        const input = model.multipart ? null : { prompt, steps: model.steps };
+        let r;
+        if (model.multipart) {
+          const form = new FormData();
+          form.append('prompt', prompt);
+          form.append('width', String(size(body?.width)));
+          form.append('height', String(size(body?.height)));
+          const fr = new Response(form);
+          r = await env.AI.run(model.id, { multipart: { body: fr.body, contentType: fr.headers.get('content-type') } });
+        } else r = await env.AI.run(model.id, input);
+        const b64 = typeof r?.image === 'string' ? r.image : null;
+        if (!b64) return json({ error: { message: 'No picture came back.' } }, 502);
+        return json({ data: [{ b64_json: b64 }] });
+      } catch (e) { return aiError(e); }
+    }
+
+    // The engine: a bigger open model for jobs the small brain can't do well - building whole games/
+    // websites, multi-step agent work (choosing tools), long code. Only allow-listed models.
+    if (req.method === 'POST' && path === '/v1/engine/chat/completions') {
+      let body;
+      try { body = await req.json(); } catch { return json({ error: { message: 'Bad JSON.' } }, 400); }
+      if (!Array.isArray(body?.messages) || !body.messages.length) return json({ error: { message: 'No messages.' } }, 400);
+      const model = ENGINES[body.engine] || ENGINES.builder;
+      const input = {
+        messages: body.messages.slice(-60).map((m) => ({ role: ['system', 'assistant', 'user'].includes(m.role) ? m.role : 'user', content: String(m.content ?? '') })),
+        stream: Boolean(body.stream),
+        max_tokens: num(body.max_tokens, 1, 16000) ?? 4000,
+        temperature: num(body.temperature, 0, 2) ?? 0.4,
+      };
+      // quick jobs (choosing a tool) don't need long thinking
+      if (['low', 'medium', 'high'].includes(body.reasoning)) input.reasoning = { effort: body.reasoning };
+      if (body.think === false) input.chat_template_kwargs = { enable_thinking: false };
+      try {
+        const result = await env.AI.run(model, input);
+        if (input.stream) return new Response(toOpenAIStream(result), { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' } });
+        const content = stripMarkers(engineText(result));
+        return json({ object: 'chat.completion', model: NAME, choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }], usage: result?.usage || undefined });
       } catch (e) { return aiError(e); }
     }
 
