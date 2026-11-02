@@ -2316,8 +2316,24 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const clean=String(text||'').replace(/\s*📊\s*Source:[^\n]*/g,'').replace(/```[\s\S]*?```/g,' code shown on screen. ').trim().slice(0,1500); if(!clean) return;
     const lang=langOf(clean); btn?.classList.add('on');
     const done=()=>{ speaking=null; btn?.classList.remove('on'); };
-    try{ const r=await fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:clean,lang,voice:voicePref()})}); const d=await r.json().catch(()=>({}));
-      if(r.ok&&d.audio){ const a=new Audio(d.audio); speaking=a; a.onended=done; a.onerror=done; await a.play(); return; } }catch{}
+    // sentence-sized pieces (the laptop voices speak up to 400 characters at a time): the next piece is made
+    // while the current one plays, so speech starts sooner and the whole answer is read
+    const pieces=[]; let cur='';
+    for(const sn of clean.match(/[^.!?।\n]+[.!?।]*\s*/g)||[clean]){ if(cur && (cur+sn).length>300){ pieces.push(cur.trim()); cur=''; } cur+=sn; }
+    if(cur.trim()) pieces.push(cur.trim());
+    const fetchPiece=(t)=>fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,lang,voice:voicePref()})}).then(r=>r.ok?r.json():null).catch(()=>null);
+    const token={}; speaking=token;
+    let next=fetchPiece(pieces[0]), playedAny=false;
+    for(let i=0;i<pieces.length;i++){
+      const d=await next; if(speaking!==token && !(speaking instanceof Audio && speaking._token===token)) return;   // stopped
+      if(!d?.audio) break;
+      next=i+1<pieces.length?fetchPiece(pieces[i+1]):null;
+      const a=new Audio(d.audio); a._token=token; speaking=a; playedAny=true;
+      try{ await a.play(); await new Promise(ok=>{ a.onended=ok; a.onerror=ok; a.onpause=ok; }); }catch{ break; }
+      if(speaking!==a) return;   // stopped while playing
+    }
+    if(playedAny){ done(); return; }
+    speaking=null;
     const u=new SpeechSynthesisUtterance(clean); u.lang=lang; const v=speechSynthesis.getVoices().find(x=>x.lang?.toLowerCase().startsWith(lang)); if(v) u.voice=v;
     else if(lang!=='en'){ toast('Your device has no '+lang+' voice — showing the text only.'); done(); return; }
     u.onend=done; u.onerror=done; speechSynthesis.speak(u);
