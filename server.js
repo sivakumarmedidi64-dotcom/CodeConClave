@@ -1821,6 +1821,17 @@ app.post('/api/voice/transcribe', wrap(async (req, res) => {
   if (!voiceOk(req)) return res.status(429).json({ error: 'Too much voice use - wait a few minutes.' });
   const audio = String(req.body?.audio || '').replace(/^data:[^,]*,/, '');
   if (!audio || audio.length > 6_000_000) return res.status(400).json({ error: 'That recording is empty or too long (2 minutes at most).' });
+  // Voice lock (owner setting): only the founder's or his sister's voice is listened to - checked by the laptop voice server.
+  if (req.body?.lock === true) {
+    if (!ownVoiceUp()) return res.status(423).json({ error: 'Voice lock is on, but the voice server (your laptop) is off - turn it on, or turn voice lock off in your profile.' });
+    try {
+      const r = await fetch(`${laptopVoice.url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-voice-key': VOICE_KEY },
+        body: JSON.stringify({ audio }), signal: AbortSignal.timeout(60000) });
+      const v = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(v?.detail || `voice server ${r.status}`);
+      if (!v.match) return res.status(403).json({ error: 'Voice lock: I only listen to Saharsh or his sister, and I did not recognise this voice.', locked: true });
+    } catch (e) { return res.status(502).json({ error: `Voice lock could not check the voice: ${e.message}` }); }
+  }
   try { res.json(await cloudVoice('/audio/transcriptions', { audio, language: req.body?.language })); }
   catch (e) { res.status(e.status || 502).json({ error: e.message }); }
 }));

@@ -489,6 +489,7 @@
       <label class="sndrow"><input type="checkbox" id="sndToggle" /> Play the guitar sound when an answer is ready</label>
       <label class="sndrow"><input type="checkbox" id="panelToggle" /> Show the details panel (usage, context, connectors)</label>
       <label class="sndrow voicerow">AI voice <select id="voicePick"><option value="male">Male (CodeConClave voice)</option><option value="female">Female (CodeConClave voice)</option><option value="standard">Standard</option></select></label>
+      <label class="sndrow" id="lockRow" hidden><input type="checkbox" id="lockToggle" /> Voice lock — only listen to Saharsh and his sister</label>
       <div class="supportrow">Support &amp; collaboration: <a href="mailto:medidisaharsh@gmail.com">medidisaharsh@gmail.com</a></div>
       <div class="memfold"><b>Memory folder on this device</b><span id="memFoldInfo">Keep your memory, profile and chats as files on your phone or laptop.</span><button class="mskip" id="memFoldBtn">Choose a folder</button></div>
       <div class="mailact"><button class="mskip" id="memClear">Clear memory</button></div>
@@ -1151,6 +1152,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
   function renderProfile(){ const n=userName(), guest=!me&&n==='Guest'; $('meName').textContent=guest?'Sign in':n; $('meAvatar').textContent=guest?'?':n.charAt(0).toUpperCase(); }
   function showMemory(){
+    try{ paintLock(); }catch{}
     const n=userName(); $('profName').textContent=n; $('profAvatar').textContent=n.charAt(0).toUpperCase();
     const ul=$('memList'); ul.innerHTML='';
     if(!memory.length) ul.appendChild(el('li',null,'Nothing yet — tell me “my name is …” or “remember that …”.'));
@@ -2294,7 +2296,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     rec.onstop=async()=>{ clearInterval(recTimer); $('micTime').textContent=''; b.classList.remove('rec'); stream.getTracks().forEach(t=>t.stop()); const r=rec; rec=null;
       const blob=new Blob(recChunks,{type:r.mimeType||'audio/webm'}); if(blob.size<1500){ toast('I did not hear anything — hold on a moment longer.'); return; }
       b.classList.add('busy'); b.disabled=true;
-      try{ const audio=await toB64(blob); const res=await fetch('/api/voice/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio,language:profile.language||undefined})});
+      try{ const audio=await toB64(blob); const res=await fetch('/api/voice/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio,language:profile.language||undefined,lock:isOwner()&&lockOn()})});
         const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.error||'I could not understand the recording.');
         if(!d.text){ toast('I did not catch any words — try again.'); return; }
         lastVoiceLang=d.language||null; input.value=(input.value?input.value+' ':'')+d.text; voiceTurn=true; send(); }
@@ -2310,6 +2312,12 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   $('voicePick').value=voicePref(); $('voicePick').onchange=async()=>{ const v=$('voicePick').value; try{ localStorage.setItem(VKEY,v); }catch{}
     let own=false; if(v!=='standard'){ try{ own=(await (await fetch('/api/voice/status')).json()).own; }catch{} }
     toast(v==='standard'||own?'Voice set to '+$('voicePick').selectedOptions[0].text+'.':'Voice set. The CodeConClave voices play while their voice server is on - until then you hear the standard voice.'); };
+  const LOCKKEY='cc_voicelock_v1';
+  const lockOn=()=>{ try{ return localStorage.getItem(LOCKKEY)==='1'; }catch{ return false; } };
+  const isOwner=()=>me?.role==='owner'||Boolean(ownerKey());
+  function paintLock(){ $('lockRow').hidden=!isOwner(); $('lockToggle').checked=lockOn(); }
+  $('lockToggle').onchange=()=>{ try{ localStorage.setItem(LOCKKEY,$('lockToggle').checked?'1':'0'); }catch{} toast($('lockToggle').checked?'Voice lock is on: I only listen to your voice and your sister’s (needs your laptop’s voice server).':'Voice lock is off.'); };
+  setTimeout(paintLock,1500);
   function stopSpeaking(){ if(speaking){ try{ speaking.pause?.(); }catch{} speaking=null; } try{ speechSynthesis.cancel(); }catch{} }
   async function speak(text,btn){
     if(speaking||speechSynthesis.speaking){ stopSpeaking(); btn?.classList.remove('on'); return; }
