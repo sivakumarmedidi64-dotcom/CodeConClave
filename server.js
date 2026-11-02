@@ -778,6 +778,11 @@ async function chatHandler(req, res) {
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
   // A finished, factual message from an action (not model text), e.g. "I couldn't find…".
   const say = (text) => { send({ delta: text }); send({ done: true }); res.end(); };
+  // A step of a plan (plan view): a focused worker - no persona chit-chat, no mail/automation actions, full output.
+  if (req.body?.task === true) {
+    await streamAnswer(res, [{ role: 'system', content: TASK_SYSTEM }, { role: 'user', content: lastUser }], 0.4, null, { max_tokens: 1600 });
+    return;
+  }
   // A picture attached: the vision brain looks at it (one picture per message; only the cloud brain can see).
   const picture = files.map((f) => f && f.image).find((u) => typeof u === 'string' && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 4_000_000);
   if (picture) {
@@ -1692,6 +1697,27 @@ app.post('/api/import-link', wrap(async (req, res) => {
       : 'I could not find the answer to the memory prompt on that page. Make sure the shared chat is the one where you pasted the prompt — or copy the answer and paste it in the box below.' });
   }
   res.json(found);
+}));
+
+// The voice for plan steps: in a plan the chat personality answered "I'm worried this is complex" instead of writing the code.
+const TASK_SYSTEM = 'You are CodeConClave AI, made by Saharsh Medidi from India, working through one step of a plan. Produce the complete result for this step: real content, and full working code in ``` blocks when code is asked (a web page = one complete HTML file with its CSS and JavaScript inside, in a ```html block). No small talk, no feelings, no questions back - just the result.';
+// ---- Plan view: a big goal -> 3-6 clear steps the user can edit, then run one by one (each step is a normal chat turn) ----
+app.post('/api/plan', wrap(async (req, res) => {
+  const goal = String(req.body?.goal || '').replace(/\s+/g, ' ').trim().slice(0, 800);
+  if (!goal) return res.status(400).json({ error: 'Tell me the goal first.' });
+  if (!BASE) return res.status(503).json({ error: 'CodeConClave AI is offline right now.' });
+  const schema = { type: 'object', properties: { steps: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, instruction: { type: 'string' } }, required: ['title', 'instruction'] } } }, required: ['steps'] };
+  let steps = [];
+  try {
+    const raw = await callModel([
+      { role: 'system', content: 'You are CodeConClave AI. You break a goal into a short, practical plan.' },
+      { role: 'user', content: `Goal: ${goal}\n\nBreak this into 3 to 6 steps that I can do one after another in this chat (writing, explaining, coding, researching, planning). Each step: a short title (max 8 words) and a one-sentence instruction for what to produce. Reply only as JSON: {"steps":[{"title":"...","instruction":"..."}]}` }],
+    600, 0.3, { type: 'json_object', schema });
+    steps = (JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)).steps || [])
+      .map((s) => ({ title: clean(s?.title).slice(0, 80), instruction: clean(s?.instruction).slice(0, 400) })).filter((s) => s.title && s.instruction).slice(0, 6);
+  } catch { /* handled below */ }
+  if (steps.length < 2) return res.status(502).json({ error: 'I could not make a plan for that - try saying the goal in a different way.' });
+  res.json({ goal, steps });
 }));
 
 // ---- Office files: the AI writes the content in a fixed shape; the browser builds the real .xlsx / .pptx / .docx / .pdf ----

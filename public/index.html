@@ -93,6 +93,16 @@
   .spill .fav{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-size:10px;font-weight:700;color:#111;margin-left:-5px;border:2px solid var(--bg)}
   .spill .fav:first-child{margin-left:0}
   .srcs.hidden{display:none}
+  .plhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .plgoal{color:var(--dim);font-size:13px;margin:4px 0 8px}
+  .plstep{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #262626}
+  .plic{width:18px;text-align:center;color:var(--dim)}
+  .plstep.done .plic{color:#3fb950}
+  .plstep.running .plic{color:#f2c200;animation:micp 1.4s infinite}
+  .plstep.failed .plic{color:#f85149}
+  .pltitle{flex:1;background:#151515;color:var(--fg);border:1px solid #333;border-radius:7px;padding:6px 8px;font:inherit;font-size:13.5px}
+  .plx{background:none;border:0;color:var(--dim);cursor:pointer;font-size:16px;padding:2px 6px}
+  .plres{white-space:pre-wrap;font-size:13px;color:#cfcfcf;background:#141414;border-radius:8px;padding:10px;margin:4px 0 8px;max-height:260px;overflow:auto}
   .docpv{max-height:280px;overflow:auto;margin:8px 0;font-size:13px}
   .docpv table{border-collapse:collapse;width:100%}
   .docpv th,.docpv td{border:1px solid #2f2f2f;padding:5px 8px;text-align:left;white-space:nowrap}
@@ -859,6 +869,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(m.appCard && !m.appCard.skipped) b.appendChild(appCardEl(m.appCard));
     if(m.deskCard) b.appendChild(deskCardEl(m.deskCard));
     if(m.docCard) b.appendChild(docCardEl(m.docCard));
+    if(m.planCard) b.appendChild(planCardEl(m.planCard));
     if(m.role!=='user'){ const rr=codeRunRow(m.content); if(rr) b.appendChild(rr); const pv=previewRow(m.content); if(pv) b.appendChild(pv); }
     if(m.role!=='user' && m.content && !m.appCard && !m.plugCard) b.appendChild(actionBar(m,i,b));
     return b;
@@ -1202,6 +1213,9 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     // "my github issues", "what's on my calendar", "add task to todoist: …" - the app answers (creating waits for your button)
     // a share link from another AI: read that conversation and continue it here
     if(!files.length && SHARE_RE.test(text)){ await importChat(c,text); return; }
+    // "/plan <goal>" or "plan and do …": steps with live progress
+    const pl=!files.length && text.match(PLAN_RE);
+    if(pl){ await startPlan(c,pl[1].trim()); return; }
     // "make an Excel sheet / PowerPoint / Word document / PDF about …"
     const dc=!files.length && !researchOn && docIntent(text);
     if(dc){ await makeDoc(c,dc.kind,text); return; }
@@ -2093,6 +2107,67 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     return row;
   }
 
+  // ---- Plan view: big tasks as steps with live progress (human in the loop: edit the plan, then Run) ----
+  const PLAN_RE=/^\s*(?:\/plan\s+|plan (?:and|&) (?:do|build|make|write|create)\s+|make a plan (?:and do it )?(?:for|to)\s+)([\s\S]{6,})$/i;
+  const planEls=new WeakMap(); let planStop=false;
+  async function startPlan(c,goal){
+    busy=true; sendBtn.disabled=true;
+    const wrap=chat.querySelector('.wrap'), wait=bubble('ai',''); wait._steps.appendChild(el('div',null,'Making a plan…'));
+    wait.insertAdjacentHTML('beforeend','<span class="dots"><i></i><i></i><i></i></span>'); wrap.appendChild(wait); chat.scrollTop=chat.scrollHeight;
+    let msg;
+    try{ const r=await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal})}); const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(d.error||'I could not make a plan.');
+      msg={role:'assistant',content:'Here’s my plan. Change or remove any step, then press Run — I’ll do them one by one.',planCard:{goal:d.goal,state:'draft',steps:d.steps.map(x=>({...x,status:'todo',result:''}))}}; }
+    catch(e){ msg={role:'assistant',content:e.message}; }
+    busy=false; sendBtn.disabled=false; c.messages.push(msg); c.updated=Date.now(); saveC(); renderChat();
+  }
+  // one chat turn for a step: the text of the answer (cards and actions are not used inside a plan)
+  async function askOnce(text){
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:text}],memory:memory.join('\n'),profile,task:true})});
+    if(!r.ok){ const d=await r.json().catch(()=>({})); throw new Error(d.error||'The step could not run.'); }
+    const rd=r.body.getReader(), dec=new TextDecoder(); let buf='', out='';
+    while(true){ const {done,value}=await rd.read(); if(done) break; buf+=dec.decode(value,{stream:true}); let nl;
+      while((nl=buf.indexOf('\n'))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line.startsWith('data:')) continue;
+        try{ const j=JSON.parse(line.slice(5)); if(j.delta) out+=j.delta; if(j.error) throw new Error(j.error); }catch(e){ if(e.message&&!/JSON/.test(e.message)) throw e; } } }
+    return out.trim();
+  }
+  async function runPlan(c,p){
+    if(busy) return; busy=true; sendBtn.disabled=true; planStop=false; p.state='running'; touch(); paintPlan(p);
+    for(const [i,st] of p.steps.entries()){
+      if(planStop) break; if(st.status==='done') continue;
+      st.status='running'; paintPlan(p);
+      const before=p.steps.slice(0,i).filter(x=>x.status==='done').map((x,k)=>'Step '+(k+1)+' ('+x.title+'):\n'+x.result.slice(0,1500)).join('\n\n');
+      try{ st.result=await askOnce('Goal: '+p.goal+(before?'\n\nDone so far:\n'+before:'')+'\n\nNow do step '+(i+1)+' of '+p.steps.length+' - '+st.title+': '+st.instruction+'\nGive the full result for this step only.'); st.status='done'; }
+      catch(e){ st.status='failed'; st.result=e.message; touch(); paintPlan(p); break; }
+      touch(); paintPlan(p);
+    }
+    const done=p.steps.filter(x=>x.status==='done');
+    p.state=done.length===p.steps.length?'done':'stopped'; busy=false; sendBtn.disabled=false; touch(); paintPlan(p); refreshUsage();
+    if(done.length){ c.messages.push({role:'assistant',content:(p.state==='done'?'✅ All '+done.length+' steps done. Here is everything:':'Stopped after '+done.length+' step'+(done.length===1?'':'s')+'. Here is what is done:')+'\n\n'+done.map((x,k)=>'**'+(k+1)+'. '+x.title+'**\n'+x.result).join('\n\n')});
+      c.updated=Date.now(); saveC(); renderChat(); notify(); }
+  }
+  function paintPlan(p){ const box=planEls.get(p); if(!box||!box.isConnected) return; const fresh=planCardEl(p); box.replaceWith(fresh); }
+  function planCardEl(p){
+    const card=el('div','mailcard plancard'); planEls.set(p,card);
+    const done=p.steps.filter(x=>x.status==='done').length;
+    const head=el('div','plhead'); head.appendChild(el('b',null,'Plan · '+p.steps.length+' steps')); head.appendChild(el('span','dim',p.state==='running'?'working… '+done+'/'+p.steps.length:p.state==='done'?'done ✓':p.state==='stopped'?'stopped at '+done+'/'+p.steps.length:'ready'));
+    card.appendChild(head); card.appendChild(el('div','plgoal',p.goal));
+    const bar=el('div','upbar'), fill=document.createElement('i'); fill.style.width=Math.round(done/p.steps.length*100)+'%'; bar.appendChild(fill); card.appendChild(bar);
+    p.steps.forEach((st,i)=>{
+      const row=el('div','plstep '+st.status), ic=el('span','plic',{todo:'○',running:'◐',done:'✓',failed:'✕'}[st.status]||'○'); row.appendChild(ic);
+      if(p.state==='draft'){ const t=document.createElement('input'); t.value=st.title; t.className='pltitle'; t.oninput=()=>{ st.title=t.value; touch(); }; row.appendChild(t);
+        const x=el('button','plx','×'); x.title='Remove this step'; x.onclick=()=>{ p.steps.splice(i,1); touch(); paintPlan(p); }; if(p.steps.length>1) row.appendChild(x); }
+      else { row.appendChild(el('span','grow',(i+1)+'. '+st.title)); if(st.result){ const more=el('button','plx',st.open?'▾':'▸'); more.title='Show the result'; more.onclick=()=>{ st.open=!st.open; paintPlan(p); }; row.appendChild(more); } }
+      card.appendChild(row);
+      if(st.open&&st.result) card.appendChild(el('div','plres',st.result.slice(0,4000)));
+    });
+    const act=el('div','mailact');
+    if(p.state==='draft'||p.state==='stopped'){ const go=el('button','msend',p.state==='draft'?'Run plan':'Continue'); go.onclick=()=>{ const c=current(); if(c) runPlan(c,p); }; act.appendChild(go); }
+    if(p.state==='running'){ const stop=el('button','mskip','Stop after this step'); stop.onclick=()=>{ planStop=true; stop.textContent='Stopping…'; }; act.appendChild(stop); }
+    card.appendChild(act);
+    return card;
+  }
+
   // ---- Office files: real .xlsx / .pptx / .docx / .pdf made from the chat ----
   const DOC_LIBS={sheet:['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',()=>window.XLSX],
     slides:['https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',()=>window.PptxGenJS],
@@ -2451,7 +2526,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   $('autoBtn').onclick=showSched;
   setPanel(panelPref(),false); refreshStatus(); setInterval(refreshStatus,30000); refreshUsage();
 
-  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/schedule',desc:'Scheduled tasks — run by themselves, India time'},{cmd:'/research',desc:'Deep research — answers from real sources'},{cmd:'/run',desc:'Run a terminal command (desktop app) — /run dir'},{cmd:'/open',desc:'Open a site in the AI’s browser (desktop app) — /open github.com'},{cmd:'/skills',desc:'Reusable skills — built in and your own'},{cmd:'/record',desc:'Record a skill — do a task once, reuse it'},{cmd:'/library',desc:'Your files, reusable in any chat'},{cmd:'/creations',desc:'Everything I made for you'},{cmd:'/personalize',desc:'Your profile and custom instructions'},{cmd:'/plugins',desc:'Gmail, folder, live data and more'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
+  const COMMANDS=[{cmd:'/new',desc:'Start a new chat'},{cmd:'/mail',desc:'Today’s mail — important ones + drafted replies'},{cmd:'/folder',desc:'Work in a local folder — read, edit and save files'},{cmd:'/schedule',desc:'Scheduled tasks — run by themselves, India time'},{cmd:'/research',desc:'Deep research — answers from real sources'},{cmd:'/plan',desc:'Plan a big task in steps and run them — /plan launch my bakery website'},{cmd:'/run',desc:'Run a terminal command (desktop app) — /run dir'},{cmd:'/open',desc:'Open a site in the AI’s browser (desktop app) — /open github.com'},{cmd:'/skills',desc:'Reusable skills — built in and your own'},{cmd:'/record',desc:'Record a skill — do a task once, reuse it'},{cmd:'/library',desc:'Your files, reusable in any chat'},{cmd:'/creations',desc:'Everything I made for you'},{cmd:'/personalize',desc:'Your profile and custom instructions'},{cmd:'/plugins',desc:'Gmail, folder, live data and more'},{cmd:'/clear',desc:'Clear this chat'},{cmd:'/memory',desc:'See what the AI remembers about you'},{cmd:'/help',desc:'List commands'}];
   function slashRender(q){ const el=$('slash');
     const list=[...COMMANDS, ...mySkills.map(k=>({cmd:'/'+slug(k.name), desc:k.steps?.length?'Recorded skill · '+k.steps.length+' step'+(k.steps.length===1?'':'s'):(k.prompt||'').slice(0,60), skill:k}))].filter(c=>c.cmd.startsWith(q.toLowerCase())); el.innerHTML='';
     list.forEach((c,i)=>{ const r=document.createElement('button'); r.className='slashrow'+(i===0?' sel':''); r.dataset.cmd=c.cmd;
@@ -2472,7 +2547,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     else if(c==='/creations') showCreations();
     else if(c==='/personalize') showPersonalization();
     else if(c==='/plugins') showPlugins();
-    else if(c==='/run'||c==='/open'){ input.value=c+' '; input.focus(); }
+    else if(c==='/run'||c==='/open'||c==='/plan'){ input.value=c+' '; input.focus(); }
     else if(c==='/folder') folder&&folder.files?showFiles():folder?wakeFolder():openFolder();
     else toast('Commands:  /new   /mail   /folder   /clear   /memory'); }
   input.addEventListener('keydown',(e)=>{ const open=$('slash').classList.contains('open');
