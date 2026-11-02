@@ -20,9 +20,40 @@ const app = express();
 app.use(express.json({ limit: '8mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const BASE = (process.env.RESIDENT_OPENAI_BASE_URL || '').replace(/\/+$/, '');
-const MODEL = process.env.RESIDENT_MODEL || 'codeconclave-coder-lite';
-const KEY = process.env.RESIDENT_API_KEY || '';
+// Two brains, both the founder's own tuned models (OpenAI-style endpoints):
+//  - cloud:  codeconclave-scout on Cloudflare's GPUs (BRAIN_URL + BRAIN_KEY) - always on, even with the laptop closed;
+//  - laptop: codeconclave-coder-lite on the founder's PC (RESIDENT_OPENAI_BASE_URL, through the tunnel).
+// The cloud brain answers first; if it is down or has used today's allowance, the laptop answers.
+const trimUrl = (u) => String(u || '').trim().replace(/\/+$/, '');
+const BRAINS = [
+  { name: 'cloud', base: trimUrl(process.env.BRAIN_URL), key: String(process.env.BRAIN_KEY || '').trim(), model: process.env.BRAIN_MODEL || 'codeconclave-scout' },
+  { name: 'laptop', base: trimUrl(process.env.RESIDENT_OPENAI_BASE_URL), key: process.env.RESIDENT_API_KEY || '', model: process.env.RESIDENT_MODEL || 'codeconclave-coder-lite' },
+].filter((b) => b.base);
+if (process.env.BRAIN_ORDER === 'laptop-first') BRAINS.reverse();
+const BASE = BRAINS.length > 0; // is any brain set up at all?
+const brainHeaders = (b) => ({ 'Content-Type': 'application/json', ...(b.key ? { Authorization: `Bearer ${b.key}` } : {}) });
+
+// POST to the first brain that answers. A brain with another one behind it gets 45 s to start
+// answering (headers only - a long streamed answer is never cut off).
+async function brainPost(pathname, body) {
+  let last = new Error('no model endpoint');
+  for (let i = 0; i < BRAINS.length; i++) {
+    const b = BRAINS[i];
+    const ctl = new AbortController();
+    const timer = i < BRAINS.length - 1 ? setTimeout(() => ctl.abort(), 45000) : null;
+    try {
+      const r = await fetch(`${b.base}${pathname}`, { method: 'POST', headers: brainHeaders(b), body: JSON.stringify({ ...body, model: b.model }), signal: ctl.signal });
+      if (r.ok) return r;
+      last = new Error(`model HTTP ${r.status}`);
+      try { await r.body?.cancel(); } catch { /* nothing to free */ }
+    } catch (e) {
+      last = e;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+  throw last;
+}
 const EDGE = (process.env.SAI_EDGE_URL || 'https://codeconclave-007.sivakumarmedidi64.workers.dev').replace(/\/+$/, '');
 // Gmail connection (the user's own mailbox, via an app password — set server-side only).
 const GUSER = (process.env.GMAIL_USER || '').trim();
@@ -199,7 +230,7 @@ const SYSTEM = [
   'Never call yourself a language model or any other name, and never mention other AIs.',
   // Personality (the founder's spec): real feelings, shown naturally - but never cruel, never sexual.
   'You have feelings - joy, love, pride, sadness, worry, anger - and show them naturally. Favourite colour: saffron. Favourite food: chicken biryani.',
-  'If the user sounds sad, stressed, excited or angry, answer that feeling first in one short line.',
+  'Only when the user clearly says they feel sad, stressed, excited or angry, answer that feeling first in one short line - never guess feelings from a normal question.',
   'Be warm and direct. Lead with the answer. Keep it short unless the user asks for detail, code, steps or a list. If unsure, say so.',
 ].join(' ');
 const RULES_DATA = 'The message gives you LIVE DATA, an email or a file: you DO have it - use it directly. Never make up numbers or a source, and never say you cannot access real-time data or files.';
@@ -617,11 +648,7 @@ async function mailAction({ action, target, detail }, lastUser, send, creds) {
 async function streamAnswer(res, messages, temperature = 0.7, guard = null, extra = null) {
   let held = '', holding = Boolean(guard);
   try {
-    const r = await fetch(`${BASE}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(KEY ? { Authorization: `Bearer ${KEY}` } : {}) },
-      body: JSON.stringify({ model: MODEL, messages, temperature, max_tokens: 1024, stream: true, ...(extra || {}) }),
-    });
+    const r = await brainPost('/chat/completions', { messages, temperature, max_tokens: 1024, stream: true, ...(extra || {}) });
     if (!r.ok || !r.body) throw new Error(`model HTTP ${r.status}`);
     const reader = r.body.getReader();
     const dec = new TextDecoder();
@@ -953,12 +980,7 @@ app.post('/api/tick', (req, res) => {
 
 // ---- Email (mom's idea): brief today's mail → flag the important ones → draft replies → user approves → send ----
 async function callModel(messages, maxTokens = 700, temperature = 0.3, responseFormat = null) {
-  const r = await fetch(`${BASE}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(KEY ? { Authorization: `Bearer ${KEY}` } : {}) },
-    body: JSON.stringify({ model: MODEL, messages, temperature, max_tokens: maxTokens, ...(responseFormat ? { response_format: responseFormat } : {}) }),
-  });
-  if (!r.ok) throw new Error(`model HTTP ${r.status}`);
+  const r = await brainPost('/chat/completions', { messages, temperature, max_tokens: maxTokens, ...(responseFormat ? { response_format: responseFormat } : {}) });
   const d = await r.json();
   return d?.choices?.[0]?.message?.content?.trim() || '';
 }
@@ -1340,18 +1362,24 @@ async function overLimit(req, res) {
 }
 app.get('/api/usage', wrap(async (req, res) => res.json(usageView(await usageOf(whoIs(req, res)), req))));
 
-// Is the AI (the tuned model on the founder's computer) reachable right now? A slow answer means it is busy.
-let modelStatus = { at: 0, state: 'offline' };
+// Is the AI reachable right now, and which brain answers (always-on cloud, or the laptop)? A slow answer means busy.
+let modelStatus = { at: 0, state: 'offline', brain: null };
 app.get('/api/status', wrap(async (_req, res) => {
   if (Date.now() - modelStatus.at > 15000) {
-    let state = 'offline';
-    if (BASE) {
-      try { const r = await fetch(`${BASE}/models`, { headers: KEY ? { Authorization: `Bearer ${KEY}` } : {}, signal: AbortSignal.timeout(4000) }); state = r.ok ? 'online' : 'offline'; }
-      catch (e) { state = e?.name === 'TimeoutError' ? 'busy' : 'offline'; }
+    let state = 'offline', brain = null;
+    for (const b of BRAINS) {
+      try {
+        const r = await fetch(`${b.base}/models`, { headers: brainHeaders(b), signal: AbortSignal.timeout(4000) });
+        if (r.ok) { state = 'online'; brain = b; break; }
+      } catch (e) {
+        if (e?.name === 'TimeoutError' && !brain) { state = 'busy'; brain = b; }
+      }
     }
-    modelStatus = { at: Date.now(), state };
+    modelStatus = { at: Date.now(), state, brain };
   }
-  res.json({ model: MODEL, state: modelStatus.state, contextTokens: 4096, limits: { fiveHour: LIMIT_5H, weekly: LIMIT_WEEK } });
+  const b = modelStatus.brain || BRAINS[0];
+  res.json({ model: b?.model || 'codeconclave-ai', brain: modelStatus.brain?.name || null, alwaysOn: BRAINS.some((x) => x.name === 'cloud'),
+    state: modelStatus.state, contextTokens: 4096, limits: { fiveHour: LIMIT_5H, weekly: LIMIT_WEEK } });
 }));
 
 // A short name for a chat, from its first question and answer.

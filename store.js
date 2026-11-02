@@ -43,7 +43,17 @@ const userOut = (u) => u && { id: String(u.id), email: u.email, name: u.name, ro
 // ---- Neon Postgres ----
 async function pgStore(url) {
   const { default: pg } = await import('pg');
-  const pool = new pg.Pool({ connectionString: url, max: 5, ssl: { rejectUnauthorized: true } });
+  // DB_SCHEMA keeps our tables in their own corner of a database that other apps also use (the old
+  // app's tables live in "public"). Neon's pooled (-pooler) link refuses search_path, so use the direct one.
+  const schema = (process.env.DB_SCHEMA || '').trim();
+  if (schema && !/^[a-z_][a-z0-9_]{0,40}$/.test(schema)) throw new Error('DB_SCHEMA must be lowercase letters, digits or _');
+  const conn = schema ? url.replace(/(@[^/:]*?)-pooler\./, '$1.') : url;
+  const pool = new pg.Pool({ connectionString: conn, max: 5, ssl: { rejectUnauthorized: true }, ...(schema ? { options: `-c search_path=${schema}` } : {}) });
+  if (schema) await pool.query(`create schema if not exists ${schema}`);
+  return pgTables(pool);
+}
+
+async function pgTables(pool) {
   const q = (text, params) => pool.query(text, params);
   await q(`
     create table if not exists users (

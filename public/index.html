@@ -1659,7 +1659,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
 
   // ---- Details panel: your AI, context, usage, connectors, outputs and changes ----
-  let usageNow=null, aiState='offline';
+  let usageNow=null, aiState='offline', aiBrain=null;
   const PANKEY='cc_panel_v1';
   const panelPref=()=>{ try{ const v=localStorage.getItem(PANKEY); return v===null ? innerWidth>1200 : v==='1'; }catch{ return false; } };
   function setPanel(on,save=true){ document.body.classList.toggle('panel',on); $('panelToggle').checked=on; $('panelBtn').title=on?'Hide details':'Show details';
@@ -1669,7 +1669,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   $('panelToggle').onchange=()=>setPanel($('panelToggle').checked);
   async function refreshUsage(){ try{ const r=await fetch('/api/usage'); if(r.ok){ usageNow=await r.json(); renderSide(); } }catch{} }
   async function refreshStatus(){
-    try{ const d=await (await fetch('/api/status')).json(); aiState=d.state; }catch{ aiState='offline'; }
+    try{ const d=await (await fetch('/api/status')).json(); aiState=d.state; aiBrain=d.brain; }catch{ aiState='offline'; aiBrain=null; }
     const dot=$('topDot'); dot.className='topdot '+aiState; dot.title={online:'Your AI is online',busy:'Your AI is busy answering',offline:'Your AI is offline right now'}[aiState]||'';
     renderSide();
   }
@@ -1684,6 +1684,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const env=sec('Environment');
     row(env,'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>','CodeConClave AI',{online:'● Online',busy:'● Busy',offline:'● Offline'}[aiState]);
     env.lastChild.querySelector('.dim').style.color={online:'#7bd88f',busy:'#f2c200',offline:'#e5534b'}[aiState];
+    if(aiBrain) row(env,'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',aiBrain==='cloud'?'Always-on brain':'Laptop brain',aiBrain==='cloud'?'works with your laptop closed':'only while the laptop is on');
     row(env,'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',folder?folder.name:'No folder connected',null,folder?null:['Connect',()=>openFolder()]);
     const standalone=matchMedia('(display-mode: standalone)').matches;
     row(env,'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M12 7v6"/><path d="m9 10 3 3 3-3"/>',standalone?'Desktop app':'Web app',null,!standalone&&installPrompt?['Install',()=>$('installBtn').click()]:null);

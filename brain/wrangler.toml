@@ -1,0 +1,8 @@
+# CodeConClave AI - always-on brain (the founder's tuned codeconclave-scout on Cloudflare GPUs).
+# One secret: BRAIN_KEY (the app sends it as "Authorization: Bearer ..."). Never put it in this file.
+name = "codeconclave-brain"
+main = "index.js"
+compatibility_date = "2025-06-01"
+
+[ai]
+binding = "AI"
