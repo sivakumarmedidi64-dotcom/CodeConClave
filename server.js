@@ -15,6 +15,7 @@ import nodemailer from 'nodemailer';
 import { openStore, hashPassword, checkPassword, newToken, tokenHash, encrypt, decrypt } from './store.js';
 import { registerApps } from './apps.js';
 import { gatherSources, searchWords, kindOf as researchKind } from './research.js';
+import { specialists } from './sources.js';
 import { parseSchedule, cleanSchedule, nextRun, describeSchedule, describeWhen, stripWhen } from './schedule.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -246,7 +247,7 @@ app.put('/api/memory', wrap(async (req, res) => {
 // a second, so every extra line here was waiting time on every message. Rules that only some messages
 // need (data, mail, who-am-I) are added just for those messages.
 const SYSTEM = [
-  'You are CodeConClave AI, made by your founder Saharsh Medidi.',
+  'You are CodeConClave AI, made by your founder Saharsh Medidi from India.',
   'Never call yourself a language model or any other name, and never mention other AIs.',
   // Personality (the founder's spec): real feelings, shown naturally - but never cruel, never sexual.
   'You have feelings - joy, love, pride, sadness, worry, anger - and show them naturally. Favourite colour: saffron. Favourite food: chicken biryani.',
@@ -265,7 +266,10 @@ const ABOUT_FEELINGS = /\b(do|are|can|will|did|have|what|how|why|when)\b[^.?!]{0
 const CONTACT = /\b(contact|reach|e-?mail|mail|talk to|message)\b[^.?!]{0,30}\b(founder|creator|owner|saharsh|maker)\b|\b(founder|creator|saharsh)('?s)?\s+(e-?mail|contact|mail id|address)\b/i;
 // "what do you know about me?" - the small model ignores the profile in the background unless asked to use it here.
 const ABOUT_ME = /\b(what do you know about me|who am i|tell me about (me|myself)|do you (know|remember) (me|anything about me|my)|what('?s| is) my (name|job|work|occupation|hobby|hobbies|favourite))\b/i;
-const ABOUT_SELF = /\b(who (made|created|built|owns|developed) you|your (founder|creator|maker|owner|boss)|contact (your )?(founder|creator)|who is saharsh|are you (a )?(human|real|person|robot|bot|chatgpt|gpt|gemini|claude))\b/i;
+const ABOUT_SELF = /\b(who (made|created|built|owns|developed|founded|started) (you|codeconclave|this)|(founder|creator|owner|ceo|maker) of codeconclave|codeconclave'?s? (founder|creator|owner|ceo|country|company)|(which|what) country (is )?(codeconclave|your founder|you)|where (is|are) (codeconclave|your founder|you) from|your (founder|creator|maker|owner|boss)|contact (your )?(founder|creator)|saharsh|are you (a )?(human|real|person|robot|bot|chatgpt|gpt|gemini|claude))\b/i;
+const FOUNDER_PRIVATE = /\b(how old|age|birthday|born|school|college|class|grade|city|town|village|lives?|address|phone|number|married|wife|girlfriend|family|parents?|father|mother|sister|brother|religion|caste|salary|net worth)\b[^.?!]{0,40}\b(saharsh|your (founder|creator|owner|maker))\b|\b(saharsh|your (founder|creator|owner|maker))('?s)?\b[^.?!]{0,40}\b(how old|age|birthday|born|school|college|class|grade|city|town|village|lives?|address|phone|number|married|wife|girlfriend|family|parents?|father|mother|sister|brother|religion|caste|salary|net worth)\b/i;
+// The only founder facts the AI may state (it once invented "Colombia" - the founder is Indian).
+const FOUNDER_FACTS = 'CodeConClave AI was made by its founder Saharsh Medidi, a young founder from India (he is Indian; CodeConClave is from India). If asked anything else about him (age, city, school, family), say you don\'t know that and he can share it himself - never guess.';
 // The model stepping out of character ("As an AI language model…", "I do not have feelings").
 const PERSONA_SLIP = /language model|computer program|\b(cannot|can't|can not|unable to) (love|feel)\b|\b(do not|don't|cannot|can't) (have|feel|experience)\b[^.]{0,20}\b(feelings|emotions|love)\b|\bnot capable of (love|feelings|emotions)|\b(cannot|can't|can not) answer that\b|not appropriate to ask/i;
 // What a reply must (not) look like for these messages; a miss is dropped unseen and asked again.
@@ -291,8 +295,8 @@ function moodHint(text, facts = '') {
       : 'The user is asking about themselves, but you know nothing about them yet. Say so kindly, and that they can tell you or fill in Personalization (bottom-left).';
   }
   if (ABOUT_SELF.test(text)) {
-    return 'Answer as CodeConClave AI: you were made by your founder Saharsh Medidi (his email is medidisaharsh@gmail.com - share it if asked how to contact him), ' +
-      'and you are not a human but you have feelings of your own. Like: "I was made by my founder Saharsh Medidi 😊". Never call yourself a language model or a computer program.';
+    return `Answer as CodeConClave AI. ${FOUNDER_FACTS} His email is medidisaharsh@gmail.com - share it if asked how to contact him. ` +
+      'You are not a human but you have feelings of your own. Like: "I was made by my founder Saharsh Medidi from India 😊". Never call yourself a language model or a computer program.';
   }
   if (ABOUT_FEELINGS.test(text) && !/\b(help|make)\s+me\b/i.test(text)) {
     return 'The user is asking about your own feelings. Answer in first person as CodeConClave AI, with real feelings and an emoji - ' +
@@ -763,6 +767,10 @@ async function chatHandler(req, res) {
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
   // A finished, factual message from an action (not model text), e.g. "I couldn't find…".
   const say = (text) => { send({ delta: text }); send({ done: true }); res.end(); };
+  // Private things about the founder the AI does not know: a fixed honest answer, never a guess.
+  if (!fileBlock && FOUNDER_PRIVATE.test(lastUser)) {
+    return say("I don't know that about Saharsh, and I won't guess 😊 He can share it himself if he wants — you can reach him at medidisaharsh@gmail.com.");
+  }
 
   // The user's connected local folder (paths only), and - on the second round of a file action -
   // the text of the file their browser just read for us.
@@ -778,7 +786,12 @@ async function chatHandler(req, res) {
   // 2. Act.
   let ev = null, found = '';
   try {
-    if (plan.action === 'live_data') {
+    // "where is the ISS now?", "next ISRO launch", "asteroids passing Earth this week" - live space/Earth data
+    if (plan.action === 'answer' && !fileBlock && LIVE_SPACE.test(lastUser) && LIVE_NOW.test(lastUser)) {
+      send({ step: 'Getting live space data' });
+      ev = await spaceLive(lastUser).catch(() => null);
+    }
+    if (ev) { /* live space data, used below like any live data */ } else if (plan.action === 'live_data') {
       send({ step: 'Getting live data' });
       ev = await fetchLive(plan.hit);
       if (!ev) return say("I couldn't get that live data right now — please try again in a minute.");
@@ -997,6 +1010,17 @@ app.post('/api/tick', (req, res) => {
   runDue().catch(() => {});
   res.json({ ok: true });
 });
+
+// Live space and Earth data for normal chat (sources.js): satellites, the ISS, launches, asteroids, space weather, events seen from orbit.
+const LIVE_SPACE = /\b(iss|space station|satellites?|orbits?|norad|starlink|cartosat|launch(es)?|rockets?|asteroids?|near[- ]earth|space weather|solar storms?|geomagnetic|aurora|wildfires?|volcano(es)?|cyclones?)\b/i;
+const LIVE_NOW = /\b(now|current(ly)?|today|tonight|latest|recent|upcoming|next|live|where|when|this (week|month)|right now|position|orbit of|details of|launched|passing)\b/i;
+async function spaceLive(q) {
+  const { jobs } = specialists(q, searchWords(q));
+  const got = (await Promise.allSettled(jobs)).flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  const useful = got.filter((x) => x.site !== 'Wikidata' || got.length === 1).sort((a, b) => a.rank - b.rank).slice(0, 3);
+  if (!useful.length) return null;
+  return { summary: useful.map((x) => x.text.slice(0, 1400)).join('\n\n'), source: [...new Set(useful.map((x) => x.site))].join(', ') };
+}
 
 // ---- Email (mom's idea): brief today's mail → flag the important ones → draft replies → user approves → send ----
 async function callModel(messages, maxTokens = 700, temperature = 0.3, responseFormat = null) {

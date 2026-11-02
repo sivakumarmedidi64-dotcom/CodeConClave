@@ -4,6 +4,8 @@
 //   MDN Web Docs, GitHub projects, arXiv papers, OpenAlex research (abstracts), Hacker News, GDELT news.
 // Every source is shown to the user as a numbered link, so each claim can be checked.
 
+import { specialists } from './sources.js';
+
 const UA = { 'User-Agent': 'CodeConClave-AI/1.0 (research; https://codeconclave-ww5x.onrender.com)' };
 const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 
@@ -105,7 +107,8 @@ export async function gatherSources(question, queries, budget, onStep) {
   const main = queries[0];
   const coding = CODING.test(question), web = WEB.test(question), science = SCIENCE.test(question), tech = coding || TECH.test(question);
   const libs = ['Wikipedia', coding && 'Stack Overflow', web && 'MDN', tech && 'GitHub', science && 'arXiv', science && 'research papers', tech && 'Hacker News', 'news'].filter(Boolean);
-  onStep(`Searching ${libs.join(', ')}`);
+  const extra = specialists(question, main);   // rare + live data: satellites, space, Earth, health, facts, economy…
+  onStep(`Searching ${[...libs, ...extra.libs].join(', ')}`);
   const jobs = [
     // coding: Stack Overflow answers lead and Wikipedia gives only short intros (its search finds odd pages for code words)
     wikipedia(main, !coding).then((list) => (coding ? list.map((s) => ({ ...s, rank: 3 })) : list)),
@@ -118,7 +121,7 @@ export async function gatherSources(question, queries, budget, onStep) {
     tech ? hackerNews(main) : null,
     news(main),
   ].filter(Boolean);
-  const found = (await Promise.allSettled(jobs)).flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  const found = (await Promise.allSettled([...jobs, ...extra.jobs])).flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
   // best kinds first (full article, top answers), no duplicates, then fill the reading budget
   const seen = new Set();
   const ordered = found.filter((s) => s.text && !seen.has(s.url) && seen.add(s.url)).sort((a, b) => a.rank - b.rank);
@@ -127,7 +130,7 @@ export async function gatherSources(question, queries, budget, onStep) {
   let used = 0;
   for (const s of ordered) {
     const room = budget - used;
-    if (room < 250 || picked.length >= 16) break;
+    if (room < 250 || picked.length >= 20) break;
     const text = s.text.slice(0, Math.min(caps[s.rank] ?? 1200, room));
     picked.push({ ...s, text });
     used += text.length + s.title.length + 20;
