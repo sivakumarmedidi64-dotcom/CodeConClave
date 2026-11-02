@@ -56,12 +56,22 @@ function aiInput(body) {
   return input;
 }
 
+// The tuned model sometimes writes training markers like "<|endoftext|>" as plain text; drop them.
+const MARKERS = ['<|endoftext|>', '<|eot_id|>', '<|im_end|>', '<|end_of_text|>', '<|im_start|>'];
+const stripMarkers = (s) => MARKERS.reduce((t, m) => t.split(m).join(''), s);
+// How many characters at the end of `s` could be the start of a marker (keep those until the next token).
+const heldTail = (s) => {
+  for (let n = Math.min(s.length, 16); n > 0; n--) if (MARKERS.some((m) => m.startsWith(s.slice(-n)))) return n;
+  return 0;
+};
+
 // Cloudflare streams {"response":"..."} lines; turn them into OpenAI-style deltas.
 function toOpenAIStream(stream) {
   const dec = new TextDecoder();
   const enc = new TextEncoder();
-  let buf = '';
+  let buf = '', pending = '';
   const out = (obj) => enc.encode(`data: ${JSON.stringify(obj)}\n\n`);
+  const emit = (ctl, text) => { if (text) ctl.enqueue(out({ model: NAME, choices: [{ index: 0, delta: { content: text } }] })); };
   return stream.pipeThrough(new TransformStream({
     transform(chunk, ctl) {
       buf += dec.decode(chunk, { stream: true });
@@ -79,11 +89,17 @@ function toOpenAIStream(stream) {
           const t = d.choices?.[0]?.text;
           const text = typeof t === 'string' ? t
             : d.response === null || d.response === undefined || typeof d.response === 'object' ? '' : String(d.response);
-          if (text) ctl.enqueue(out({ model: NAME, choices: [{ index: 0, delta: { content: text } }] }));
+          if (text) {
+            pending = stripMarkers(pending + text);
+            const keep = heldTail(pending);
+            emit(ctl, pending.slice(0, pending.length - keep));
+            pending = pending.slice(pending.length - keep);
+          }
         } catch { /* partial or keep-alive line */ }
       }
     },
     flush(ctl) {
+      emit(ctl, stripMarkers(pending));
       ctl.enqueue(out({ model: NAME, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }));
       ctl.enqueue(enc.encode('data: [DONE]\n\n'));
     },
@@ -119,7 +135,7 @@ export default {
           return new Response(toOpenAIStream(result), { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' } });
         }
         const r = result?.response;
-        const content = typeof r === 'string' ? r : r ? JSON.stringify(r) : '';
+        const content = stripMarkers(typeof r === 'string' ? r : r ? JSON.stringify(r) : '');
         return json({
           object: 'chat.completion', model: NAME,
           choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],

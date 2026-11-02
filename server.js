@@ -14,6 +14,7 @@ import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
 import { openStore, hashPassword, checkPassword, newToken, tokenHash, encrypt, decrypt } from './store.js';
 import { registerApps } from './apps.js';
+import { gatherSources, searchWords, kindOf as researchKind } from './research.js';
 import { parseSchedule, cleanSchedule, nextRun, describeSchedule, describeWhen, stripWhen } from './schedule.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,13 +27,30 @@ app.use(express.static(path.join(__dirname, 'public')));
 //  - laptop: codeconclave-coder-lite on the founder's PC (RESIDENT_OPENAI_BASE_URL, through the tunnel).
 // The cloud brain answers first; if it is down or has used today's allowance, the laptop answers.
 const trimUrl = (u) => String(u || '').trim().replace(/\/+$/, '');
+// context = how many tokens each brain can read at once (the cloud model allows far more than the laptop).
 const BRAINS = [
-  { name: 'cloud', base: trimUrl(process.env.BRAIN_URL), key: String(process.env.BRAIN_KEY || '').trim(), model: process.env.BRAIN_MODEL || 'codeconclave-scout' },
-  { name: 'laptop', base: trimUrl(process.env.RESIDENT_OPENAI_BASE_URL), key: process.env.RESIDENT_API_KEY || '', model: process.env.RESIDENT_MODEL || 'codeconclave-coder-lite' },
+  { name: 'cloud', base: trimUrl(process.env.BRAIN_URL), key: String(process.env.BRAIN_KEY || '').trim(), model: process.env.BRAIN_MODEL || 'codeconclave-scout', context: Number(process.env.BRAIN_CONTEXT) || 16384 },
+  { name: 'laptop', base: trimUrl(process.env.RESIDENT_OPENAI_BASE_URL), key: process.env.RESIDENT_API_KEY || '', model: process.env.RESIDENT_MODEL || 'codeconclave-coder-lite', context: 4096 },
 ].filter((b) => b.base);
 if (process.env.BRAIN_ORDER === 'laptop-first') BRAINS.reverse();
 const BASE = BRAINS.length > 0; // is any brain set up at all?
 const brainHeaders = (b) => ({ 'Content-Type': 'application/json', ...(b.key ? { Authorization: `Bearer ${b.key}` } : {}) });
+
+// Make the messages fit what this brain can read (~3.4 characters a token): drop the oldest turns
+// first, then cut the middle out of the longest message (its start and its end - usually the
+// question - stay).
+function fitMessages(messages, b, maxTokens = 1024) {
+  const room = Math.floor((b.context - Math.min(maxTokens, b.context / 3) - 150) * 3.4);
+  const size = (list) => list.reduce((n, m) => n + String(m.content || '').length + 12, 0);
+  let list = messages.slice();
+  while (size(list) > room && list.length > 2) list.splice(list[0].role === 'system' ? 1 : 0, 1);
+  if (size(list) > room) {
+    const i = list.reduce((best, m, j) => (String(m.content).length > String(list[best].content).length ? j : best), 0);
+    const c = String(list[i].content), keep = Math.max(400, c.length - (size(list) - room));
+    list[i] = { ...list[i], content: `${c.slice(0, Math.floor(keep * 0.7))}\n[…]\n${c.slice(c.length - Math.floor(keep * 0.3))}` };
+  }
+  return list;
+}
 
 // POST to the first brain that answers. A brain with another one behind it gets 45 s to start
 // answering (headers only - a long streamed answer is never cut off).
@@ -42,8 +60,9 @@ async function brainPost(pathname, body) {
     const b = BRAINS[i];
     const ctl = new AbortController();
     const timer = i < BRAINS.length - 1 ? setTimeout(() => ctl.abort(), 45000) : null;
+    const sized = Array.isArray(body.messages) ? { ...body, messages: fitMessages(body.messages, b, body.max_tokens) } : body;
     try {
-      const r = await fetch(`${b.base}${pathname}`, { method: 'POST', headers: brainHeaders(b), body: JSON.stringify({ ...body, model: b.model }), signal: ctl.signal });
+      const r = await fetch(`${b.base}${pathname}`, { method: 'POST', headers: brainHeaders(b), body: JSON.stringify({ ...sized, model: b.model }), signal: ctl.signal });
       if (r.ok) return r;
       last = new Error(`model HTTP ${r.status}`);
       try { await r.body?.cancel(); } catch { /* nothing to free */ }
@@ -1380,7 +1399,7 @@ app.get('/api/status', wrap(async (_req, res) => {
   }
   const b = modelStatus.brain || BRAINS[0];
   res.json({ model: b?.model || 'codeconclave-ai', brain: modelStatus.brain?.name || null, alwaysOn: BRAINS.some((x) => x.name === 'cloud'),
-    state: modelStatus.state, contextTokens: 4096, limits: { fiveHour: LIMIT_5H, weekly: LIMIT_WEEK } });
+    state: modelStatus.state, contextTokens: b?.context || 4096, limits: { fiveHour: LIMIT_5H, weekly: LIMIT_WEEK } });
 }));
 
 // A short name for a chat, from its first question. A message of three words or fewer ("hi") is its own name.
@@ -1402,35 +1421,23 @@ app.post('/api/title', wrap(async (req, res) => {
   res.json({ title });
 }));
 
-// ---- Deep research: search several real sources, read them, answer with numbered citations ----
-const RESEARCH_UA = { 'User-Agent': 'CodeConClave-AI/1.0 (research; https://codeconclave-ww5x.onrender.com)' };
-async function getJSON(url, ms = 9000) {
-  const r = await fetch(url, { headers: RESEARCH_UA, signal: AbortSignal.timeout(ms) });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
-}
-// "what is the James Webb telescope and what has it found?" -> "james webb telescope"
-const QUESTION_WORDS = new Set('what whats which who whom whose why how when where is are was were be been do does did done has have had the a an and or of to in on at for from by with about into tell me explain please can could would should will you your i my its it this that these those there their them they latest recent news found find give show list some any more most much many very really just also than then so if as up out new'.split(' '));
-const searchWords = (q) => (q.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/).filter((w) => w && !QUESTION_WORDS.has(w)).slice(0, 6).join(' ') || q);
-async function wikiSources(q) {
-  const s = await getJSON(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=3&format=json&utf8=1`, 8000);
-  const titles = (s?.query?.search || []).map((x) => x.title);
-  if (!titles.length) return [];
-  const e = await getJSON(`https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&exchars=550&redirects=1&format=json&titles=${encodeURIComponent(titles.join('|'))}`);
-  return Object.values(e?.query?.pages || {}).filter((p) => p.extract).sort((a, b) => titles.indexOf(a.title) - titles.indexOf(b.title)).map((p) => ({
-    title: p.title, url: `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`, site: 'Wikipedia', text: p.extract.replace(/\s+/g, ' ').trim(),
-  }));
-}
-async function newsSources(q) {
-  const d = await getJSON(`https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}%20sourcelang:english&mode=artlist&format=json&maxrecords=6&sort=datedesc`, 16000);
-  return (d?.articles || []).slice(0, 5).map((a) => ({ title: a.title, url: a.url, site: a.domain, text: `News headline (${String(a.seendate || '').slice(0, 8)}): ${a.title}` }));
-}
-async function techSources(q) {
-  const d = await getJSON(`https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(q)}&tags=story&hitsPerPage=4`);
-  return (d?.hits || []).filter((h) => h.title).map((h) => ({ title: h.title, url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`, site: 'Hacker News', text: `Tech discussion (${h.points || 0} points): ${h.title}` }));
+// ---- Deep research (research.js): plan searches, read many real sources, answer with numbered citations ----
+// The AI first writes a few search queries; then up to 8 free libraries are searched at once and as much
+// text as the brain can read is handed over (the always-on brain reads ~4x more than the laptop).
+async function planQueries(q) {
+  const main = searchWords(q);
+  try {
+    const raw = await callModel([
+      { role: 'system', content: 'You plan web searches.' },
+      { role: 'user', content: `Question: ${q}\n\nWrite 3 different short search queries (2 to 6 words each) that together find everything needed to answer it. Reply as JSON: {"queries": ["...", "...", "..."]}` }],
+    120, 0.2, { type: 'json_object', schema: { type: 'object', properties: { queries: { type: 'array', items: { type: 'string' }, maxItems: 3 } }, required: ['queries'] } });
+    const extra = (JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)).queries || [])
+      .map((x) => String(x).replace(/["']/g, '').trim().slice(0, 80)).filter((x) => x && x.toLowerCase() !== main);
+    return [main, ...new Set(extra)].slice(0, 3);
+  } catch { return [main]; }
 }
 app.post('/api/research', (req, res, next) => (async () => {
-  const q = String(req.body?.question || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  const q = String(req.body?.question || '').replace(/\s+/g, ' ').trim().slice(0, 400);
   if (!q) return res.status(400).json({ error: 'Ask a question first.' });
   if (!BASE) return res.status(503).json({ error: 'CodeConClave AI is not connected yet (no model endpoint set).' });
   if (await overLimit(req, res)) return;
@@ -1438,22 +1445,24 @@ app.post('/api/research', (req, res, next) => (async () => {
   res.setHeader('Cache-Control', 'no-cache');
   res.flushHeaders?.();
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
-  const tech = /\b(code|coding|program|software|api|javascript|python|ai|llm|startup|github|framework|database|linux|chip|gpu)\b/i.test(q);
-  send({ step: 'Searching Wikipedia, recent news' + (tech ? ' and tech discussions' : '') });
-  const kw = searchWords(q);   // search with the key words, answer the full question
-  const jobs = [wikiSources(kw), newsSources(kw), tech ? techSources(kw) : Promise.resolve([])];
-  const [wiki, news, hn] = (await Promise.allSettled(jobs)).map((r) => (r.status === 'fulfilled' ? r.value : []));
-  const sources = [...wiki, ...news.slice(0, 4), ...hn.slice(0, 3)].slice(0, 9).map((s, i) => ({ n: i + 1, ...s }));
+  send({ step: 'Planning the searches' });
+  const queries = await planQueries(q);
+  // how much source text fits: the first brain's reading window, minus room for the answer and instructions
+  const budget = Math.min(42000, Math.floor(((BRAINS[0]?.context || 4096) - 1700) * 3.2));
+  const sources = await gatherSources(q, queries, budget, (step) => send({ step }));
   if (!sources.length) { send({ error: 'I could not reach any sources just now — please try again.' }); send({ done: true }); return res.end(); }
-  send({ step: `Reading ${sources.length} sources` });
-  send({ sources: sources.map(({ n, title, url, site }) => ({ n, title, url, site })) });
+  const words = sources.reduce((n, s) => n + s.text.split(/\s+/).length, 0);
+  send({ step: `Reading ${sources.length} sources · ${words.toLocaleString('en-IN')} words` });
   const block = sources.map((s) => `[${s.n}] ${s.site} — ${s.title}\n${s.text}`).join('\n\n');
+  send({ sources: sources.map(({ n, title, url, site }) => ({ n, title, url, site })), readChars: block.length });
+  const { coding } = researchKind(q);
   send({ step: 'Writing the answer' });
   await streamAnswer(res, [
-    { role: 'system', content: SYSTEM },
-    // the small model follows instructions in the user turn far better than in the system prompt
-    { role: 'user', content: `Sources:\n${block}\n\nQuestion: ${q}\n\nAnswer using ONLY the sources above. Write one short summary line, then 3-5 short bullet points, each with a different fact. Copy names, numbers and dates exactly as the sources say. If the sources do not answer the question, say so.` }],
-  0.3, null, { max_tokens: 450, frequency_penalty: 0.7, presence_penalty: 0.4 });   // penalties stop the small model looping
+    // a plain research voice here - the chat persona's "show your feelings" line made it open with feelings
+    { role: 'system', content: 'You are CodeConClave AI, made by Saharsh Medidi. You answer questions from the sources you are given, clearly and accurately. Never call yourself a language model and never mention other AIs.' },
+    // instructions go in the user turn - the small model follows them far better there
+    { role: 'user', content: `Sources:\n${block}\n\nQuestion: ${q}\n\nAnswer the question using ONLY the sources above. Start with a 1-2 sentence summary, then give the key points as short bullet points, each with a different fact and its source number like [2].${coding ? ' Then show the code from the best Stack Overflow answer that solves it (you may shorten it, keep it correct) and explain it in 2-3 lines.' : ''} Copy names, numbers and dates exactly as the sources say. If the sources do not answer part of the question, say so.` }],
+  0.3, null, { max_tokens: 900, frequency_penalty: coding ? 0.2 : 0.5, presence_penalty: 0.3 });   // penalties stop looping; code needs repeats
 })().catch(next));
 
 // ---- Send to Slack, Discord, Telegram or any webhook (Zapier, Make, n8n, IFTTT…) — only after the user presses Send ----

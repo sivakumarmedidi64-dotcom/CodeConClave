@@ -1087,7 +1087,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
           else if(j.step){ dots.remove(); stepsDone(); const s=el('div'); s.dataset.t=j.step; s.innerHTML='<span class="dots"><i></i><i></i><i></i></span> '; s.append(j.step+'…');
             aiEl._steps.appendChild(s); (msg.steps=msg.steps||[]).push(j.step); }
           else if(j.mailList){ msg.list=j.mailList; aiEl.appendChild(mailListCard(j.mailList)); }
-          else if(j.sources){ msg.sources=j.sources; aiEl.appendChild(sourcesRow(j.sources)); }
+          else if(j.sources){ msg.sources=j.sources; if(j.readChars) msg.readChars=j.readChars; aiEl.appendChild(sourcesRow(j.sources)); renderSide(); }
           else if(j.card){ msg.card=j.card; msg.pending='m'+at; const k=draftCard(j.card,{compact:true,onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
           else if(j.remember){ const line='Remember: '+j.remember; if(!memAdded && !memory.includes(line)){ memory.push(line); saveM(); } }
           else if(j.delta){ dots.remove(); stepsDone(); full+=j.delta; aiEl._text.nodeValue=full; chat.scrollTop=chat.scrollHeight; }
@@ -1944,7 +1944,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
 
   // ---- Details panel: your AI, context, usage, connectors, outputs and changes ----
-  let usageNow=null, aiState='offline', aiBrain=null;
+  let usageNow=null, aiState='offline', aiBrain=null, ctxMax=4096;
   const PANKEY='cc_panel_v1';
   const panelPref=()=>{ try{ const v=localStorage.getItem(PANKEY); return v===null ? innerWidth>1200 : v==='1'; }catch{ return false; } };
   function setPanel(on,save=true){ document.body.classList.toggle('panel',on); $('panelToggle').checked=on; $('panelBtn').title=on?'Hide details':'Show details';
@@ -1954,7 +1954,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   $('panelToggle').onchange=()=>setPanel($('panelToggle').checked);
   async function refreshUsage(){ try{ const r=await fetch('/api/usage'); if(r.ok){ usageNow=await r.json(); renderSide(); } }catch{} }
   async function refreshStatus(){
-    try{ const d=await (await fetch('/api/status')).json(); aiState=d.state; aiBrain=d.brain; }catch{ aiState='offline'; aiBrain=null; }
+    try{ const d=await (await fetch('/api/status')).json(); aiState=d.state; aiBrain=d.brain; ctxMax=d.contextTokens||4096; }catch{ aiState='offline'; aiBrain=null; }
     const dot=$('topDot'); dot.className='topdot '+aiState; dot.title={online:'Your AI is online',busy:'Your AI is busy answering',offline:'Your AI is offline right now'}[aiState]||'';
     renderSide();
   }
@@ -1981,10 +1981,12 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const msgs=tok((c?.messages||[]).slice(-24).reduce((n,m)=>n+(m.content||'').length,0));
     const instr=tok(900+JSON.stringify(profile||{}).length+memory.join('\n').length);
     const fil=tok(pending.reduce((n,f)=>n+Math.min((f.text||'').length,20000),0));
-    const total=msgs+instr+fil, pct=Math.min(100,Math.round(total/4096*100));
-    const ctx=sec('Context'); const big=el('div','sbig'); big.append(pct+'% used'); big.appendChild(el('span',null,'about '+total.toLocaleString('en-IN')+' / 4,096 tokens')); ctx.appendChild(big);
-    const bar=el('div','sbar'); [[msgs,'#1a93fe'],[instr,'#c57f16'],[fil,'#23998d']].forEach(([n,col])=>{ const i=document.createElement('i'); i.style.width=Math.min(100,n/4096*100)+'%'; i.style.background=col; bar.appendChild(i); }); ctx.appendChild(bar);
-    [['Messages',msgs,'#1a93fe'],['Instructions & memory',instr,'#c57f16'],['Attached files',fil,'#23998d'],['Free space',Math.max(0,4096-total),'#2c2c2c']].forEach(([l,n,col])=>{ const r=el('div','slegend'); const sw=document.createElement('b'); sw.style.background=col; r.append(sw,l); r.appendChild(el('span',null,n.toLocaleString('en-IN'))); ctx.appendChild(r); });
+    // the last research answer's sources were read too (they are not kept in the chat itself)
+    const lastAi=[...(c?.messages||[])].reverse().find(m=>m.role==='assistant'), src=tok(lastAi?.readChars||0);
+    const total=msgs+instr+fil+src, pct=Math.min(100,Math.round(total/ctxMax*100));
+    const ctx=sec('Context'); const big=el('div','sbig'); big.append(pct+'% used'); big.appendChild(el('span',null,'about '+total.toLocaleString('en-IN')+' / '+ctxMax.toLocaleString('en-IN')+' tokens')); ctx.appendChild(big);
+    const bar=el('div','sbar'); [[msgs,'#1a93fe'],[instr,'#c57f16'],[fil,'#23998d'],[src,'#8e6bd8']].forEach(([n,col])=>{ const i=document.createElement('i'); i.style.width=Math.min(100,n/ctxMax*100)+'%'; i.style.background=col; bar.appendChild(i); }); ctx.appendChild(bar);
+    [['Messages',msgs,'#1a93fe'],['Instructions & memory',instr,'#c57f16'],['Attached files',fil,'#23998d'],...(src?[['Research sources',src,'#8e6bd8']]:[]),['Free space',Math.max(0,ctxMax-total),'#2c2c2c']].forEach(([l,n,col])=>{ const r=el('div','slegend'); const sw=document.createElement('b'); sw.style.background=col; r.append(sw,l); r.appendChild(el('span',null,n.toLocaleString('en-IN'))); ctx.appendChild(r); });
     if(pct>=80) ctx.appendChild(el('div','sempty','This chat is long — older messages will drop out. Start a new task for a fresh window.'));
     // Actions: every command and browser step in this chat, newest first, with its status
     const acts=(c?.messages||[]).filter(m=>m.deskCard).map(m=>m.deskCard).reverse().slice(0,12);
