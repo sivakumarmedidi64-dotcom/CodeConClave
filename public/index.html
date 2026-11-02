@@ -93,6 +93,17 @@
   .spill .fav{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-size:10px;font-weight:700;color:#111;margin-left:-5px;border:2px solid var(--bg)}
   .spill .fav:first-child{margin-left:0}
   .srcs.hidden{display:none}
+  /* scrollbars: thin and dark everywhere, no arrow buttons (the plain Windows ones did not fit the design) */
+  *{scrollbar-width:thin;scrollbar-color:#3a3a3a transparent}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+  ::-webkit-scrollbar-thumb:hover{background:#4a4a4a;background-clip:padding-box}
+  ::-webkit-scrollbar-button{display:none;width:0;height:0}
+  ::-webkit-scrollbar-corner{background:transparent}
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  input[type=number]{-moz-appearance:textfield}
+  .bar textarea{overflow-y:hidden}
   .memfold{display:flex;flex-direction:column;gap:4px;margin:12px 0 4px;padding:10px 12px;border:1px solid #2c2c2c;border-radius:10px;font-size:13px}
   .memfold span{color:var(--dim)}
   .memfold button{align-self:flex-start;margin-top:4px}
@@ -2653,7 +2664,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault();
       if(open){ const first=$('slash').querySelector('.slashrow'); if(first){ runCommand(first.dataset.cmd); return; } }
       send(); } });
-  input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px'; sendBtn.classList.toggle('ready',!!input.value.trim());
+  input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,150)+'px'; input.style.overflowY=input.scrollHeight>150?'auto':'hidden'; sendBtn.classList.toggle('ready',!!input.value.trim());
     const v=input.value; if(v.startsWith('/')&&!v.includes(' ')) slashRender(v); else slashHide(); });
 
   // ---- mail (mom's idea): when you open the app, the AI tells you how many mails came today,
