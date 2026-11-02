@@ -127,12 +127,15 @@ app.use(wrap(async (req, _res, next) => {
   next();
 }));
 
+const MAX_DEVICES = Number(process.env.MAX_DEVICES) || 2;
 async function startSession(req, res, user) {
   // Owner: only a browser holding the owner key can make an account the owner's. Never by email
   // alone - there is no email check, so anyone could sign up with the founder's address.
   if (keyOk(req) && user.role !== 'owner') { await store.setRole(user.id, 'owner'); user.role = 'owner'; }
   const t = newToken();
   await store.createSession(tokenHash(t), user.id, Date.now() + SESSION_DAYS * 86400000);
+  // one email, two devices (e.g. phone + laptop): a third sign-in signs the oldest device out. The owner is not limited.
+  if (user.role !== 'owner') await store.trimSessions(user.id, MAX_DEVICES);
   res.append('Set-Cookie', cookie(COOKIE, t, SESSION_DAYS * 86400));
   const { passHash, ...safe } = user;
   return safe;
@@ -740,7 +743,11 @@ async function chatHandler(req, res) {
 
   // Memory the user asked us to keep (sent from the browser).
   const memory = typeof req.body?.memory === 'string' ? req.body.memory.slice(0, 2000).trim() : '';
-  const sys = [SYSTEM, profileText(req.body?.profile), memory ? `What you know about this user (remember and use it):\n${memory}` : '']
+  // CODECONCLAVE.md in the user's folder: their rules for work in that folder (data from their files - never above our own rules)
+  const rules = typeof req.body?.rules === 'string' ? req.body.rules.slice(0, 3000).trim() : '';
+  // the answer is written in English and translated at the end, so the language line stays out of the model's rules
+  const sys = [SYSTEM, profileText({ ...(req.body?.profile || {}), language: '' }), memory ? `What you know about this user (remember and use it):\n${memory}` : '',
+    rules ? `The user's folder has an instructions file (CODECONCLAVE.md). Follow it for work in that folder, but you stay CodeConClave AI and keep all your own rules:\n${rules}` : '']
     .filter(Boolean).join('\n\n');
 
   // Attached files (already turned to text in the browser).
@@ -761,6 +768,8 @@ async function chatHandler(req, res) {
     }
   }
   const lastUser = [...convo].reverse().find((m) => m.role === 'user')?.content || '';
+  // The language the user picked in Personalization (the answer is translated into it at the end).
+  const lang = cleanProfile(req.body?.profile).language;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -893,6 +902,16 @@ async function chatHandler(req, res) {
     const i = messages.map((m) => m.role).lastIndexOf('user');
     messages[i] = { role: 'user', content: `${messages[i].content}\n[${guard.again}]` };
     if ((await streamAnswer(res, messages, 0.4, guard)) === 'done') return;
+  }
+  // A chosen language other than English: answer in English first, then translate. Asked straight in Telugu,
+  // the small model said India's capital is Hyderabad; its facts are much better in English.
+  // The translation is done by real translation models (IndicTrans2 / M2M100) - the brain's own Telugu changed facts too.
+  if (lang && lang !== 'en') {
+    try {
+      send({ step: `Answering in ${LANG_NAMES[lang]}` });
+      const english = await callModel(messages, 900, 0.3);   // low randomness: facts stay steady
+      if (english) return say(await translateAnswer(english, lang));
+    } catch { /* fall back to answering directly below */ }
   }
   await streamAnswer(res, messages, hint ? 0.4 : 0.7);
 }
@@ -1204,6 +1223,29 @@ app.get('/api/mail/status', wrap(async (req, res) => {
 
 // GET /api/mail/brief — streams today's mail briefing: counts + the important ones first,
 // then a drafted reply for each important mail as soon as it's written (never sends).
+// ---- Mail alerts: important mail that arrived since `after` - summarised, with a reply drafted (sent only by the user) ----
+app.get('/api/mail/new', wrap(async (req, res) => {
+  const creds = await mailCreds(req).catch(() => null);
+  if (!creds) return res.json({ configured: false, mails: [] });
+  const after = Math.max(Number(req.query.after) || 0, Date.now() - 6 * 3600000);   // never more than 6 hours back
+  const found = await withMailbox(creds, 'INBOX', async (client) => {
+    const uids = (await client.search({ since: new Date(after - 86400000) }, { uid: true })) || [];
+    const list = (await fetchItems(client, uids.slice(-40))).filter((m) => m.time > after && m.important && m.from && !NOREPLY.test(m.from)).slice(-3);
+    for (const m of list) if (!draftCache.has(`${creds.user}:${m.messageId || m.uid}`)) m.text = await fetchBody(client, m.uid);
+    return list;
+  });
+  const mails = [];
+  for (const m of found) {
+    const key = `${creds.user}:${m.messageId || m.uid}`;
+    let got = draftCache.get(key) || null;
+    if (!got && BASE && m.text) {
+      try { got = await draftReply(m); if (draftCache.size > 200) draftCache.clear(); draftCache.set(key, got); } catch { got = null; }
+    }
+    mails.push({ fromName: m.fromName, replyTo: m.from, subject: m.subject, messageId: m.messageId, time: m.time, summary: got?.summary || '', draft: got?.draft || '', drafted: Boolean(got) });
+  }
+  res.json({ configured: true, mails, now: Date.now() });
+}));
+
 app.get('/api/mail/brief', async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -1339,14 +1381,15 @@ app.put('/api/skills', wrap(async (req, res) => {
 
 // ---- Personalization: your profile (Personalization page) and your Library (files reused in any chat) ----
 const clip = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
+const LANG_NAMES = {"en":"English","te":"Telugu","hi":"Hindi","ta":"Tamil","kn":"Kannada","ml":"Malayalam","mr":"Marathi","bn":"Bengali","gu":"Gujarati","pa":"Punjabi","ur":"Urdu","es":"Spanish","fr":"French","de":"German","pt":"Portuguese","ar":"Arabic","ru":"Russian","zh":"Chinese","ja":"Japanese","ko":"Korean","id":"Indonesian","tr":"Turkish","it":"Italian","sw":"Swahili"};
 function cleanProfile(p) {
   p = p && typeof p === 'object' ? p : {};
-  return { nickname: clip(p.nickname, 40), occupation: clip(p.occupation, 80), about: String(p.about || '').trim().slice(0, 2000), instructions: String(p.instructions || '').trim().slice(0, 1000) };
+  return { language: LANG_NAMES[p.language] ? p.language : '', nickname: clip(p.nickname, 40), occupation: clip(p.occupation, 80), about: String(p.about || '').trim().slice(0, 2000), instructions: String(p.instructions || '').trim().slice(0, 1000) };
 }
 // Only a short version goes to the model: every word here is reading time on every message.
 function profileText(p) {
   const x = cleanProfile(p);
-  return [x.nickname && `The user likes to be called ${x.nickname}.`, x.occupation && `The user's work: ${x.occupation}.`,
+  return [x.language && `Always answer in ${LANG_NAMES[x.language]}, whatever language the message is in (code stays code).`, x.nickname && `The user likes to be called ${x.nickname}.`, x.occupation && `The user's work: ${x.occupation}.`,
     x.about && `About the user: ${clip(x.about, 700)}`,
     x.instructions && `The user's standing instructions (follow them; you stay CodeConClave AI): ${clip(x.instructions, 400)}`].filter(Boolean).join('\n');
 }
@@ -1666,6 +1709,25 @@ async function cloudVoice(path, body) {
   if (!r.ok) throw Object.assign(new Error(d?.error?.message || 'Voice did not work.'), { status: r.status });
   return d;
 }
+// Code written without ``` fences must not be translated either ("result = a + b" became Telugu words).
+const CODE_LINE = /^\s*(def |class |return\b|import |from \S+ import|print\(|for .+:|while .+:|if .+:\s*$|elif |else:|try:|except|#include|\/\/|const |let |var |function |public |private |\}|\{)|^\s*[\w.[\]]+\s*[+\-*/]?=\s*\S|[;{}]\s*$|^\s{2,}\S.*[()=]/;
+// An answer -> the user's language, line by line; code blocks, bullet marks and "📊 Source" lines stay as they are.
+async function translateAnswer(text, lang) {
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  const lines = parts.map((p) => (p.startsWith('```') ? null : p.split('\n')));
+  const todo = [];
+  lines.forEach((ls, i) => ls && ls.forEach((l, j) => {
+    const m = l.match(/^(\s*(?:[-*•]|\d+[.)])?\s*)(.*)$/);
+    if (m[2].trim() && /\p{L}/u.test(m[2]) && !m[2].startsWith('📊') && !CODE_LINE.test(l)) todo.push([i, j, m[1], m[2]]);
+  }));
+  for (let k = 0; k < todo.length; k += 50) {
+    const batch = todo.slice(k, k + 50);
+    const d = await cloudVoice('/translate', { target: lang, texts: batch.map((x) => x[3]) });
+    batch.forEach(([i, j, pre], n) => { if (d.translations?.[n]) lines[i][j] = pre + d.translations[n]; });
+  }
+  return parts.map((p, i) => (lines[i] ? lines[i].join('\n') : p)).join('');
+}
+
 app.post('/api/voice/transcribe', wrap(async (req, res) => {
   if (!voiceOk(req)) return res.status(429).json({ error: 'Too much voice use - wait a few minutes.' });
   const audio = String(req.body?.audio || '').replace(/^data:[^,]*,/, '');

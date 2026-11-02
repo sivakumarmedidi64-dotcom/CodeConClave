@@ -9,6 +9,8 @@
 <link rel="icon" href="/icon-192.png" />
 <link rel="apple-touch-icon" href="/icon-192.png" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
   :root{
     --bg:#1a1a1a; --panel:#232323; --rail:#1f1f1f; --line:#2c2c2c; --fg:#e6e6e6; --dim:#8c8c8c; --field:#242424; --edge:#353535;
@@ -90,6 +92,25 @@
   .spill .fav{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-size:10px;font-weight:700;color:#111;margin-left:-5px;border:2px solid var(--bg)}
   .spill .fav:first-child{margin-left:0}
   .srcs.hidden{display:none}
+  #pfLang{display:block;width:100%;margin-top:8px;background:#151515;color:var(--fg);border:1px solid #363636;border-radius:9px;padding:10px;font:inherit;font-size:14px}
+  .editsum{margin-top:10px;border:1px solid #2f2f2f;border-radius:12px;background:#1b1b1b;white-space:normal;font-size:14px}
+  .eshead{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #2a2a2a}
+  .esundo{background:none;border:0;color:var(--dim);cursor:pointer;font:inherit}
+  .esundo:hover{color:var(--fg)}
+  .esrow{display:flex;align-items:center;gap:10px;padding:8px 14px}
+  .esrow .ico{width:16px;height:16px;color:var(--dim)}
+  .esrow.undone .grow{text-decoration:line-through;color:var(--dim)}
+  .esnum i{font-style:normal;margin-left:6px;font-variant-numeric:tabular-nums}
+  .esnum .add{color:#3fb950}
+  .esnum .del{color:#f85149}
+  .estotal{border-top:1px solid #2a2a2a}
+  .codeblock{white-space:normal;margin:10px 0;border:1px solid #2f2f2f;border-radius:12px;overflow:hidden;background:#0d1117}
+  .cbhead{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:#161b22;font-size:12px;color:#8b949e}
+  .cbhead button{background:none;border:0;color:#8b949e;cursor:pointer;font:inherit;padding:2px 6px;border-radius:6px}
+  .cbhead button:hover{color:#e6e6e6;background:#21262d}
+  .codeblock pre{margin:0;padding:12px 14px;overflow-x:auto;white-space:pre}
+  .codeblock code{font:13px/1.5 ui-monospace,Consolas,"Cascadia Code",monospace;background:none!important;padding:0!important}
+  .icode{font:12.5px ui-monospace,Consolas,monospace;background:#2b2b2b;border-radius:5px;padding:1px 5px}
   .mic{flex:none;height:34px;min-width:34px;align-self:center;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:none;border:0;color:#b4b4b4;border-radius:999px;cursor:pointer;padding:0 8px}
   .mic svg{width:19px;height:19px}
   .mic:hover{background:#2a2a2a;color:var(--fg)}
@@ -490,6 +511,7 @@
         <label>Nickname<input type="text" id="pfNick" maxlength="40" placeholder="Saharsh" autocomplete="off" /></label>
         <label>Occupation<input type="text" id="pfJob" maxlength="80" placeholder="Student, founder of CodeConClave" autocomplete="off" /></label>
       </div>
+      <label>Language<select id="pfLang"><option value="">Same as I write (automatic)</option><option value="en">English</option><option value="te">Telugu (తెలుగు)</option><option value="hi">Hindi (हिन्दी)</option><option value="ta">Tamil (தமிழ்)</option><option value="kn">Kannada (ಕನ್ನಡ)</option><option value="ml">Malayalam (മലയാളം)</option><option value="mr">Marathi (मराठी)</option><option value="bn">Bengali (বাংলা)</option><option value="gu">Gujarati (ગુજરાતી)</option><option value="pa">Punjabi (ਪੰਜਾਬੀ)</option><option value="ur">Urdu (اردو)</option><option value="es">Spanish (Español)</option><option value="fr">French (Français)</option><option value="de">German (Deutsch)</option><option value="pt">Portuguese (Português)</option><option value="ar">Arabic (العربية)</option><option value="ru">Russian (Русский)</option><option value="zh">Chinese (中文)</option><option value="ja">Japanese (日本語)</option><option value="ko">Korean (한국어)</option><option value="id">Indonesian</option><option value="tr">Turkish (Türkçe)</option><option value="it">Italian (Italiano)</option><option value="sw">Swahili</option></select><span class="count">The AI answers, speaks and listens in this language.</span></label>
       <label>More about you<textarea id="pfAbout" maxlength="2000" rows="6" placeholder="I live in Hyderabad. I'm building CodeConClave AI. I like cricket and chicken biryani."></textarea><span class="count" id="pfAboutN">0 / 2000</span></label>
       <div class="mailsubj">CodeConClave AI uses this to personalize every answer.</div>
       <label>Custom instructions<textarea id="pfInstr" maxlength="1000" rows="4" placeholder="Explain simply. Use short sentences. Default to JavaScript unless I say otherwise."></textarea><span class="count" id="pfInstrN">0 / 1000</span></label>
@@ -784,7 +806,33 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   // a user message with its pictures shown small under the text
   function userBubble(m){ const b=bubble('user',m.content); if(m.images?.length){ const row=el('div','uimgs'); m.images.forEach(src=>{ if(src.startsWith('data:image/jpeg;base64,')){ const im=document.createElement('img'); im.src=src; im.alt='attached picture'; row.appendChild(im); } }); b.appendChild(row); } return b; }
   function touch(){ const c=current(); if(c) c.updated=Date.now(); saveC(); }
+  // ---- Rich answers: highlighted code blocks with Copy, **bold**, `inline code` (everything else stays plain text) ----
+  function codeBlock(code,lang){
+    const box=el('div','codeblock'), head=el('div','cbhead'); head.appendChild(el('span',null,lang||'code'));
+    const copy=el('button',null,'Copy'); copy.onclick=async()=>{ try{ await navigator.clipboard.writeText(code); copy.textContent='Copied ✓'; setTimeout(()=>{ copy.textContent='Copy'; },1500); }catch{ toast('Copy did not work in this browser.'); } };
+    head.appendChild(copy);
+    const pre=document.createElement('pre'), c=document.createElement('code');
+    if(window.hljs){ try{ const r=lang&&hljs.getLanguage(lang)?hljs.highlight(code,{language:lang,ignoreIllegals:true}):hljs.highlightAuto(code); c.innerHTML=r.value; c.className='hljs language-'+(lang||r.language||''); if(!lang&&r.language) head.firstChild.textContent=r.language; }catch{ c.textContent=code; } }
+    else c.textContent=code;
+    pre.appendChild(c); box.append(head,pre); return box;
+  }
+  function inlineRich(t,frag){
+    t.split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/g).forEach(seg=>{ if(!seg) return;
+      if(/^\*\*[^*]+\*\*$/.test(seg)) frag.appendChild(el('strong',null,seg.slice(2,-2)));
+      else if(/^`[^`]+`$/.test(seg)) frag.appendChild(el('code','icode',seg.slice(1,-1)));
+      else frag.appendChild(document.createTextNode(seg)); });
+  }
+  function renderRich(b,text){
+    if(!b?._text||!text||!/`|\*\*/.test(text)) return;
+    const frag=document.createDocumentFragment();
+    String(text).split(/(```[\w+#.-]*[ \t]*\n[\s\S]*?```)/g).forEach(part=>{
+      const m=part.match(/^```([\w+#.-]*)[ \t]*\n([\s\S]*?)```$/);
+      if(m) frag.appendChild(codeBlock(m[2].replace(/\n$/,''),m[1].toLowerCase())); else if(part) inlineRich(part,frag);
+    });
+    b._text.replaceWith(frag); b._text=null;
+  }
   function decorate(b,m,i){
+    if(m.role!=='user') renderRich(b,m.content);
     if(m.thought) b._think.textContent='💭 '+m.thought;
     (m.steps||[]).forEach(s=>b._steps.appendChild(el('div','done',s)));
     if(m.list) b.appendChild(mailListCard(m.list));
@@ -898,6 +946,10 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const x=el('button',null,'×'); x.title='Disconnect folder'; x.onclick=(e)=>{ e.stopPropagation(); forgetFolder(); };
     c.appendChild(x); bar.appendChild(c);
   }
+  // the folder's own instructions file (read fresh each message, so edits to it apply at once)
+  const RULE_FILES=['codeconclave.md','claude.md','agents.md'];
+  async function folderRules(){ if(!folder?.files) return ''; const p=[...folder.files.keys()].find(k=>RULE_FILES.includes(k.toLowerCase())); if(!p) return '';
+    try{ return (await readLocal(p)).slice(0,3000); }catch{ return ''; } }
   const folderInfo=()=>folder&&folder.files?{name:folder.name, live:folder.live, paths:[...folder.files.keys()]}:undefined;
 
   async function readLocal(path){
@@ -964,18 +1016,48 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     }
     const act=el('div','mailact'), saveB=el('button','msend',folder&&!folder.live?'Download':'Save'), skipB=el('button','mskip','Skip'), status=el('span','mstatus');
     act.append(saveB,skipB,status); card.appendChild(act);
-    const showSaved=(how)=>{ card.dataset.sent='1'; status.textContent=how==='downloaded'?'⬇️ Downloaded':'✅ Saved to '+m.path; saveB.remove(); skipB.remove(); if(ta) ta.disabled=true; };
+    const showSaved=(how)=>{ card.dataset.sent='1'; saveB.remove(); skipB.remove(); if(ta) ta.disabled=true;
+      if(how==='downloaded'){ status.textContent='⬇️ Downloaded'; return; }
+      status.textContent=''; card.querySelector('.editsum')?.remove(); card.appendChild(editSummary([m],onChange)); };
     if(m.saved) showSaved(m.saved);
     skipB.onclick=()=>{ card.dataset.sent='skip'; m.skipped=true; onChange(); card.remove(); };
     card._send=async()=>{
       if(!folder||!folder.files){ status.textContent='Connect the folder first.'; return 'Connect your folder first (＋ → Work in a folder), then press Save.'; }
       saveB.disabled=true; status.textContent='Saving…';
-      try{ const how=await writeLocal(m.path,m.content); m.saved=how; onChange(); showSaved(how);
+      let before=null; try{ before=await readLocal(m.path); }catch{ /* a new file */ }
+      try{ const how=await writeLocal(m.path,m.content); m.saved=how; m.stats=lineStats(before||'',m.content); m.before=before!==null&&before.length<=100000?before:(before===null?null:undefined); onChange(); showSaved(how); renderSide();
         return how==='downloaded'?'⬇️ Downloaded '+m.path+' — this browser can’t write into folders, so save it where you like.':'✅ Saved '+m.path+' in your folder '+folder.name+'.'; }
       catch(e){ saveB.disabled=false; status.textContent='Not saved: '+e.message; return 'I couldn’t save it: '+e.message; }
     };
     saveB.onclick=()=>card._send();
     return card;
+  }
+
+  // ---- "Edited N files" summary with +/− line counts and Undo ----
+  function lineStats(a,b){ const ca=new Map(), cb=new Map(); String(a).split('\n').forEach(l=>ca.set(l,(ca.get(l)||0)+1)); String(b).split('\n').forEach(l=>cb.set(l,(cb.get(l)||0)+1));
+    let add=0, del=0; for(const [l,n] of cb) add+=Math.max(0,n-(ca.get(l)||0)); for(const [l,n] of ca) del+=Math.max(0,n-(cb.get(l)||0)); if(!a) del=0; return {add,del}; }
+  async function removeLocal(path){ const parts=path.split('/').filter(Boolean), name=parts.pop(); let dir=folder.root; for(const p of parts) dir=await dir.getDirectoryHandle(p);
+    await dir.removeEntry(name); folder.files.delete(path); renderFolder(); }
+  async function undoEdit(m){
+    if(!folder?.live) throw new Error('Connect the folder (with saving allowed) to undo.');
+    if(m.before===undefined) throw new Error('This file was too big to keep a copy, so it cannot be undone.');
+    if(m.before===null) await removeLocal(m.path); else await writeLocal(m.path,m.before);
+    m.undone=true;
+  }
+  function editSummary(list,onChange=()=>{}){
+    const done=list.filter(m=>m.saved==='saved'), tot=done.reduce((t,m)=>({add:t.add+(m.stats?.add||0),del:t.del+(m.stats?.del||0)}),{add:0,del:0});
+    const box=el('div','editsum'), head=el('div','eshead'); head.appendChild(el('b',null,'Edited '+done.length+' file'+(done.length===1?'':'s')));
+    const undoAll=el('button','esundo','Undo'); head.appendChild(undoAll); box.appendChild(head);
+    const rowFor=(m)=>{ const r=el('div','esrow'+(m.undone?' undone':'')); r.innerHTML=svgIco('<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>'); r.appendChild(el('span','grow',m.path));
+      if(m.undone) r.appendChild(el('span','dim','undone')); else { const n=el('span','esnum'); n.appendChild(el('i','add','+'+(m.stats?.add||0))); n.appendChild(el('i','del','−'+(m.stats?.del||0))); r.appendChild(n); }
+      return r; };
+    done.forEach(m=>box.appendChild(rowFor(m)));
+    if(done.length>1){ const t=el('div','esrow estotal'); t.appendChild(el('span','grow','See all')); const n=el('span','esnum'); n.appendChild(el('i','add','+'+tot.add)); n.appendChild(el('i','del','−'+tot.del)); t.appendChild(n); box.appendChild(t); }
+    if(done.every(m=>m.undone)) undoAll.remove();
+    undoAll.onclick=async()=>{ undoAll.disabled=true; undoAll.textContent='Undoing…';
+      try{ for(const m of done.filter(x=>!x.undone)) await undoEdit(m); onChange(); touch(); toast('↩ Undone — your files are back as they were.'); box.replaceWith(editSummary(list,onChange)); renderSide(); }
+      catch(e){ undoAll.disabled=false; undoAll.textContent='Undo'; toast(e.message); } };
+    return box;
   }
 
   const CLOCK_SVG='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>';
@@ -1128,7 +1210,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       const resp=research
         ? await fetch('/api/research',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({question:text})})
         : await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
-          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:memory.join('\n'), profile, folder:folderInfo(), ...extra})});
+          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), ...extra})});
       if(!resp.ok && !/event-stream/.test(resp.headers.get('content-type')||'')){   // e.g. the usage limit is reached
         const d=await resp.json().catch(()=>({})); dots.remove(); wrap.appendChild(el('div','err',d.error||'Something went wrong — please try again.'));
         if(d.usage) usageNow=d.usage; renderSide(); return; }
@@ -1163,7 +1245,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       stepsDone();
       if(full||msg.card||msg.list||msg.fileCard||msg.autoCard){ msg.content=full; if(research) msg.research=true; c.messages.push(msg); c.updated=Date.now(); saveC(); notify(); nameChat(c);
         // the finished answer gets its buttons (copy, share, like, sources…) and previews, without redrawing the chat
-        const i=c.messages.length-1; if(msg.content && !msg.appCard && !msg.plugCard && aiEl.isConnected){ const pv=previewRow(msg.content); if(pv) aiEl.appendChild(pv); aiEl.appendChild(actionBar(msg,i,aiEl)); }
+        const i=c.messages.length-1; renderRich(aiEl,msg.content); if(msg.content && !msg.appCard && !msg.plugCard && aiEl.isConnected){ const pv=previewRow(msg.content); if(pv) aiEl.appendChild(pv); aiEl.appendChild(actionBar(msg,i,aiEl)); }
         if(voiceTurn && msg.content){ speak(msg.content, aiEl.querySelector('.acts button[title="Read aloud"]')); } }
       else { aiEl.remove(); }
     }catch{
@@ -1356,12 +1438,12 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   // ---- Personalization: your profile + Import memory from another AI ----
   function showPersonalization(){
     $('profModal').classList.remove('open');
-    $('pfNick').value=profile.nickname||''; $('pfJob').value=profile.occupation||''; $('pfAbout').value=profile.about||''; $('pfInstr').value=profile.instructions||'';
+    $('pfLang').value=profile.language||''; $('pfNick').value=profile.nickname||''; $('pfJob').value=profile.occupation||''; $('pfAbout').value=profile.about||''; $('pfInstr').value=profile.instructions||'';
     countPf(); $('pfStatus').textContent=''; $('persPage').classList.add('open');
   }
   function countPf(){ $('pfAboutN').textContent=$('pfAbout').value.length+' / 2000'; $('pfInstrN').textContent=$('pfInstr').value.length+' / 1000'; }
   async function saveProfile(){
-    profile={nickname:$('pfNick').value.trim(), occupation:$('pfJob').value.trim(), about:$('pfAbout').value.trim(), instructions:$('pfInstr').value.trim()};
+    profile={language:$('pfLang').value, nickname:$('pfNick').value.trim(), occupation:$('pfJob').value.trim(), about:$('pfAbout').value.trim(), instructions:$('pfInstr').value.trim()};
     try{ localStorage.setItem(PKEY,JSON.stringify(profile)); }catch{}
     renderProfile();
     if(!me){ $('pfStatus').textContent='✅ Saved on this device — sign in to keep it on every device.'; return; }
@@ -2018,7 +2100,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   let rec=null, recChunks=[], recTimer=null, voiceTurn=false, speaking=null;
   const SCRIPTS=[[/[\u0C00-\u0C7F]/,'te'],[/[\u0900-\u097F]/,'hi'],[/[\u0B80-\u0BFF]/,'ta'],[/[\u0C80-\u0CFF]/,'kn'],[/[\u0D00-\u0D7F]/,'ml'],[/[\u0980-\u09FF]/,'bn'],
     [/[\u0A80-\u0AFF]/,'gu'],[/[\u0A00-\u0A7F]/,'pa'],[/[\u0600-\u06FF]/,'ar'],[/[\u3040-\u30FF]/,'ja'],[/[\uAC00-\uD7AF]/,'ko'],[/[\u4E00-\u9FFF]/,'zh'],[/[\u0400-\u04FF]/,'ru']];
-  const langOf=(t)=>(SCRIPTS.find(([re])=>re.test(t))||[])[1]||lastVoiceLang||'en';
+  const langOf=(t)=>(SCRIPTS.find(([re])=>re.test(t))||[])[1]||profile.language||lastVoiceLang||'en';
   let lastVoiceLang=null;
   const toB64=(blob)=>new Promise((ok,no)=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).split(',')[1]||''); r.onerror=no; r.readAsDataURL(blob); });
   async function micClick(){
@@ -2032,7 +2114,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     rec.onstop=async()=>{ clearInterval(recTimer); $('micTime').textContent=''; b.classList.remove('rec'); stream.getTracks().forEach(t=>t.stop()); const r=rec; rec=null;
       const blob=new Blob(recChunks,{type:r.mimeType||'audio/webm'}); if(blob.size<1500){ toast('I did not hear anything — hold on a moment longer.'); return; }
       b.classList.add('busy'); b.disabled=true;
-      try{ const audio=await toB64(blob); const res=await fetch('/api/voice/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio})});
+      try{ const audio=await toB64(blob); const res=await fetch('/api/voice/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio,language:profile.language||undefined})});
         const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.error||'I could not understand the recording.');
         if(!d.text){ toast('I did not catch any words — try again.'); return; }
         lastVoiceLang=d.language||null; input.value=(input.value?input.value+' ':'')+d.text; voiceTurn=true; send(); }
@@ -2222,8 +2304,10 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     });
     const os=sec('Outputs'); if(!outs.length) os.appendChild(el('div','sempty','Emails, automations and research from this chat show here.'));
     outs.forEach(([ic,t,d])=>{ const r=el('div','sitem'); r.innerHTML=svgIco(ic); r.appendChild(el('span','grow',t)); if(d) r.appendChild(el('span','dim',d)); os.appendChild(r); });
-    const ch=sec('Changes'); if(!changes.length) ch.appendChild(el('div','sempty','File edits in your folder show here.'));
-    changes.forEach(([p,d])=>{ const r=el('div','sitem'); r.innerHTML=svgIco('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'); r.appendChild(el('span','grow',p)); r.appendChild(el('span','dim',d)); ch.appendChild(r); });
+    const ch=sec('Changes'); const savedEdits=(c?.messages||[]).filter(m=>m.fileCard?.saved==='saved').map(m=>m.fileCard);
+    if(savedEdits.length) ch.appendChild(editSummary(savedEdits,()=>{ touch(); renderChat(); }));
+    else if(!changes.length) ch.appendChild(el('div','sempty','File edits in your folder show here.'));
+    else changes.forEach(([p,d])=>{ const r=el('div','sitem'); r.innerHTML=svgIco('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'); r.appendChild(el('span','grow',p)); r.appendChild(el('span','dim',d)); ch.appendChild(r); });
   }
 
   // ---- Scheduled tasks: your tasks on a schedule, plus ready-made templates ----
@@ -2323,6 +2407,25 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   const CHANGE_RE=/^\s*(?:please\s+)?(?:change|make|rewrite|edit|redo|reword|rephrase|say|tell\s+(?:him|her|them)|add|remove|mention|shorten|shorter|longer|more\s|less\s|be\s|sound|don'?t|do\s+not|instead|i'?m\s|i\s+am\s|i\s+(?:can|can'?t|cannot|will|won'?t|already|have|paid|sent))|\b(?:the|this|that|my)\s+(?:reply|draft|mail|email)\b/i;
   const ownerKey=()=>{ try{ return localStorage.getItem(OKEY)||''; }catch{ return ''; } };
   const mailHeaders=(extra)=>({...(extra||{}),'x-owner-key':ownerKey()});
+  // ---- Mail alerts: the AI tells you when important mail arrives, with a summary and a reply ready ----
+  const MAIL_SEEN='cc_mail_seen_v1';
+  async function checkMailAlerts(){
+    if(busy) return;   // never in the middle of an answer; the next check picks it up
+    let after=0; try{ after=Number(localStorage.getItem(MAIL_SEEN))||0; }catch{}
+    let d; try{ const r=await fetch('/api/mail/new'+(after?'?after='+after:''),{headers:mailHeaders()}); if(!r.ok) return; d=await r.json(); }catch{ return; }
+    if(!d?.configured) return;
+    try{ localStorage.setItem(MAIL_SEEN,String(d.now||Date.now())); }catch{}
+    if(!after || !d.mails?.length) return;   // the first check only marks "now" - older mail is in the morning brief
+    let c=current(); if(!c){ newChat(); c=current(); }
+    for(const m of d.mails){
+      c.messages.push({role:'assistant',
+        content:'📬 You got a mail from '+m.fromName+(m.subject?' — “'+m.subject+'”':'')+'. I read it, and it looks important.'+(m.summary?'\nSummary: '+m.summary:'')+(m.drafted?'\nI have written a reply — check it below and press Send it, or tell me what to change.':''),
+        card:{fromName:m.fromName, replyTo:m.replyTo, subject:m.subject, messageId:m.messageId, summary:m.summary, draft:m.draft, drafted:m.drafted}});
+    }
+    c.updated=Date.now(); saveC(); renderSidebar(); renderChat(); notify();
+    try{ if('Notification' in window && Notification.permission==='granted') new Notification('CodeConClave AI',{body:'Mail from '+d.mails[0].fromName+(d.mails[0].subject?': '+d.mails[0].subject:''),icon:'/icon-192.png'}); }catch{}
+  }
+  setTimeout(checkMailAlerts,15000); setInterval(checkMailAlerts,180000);
   function el(tag,cls,text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
   // In-page unlock box (browser prompt() popups are blocked in some in-app browsers).
   function unlockMail(){

@@ -9,6 +9,7 @@ const VISION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
 const LORA = 'codeconclave-scout-1';
 const NAME = 'codeconclave-scout';
 
+const INDIC = { te: 'tel_Telu', hi: 'hin_Deva', ta: 'tam_Taml', kn: 'kan_Knda', ml: 'mal_Mlym', mr: 'mar_Deva', bn: 'ben_Beng', gu: 'guj_Gujr', pa: 'pan_Guru', ur: 'urd_Arab', or: 'ory_Orya', as: 'asm_Beng', ne: 'npi_Deva', sa: 'san_Deva' };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 
 async function authOk(req, env) {
@@ -159,6 +160,25 @@ export default {
       try {
         const r = await env.AI.run('@cf/myshell-ai/melotts', { prompt: text, lang });
         return json({ audio: r?.audio || null, format: 'mp3' });
+      } catch (e) { return aiError(e); }
+    }
+
+    // Translation: IndicTrans2 (AI4Bharat, 22 Indian languages) for Indian languages, M2M100 for the rest.
+    // Used to answer in the user's language: the small brain's own Telugu changed facts.
+    if (req.method === 'POST' && path === '/v1/translate') {
+      let body;
+      try { body = await req.json(); } catch { return json({ error: { message: 'Bad JSON.' } }, 400); }
+      const target = String(body?.target || '').slice(0, 3);
+      const texts = (Array.isArray(body?.texts) ? body.texts : []).map((t) => String(t || '').slice(0, 1500)).slice(0, 60);
+      if (!texts.length || !target) return json({ error: { message: 'Need texts and a target language.' } }, 400);
+      try {
+        if (INDIC[target]) {
+          const r = await env.AI.run('@cf/ai4bharat/indictrans2-en-indic-1B', { text: texts, target_language: INDIC[target] });
+          return json({ translations: r?.translations || [] });
+        }
+        const out = [];
+        for (const t of texts) out.push((await env.AI.run('@cf/meta/m2m100-1.2b', { text: t, source_lang: 'en', target_lang: target }))?.translated_text || t);
+        return json({ translations: out });
       } catch (e) { return aiError(e); }
     }
 

@@ -113,6 +113,10 @@ async function pgTables(pool) {
     async linkGoogle(id, sub) { await q('update users set google_sub = $2 where id = $1', [id, sub]); },
     async setRole(id, role) { await q('update users set role = $2 where id = $1', [id, role]); },
     async createSession(hash, userId, expires) { await q('insert into sessions values ($1,$2,$3)', [hash, userId, new Date(expires)]); },
+    // one account, a few devices: keep only the newest sign-ins (every sign-in lasts the same time, so newest = latest expiry)
+    async trimSessions(userId, keep) {
+      await q('delete from sessions where user_id = $1 and token_hash not in (select token_hash from sessions where user_id = $1 order by expires_at desc limit $2)', [userId, keep]);
+    },
     async sessionUser(hash) {
       return userOut(await one('select u.* from sessions s join users u on u.id = s.user_id where s.token_hash = $1 and s.expires_at > now()', [hash]));
     },
@@ -183,6 +187,11 @@ function fileStore(dir) {
     async linkGoogle(id, sub) { const u = db.users.find((x) => uid(x.id) === uid(id)); if (u) { u.google_sub = sub; save(); } },
     async setRole(id, role) { const u = db.users.find((x) => uid(x.id) === uid(id)); if (u) { u.role = role; save(); } },
     async createSession(hash, userId, expires) { db.sessions.push({ hash, userId: uid(userId), expires }); save(); },
+    async trimSessions(userId, keep) {
+      const mine = db.sessions.filter((x) => x.userId === uid(userId)).sort((a, b) => b.expires - a.expires);
+      const drop = new Set(mine.slice(keep).map((x) => x.hash));
+      if (drop.size) { db.sessions = db.sessions.filter((x) => !drop.has(x.hash)); save(); }
+    },
     async sessionUser(hash) {
       const s = db.sessions.find((x) => x.hash === hash && x.expires > Date.now());
       return s ? userOut(db.users.find((u) => uid(u.id) === s.userId)) : null;
