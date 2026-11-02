@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "CodeConClave AI - browser helper",
+  "short_name": "CodeConClave",
+  "version": "1.0.0",
+  "description": "Lets CodeConClave AI open, read, click and type in your own Chrome - every action asks you first.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwKLLVyVWNhAz3kf5ErPfY99hPBNtCM6q6FrKTZsG/1W95sgW+UZBVsaQ1s60wUHQEgB1qCtn9Ypbwf0/u4LxenuDYVCdyh8PK9qODv2E5Uek8ijmVG5RGe71ljiuUZJTLJ1z0bDOVVst1NHGuhu1dsAR6l09zbruVtPzaguZ4OEO89AnOQZ+EQ2GBiy6O9gZ83hGXfLbDiPTO835IhOWvGyzq4OxmITJU+cA+T4bxysPPaOIS3Y8ZoThkuSN6HQEvXceECTIlHPmCn/lytc7RJb3VGo2tgeXxbLv6dgRblnSq7FAYgNy71S92EOYUowOF/ebbsrsN5FwlFE44qz9bwIDAQAB",
+  "icons": {
+    "128": "icon.png"
+  },
+  "action": {
+    "default_title": "CodeConClave AI browser helper"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "tabs",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://codeconclave-ww5x.onrender.com/*",
+      "http://localhost:3107/*"
+    ]
+  }
+}

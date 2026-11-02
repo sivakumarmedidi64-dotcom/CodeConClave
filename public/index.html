@@ -2023,8 +2023,13 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   if(DESK) DESK.info().then(d=>{ deskInfo=d; renderSide(); }).catch(()=>{});
   const APPS_TO_START={notepad:'notepad',calculator:'calc',calc:'calc',paint:'mspaint',explorer:'explorer .','file explorer':'explorer .',vscode:'code .','vs code':'code .',code:'code .',cmd:'start cmd',terminal:'start powershell',powershell:'start powershell',settings:'start ms-settings:',chrome:'start chrome',edge:'start msedge',spotify:'start spotify:',word:'start winword',excel:'start excel'};
   const SHELL_LANGS=/^(powershell|ps|ps1|pwsh|bash|sh|shell|zsh|cmd|bat|batch|console|terminal)$/i;
+  // the browser helper extension (fixed id from its key); present only when installed in this Chrome
+  const EXT_ID='ghjnjjacmonphlfjdomhfhfjonplmcgc'; let EXT_OK=false;
+  const extCall=(msg)=>new Promise((ok,no)=>{ try{ chrome.runtime.sendMessage(EXT_ID,msg,(r)=>{ const e=chrome.runtime.lastError; if(e) return no(new Error(e.message)); if(r?.error) return no(new Error(r.error)); ok(r); }); }catch(e){ no(e); } });
+  if(window.chrome?.runtime?.sendMessage) extCall({op:'ping'}).then(()=>{ EXT_OK=true; renderSide(); }).catch(()=>{});
   function deskIntent(t){
     let m;
+    if((m=t.match(/^(?:search|look up)\s+(?:on\s+)?(?:google|the web|the internet|my browser)\s+(?:for\s+)?(.+)$/i))||(m=t.match(/^google\s+(.+)$/i))) return {kind:'search',q:m[1].trim()};
     if((m=t.match(/^\/run\s+([\s\S]+)$/i))||(m=t.match(/^run\s+`([^`]+)`\s*$/i))) return {kind:'run',command:m[1].trim()};
     if((m=t.match(/^(?:open|launch|start)\s+(?:the\s+)?(notepad|calculator|calc|paint|file explorer|explorer|vs ?code|code|cmd|terminal|powershell|settings|chrome|edge|spotify|word|excel)\s*$/i))) return {kind:'run',command:APPS_TO_START[m[1].toLowerCase().replace(/^vs ?code$/,'vscode')]};
     if((m=t.match(/^\/open\s+(\S+)\s*$/i))||(m=t.match(/^(?:open|go to|visit|browse(?: to)?)\s+((?:https?:\/\/)?[\w-]+(?:\.[\w-]+)+(?:\/\S*)?)\s*(?:in (?:the|a|your) browser)?\s*$/i))) return {kind:'browse',url:m[1]};
@@ -2037,12 +2042,26 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
   function deskSay(c,content,extra){ c.messages.push({role:'assistant',content,...(extra||{})}); c.updated=Date.now(); saveC(); renderChat(); renderSide(); }
   async function runDesk(c,it){
+    if(!DESK && EXT_OK && it.kind!=='run'){ // the AI works in the user's own Chrome through the helper
+      const clean=(e)=>String(e.message||e);
+      try{
+        if(it.kind==='browse'||it.kind==='search'){ const d=await extCall(it.kind==='search'?{op:'search',q:it.q}:{op:'open',url:it.url}); if(d.declined) return deskSay(c,'Okay — I didn’t open it.');
+          return deskSay(c,'Opened '+(d.title||d.url)+' in your Chrome.',{deskCard:{kind:'page',url:d.url,title:d.title}}); }
+        if(it.kind==='read'){ const d=await extCall({op:'read'}); if(d.declined) return deskSay(c,'Okay — I didn’t read it.');
+          pending.push({name:(d.title||'page').slice(0,80)+'.txt',text:'Page: '+d.url+'\n\n'+d.text,noLib:true}); renderFiles(); input.value='Summarise this page in a few short points: what it is and the key facts.'; return send(); }
+        if(it.kind==='click'){ const d=await extCall({op:'click',label:it.label}); if(d.declined) return deskSay(c,'Okay — I didn’t click.'); return deskSay(c,d.clicked?'Clicked “'+it.label+'” in your Chrome.':'I couldn’t find “'+it.label+'” on that page.'); }
+        if(it.kind==='type'){ const d=await extCall({op:'type',field:it.field,text:it.text}); if(d.declined) return deskSay(c,'Okay — I didn’t type anything.'); return deskSay(c,d.typed?'Typed it into “'+it.field+'” in your Chrome.':'I couldn’t find a “'+it.field+'” box on that page.'); }
+        return deskSay(c,'That one needs the CodeConClave desktop app.');
+      }catch(e){ return deskSay(c,'The browser helper said: '+clean(e)); }
+    }
+    if(!DESK && it.kind==='search'){ window.open('https://www.google.com/search?q='+encodeURIComponent(it.q),'_blank','noopener'); return deskSay(c,'I opened a Google search for “'+it.q+'” in a new tab. With the CodeConClave browser helper I can also read and click on pages for you.'); }
     if(!DESK){
       if(it.kind==='browse'||it.kind==='read'||it.kind==='shot'||it.kind==='back'||it.kind==='click'||it.kind==='type'||it.kind==='run')
         return deskSay(c,'That needs the CodeConClave desktop app — it can run terminal commands, drive a browser and open apps on your computer (each step only with your OK). Download it for Windows: '+DESK_URL);
     }
     if(it.kind==='run') return deskRun(c,it.command);
     try{
+      if(it.kind==='search'){ const d=await DESK.browse('https://www.google.com/search?q='+encodeURIComponent(it.q)); return deskSay(c,'Searched Google for “'+it.q+'” in the CodeConClave browser.',{deskCard:{kind:'page',url:d.url,title:d.title}}); }
       if(it.kind==='browse'){ const d=await DESK.browse(it.url); return deskSay(c,`Opened ${d.title||d.url} in the CodeConClave browser.`,{deskCard:{kind:'page',url:d.url,title:d.title}}); }
       if(it.kind==='back'){ const d=await DESK.back(); return deskSay(c,`Went back to ${d.title||d.url}.`,{deskCard:{kind:'page',url:d.url,title:d.title}}); }
       if(it.kind==='shot'){ const d=await DESK.screenshot(); return deskSay(c,`Here’s the page right now: ${d.title||d.url}`,{deskCard:{kind:'page',url:d.url,title:d.title,image:d.image}}); }
@@ -2475,6 +2494,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     row(env,'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',folder?folder.name:'No folder connected',null,folder?null:['Connect',()=>openFolder()]);
     const standalone=matchMedia('(display-mode: standalone)').matches;
     if(DESK) row(env,'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>','Desktop app · terminal, browser, apps',null);
+    if(EXT_OK) row(env,'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/>','Browser helper · your Chrome',null);
     else row(env,'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M12 7v6"/><path d="m9 10 3 3 3-3"/>',standalone?'Installed web app':'Web app',null,['Get desktop app',()=>window.open(DESK_URL,'_blank','noopener')]);
     if(DESK) row(env,'<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',deskInfo?.folder?('Terminal: '+deskInfo.folder.split(/[\\/]/).slice(-2).join('/')):'Terminal folder',null,['Change',async()=>{ const p=await DESK.pickFolder(); if(p){ deskInfo={...(deskInfo||{}),folder:p}; renderSide(); toast('Commands now run in '+p); } }]);
     // Context: how much of the AI's reading window this chat fills (about 4 characters per token)
