@@ -763,6 +763,9 @@ async function chatHandler(req, res) {
     if (messages[i].role === 'user') {
       let content = messages[i].content;
       if (fileBlock) content = `${fileBlock}\n\n${content}`;
+      // memory search: matching parts of the user's earlier chats (found in their browser)
+      const recall = typeof req.body?.recall === 'string' ? req.body.recall.slice(0, 1500).trim() : '';
+      if (recall) content = `[From the user's earlier chats - use only if it helps answer:\n${recall}]\n\n${content}`;
       messages[i] = { role: 'user', content };
       break;
     }

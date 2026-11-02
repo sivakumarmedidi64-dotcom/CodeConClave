@@ -93,6 +93,9 @@
   .spill .fav{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-size:10px;font-weight:700;color:#111;margin-left:-5px;border:2px solid var(--bg)}
   .spill .fav:first-child{margin-left:0}
   .srcs.hidden{display:none}
+  .memfold{display:flex;flex-direction:column;gap:4px;margin:12px 0 4px;padding:10px 12px;border:1px solid #2c2c2c;border-radius:10px;font-size:13px}
+  .memfold span{color:var(--dim)}
+  .memfold button{align-self:flex-start;margin-top:4px}
   .plhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
   .plgoal{color:var(--dim);font-size:13px;margin:4px 0 8px}
   .plstep{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #262626}
@@ -487,6 +490,7 @@
       <label class="sndrow"><input type="checkbox" id="panelToggle" /> Show the details panel (usage, context, connectors)</label>
       <label class="sndrow voicerow">AI voice <select id="voicePick"><option value="male">Male (CodeConClave voice)</option><option value="female">Female (CodeConClave voice)</option><option value="standard">Standard</option></select></label>
       <div class="supportrow">Support &amp; collaboration: <a href="mailto:medidisaharsh@gmail.com">medidisaharsh@gmail.com</a></div>
+      <div class="memfold"><b>Memory folder on this device</b><span id="memFoldInfo">Keep your memory, profile and chats as files on your phone or laptop.</span><button class="mskip" id="memFoldBtn">Choose a folder</button></div>
       <div class="mailact"><button class="mskip" id="memClear">Clear memory</button></div>
     </div>
   </div>
@@ -792,7 +796,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   let recording=null; // {steps:[]} while you record a skill
 
   function load(){ try{convos=JSON.parse(localStorage.getItem(CKEY)||'[]')||[]}catch{convos=[]} try{memory=JSON.parse(localStorage.getItem(MKEY)||'[]')||[]}catch{memory=[]} }
-  function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.slice(0,100)))}catch{} scheduleSync(); }
+  function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.slice(0,100)))}catch{} scheduleSync(); scheduleMemFolder(); }
   function saveM(){ try{localStorage.setItem(MKEY,JSON.stringify(memory.slice(0,30)))}catch{} renderProfile(); pushMemory(); }
   const current=()=>convos.find(c=>c.id===currentId);
   const uid=()=>'c'+Date.now()+Math.random().toString(36).slice(2,6);
@@ -1242,7 +1246,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       const resp=research
         ? await fetch('/api/research',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({question:text})})
         : await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
-          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), ...extra})});
+          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), recall:recallSnippets(text,c.id), ...extra})});
       if(!resp.ok && !/event-stream/.test(resp.headers.get('content-type')||'')){   // e.g. the usage limit is reached
         const d=await resp.json().catch(()=>({})); dots.remove(); wrap.appendChild(el('div','err',d.error||'Something went wrong — please try again.'));
         if(d.usage) usageNow=d.usage; renderSide(); return; }
@@ -2299,6 +2303,54 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     else if(lang!=='en'){ toast('Your device has no '+lang+' voice — showing the text only.'); done(); return; }
     u.onend=done; u.onerror=done; speechSynthesis.speak(u);
   }
+
+  // ---- Memory search: earlier chats that match a message that refers back to them ----
+  const RECALL_STOP=new Set('this that with from have what when where which your about there their would could should them they were been into just like know need want will make tell more some time also then than only very okay please thanks'.split(' '));
+  function recallSnippets(text,curId){
+    const words=[...new Set(String(text).toLowerCase().match(/[\p{L}\p{N}]{4,}/gu)||[])].filter(w=>!RECALL_STOP.has(w)).slice(0,12);
+    if(words.length<1) return '';
+    const refers=/\b(remember|earlier|before|last time|previous(ly)?|we (talked|discussed|spoke)|i (told|said|mentioned)|again|that idea|my (project|plan|idea|business|app|startup))\b/i.test(text);
+    const hits=[];
+    for(const c of convos){ if(c.id===curId||c.id==='automations') continue;
+      for(const m of c.messages){ const t=String(m.content||''); if(t.length<20) continue; const low=t.toLowerCase();
+        const score=words.filter(w=>low.includes(w)).length; if(score>=(refers?2:4)) hits.push({score,t,title:c.title}); } }
+    if(!hits.length) return '';
+    hits.sort((a,b)=>b.score-a.score);
+    return hits.slice(0,3).map(h=>{ const low=h.t.toLowerCase(), at=Math.max(0,Math.min(...words.map(w=>{ const i=low.indexOf(w); return i<0?1e9:i; }))-120);
+      return '- from "'+h.title+'": '+h.t.slice(at,at+380).replace(/\s+/g,' ').trim(); }).join('\n');
+  }
+
+  // ---- Memory folder: plain files on the user's own device, kept up to date (Chrome, Edge, desktop app) ----
+  let memDir=null, memTimer=null, memSaved=0;
+  const memDb=()=>new Promise((ok,no)=>{ const r=indexedDB.open('cc_memfold',1); r.onupgradeneeded=()=>r.result.createObjectStore('h'); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error); });
+  async function memDbSet(v){ try{ const db=await memDb(); db.transaction('h','readwrite').objectStore('h').put(v,'dir'); }catch{} }
+  async function memDbGet(){ try{ const db=await memDb(); return await new Promise(ok=>{ const q=db.transaction('h').objectStore('h').get('dir'); q.onsuccess=()=>ok(q.result||null); q.onerror=()=>ok(null); }); }catch{ return null; } }
+  const mdName=(t)=>String(t||'chat').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim().slice(0,60)||'chat';
+  async function writeMemFolder(){
+    if(!memDir) return;
+    try{
+      if(await memDir.queryPermission({mode:'readwrite'})!=='granted'){ paintMemFold('Allow saving again: press the button below.'); return; }
+      const put=async(dir,name,text)=>{ const fh=await dir.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(text); await w.close(); };
+      await put(memDir,'memory.md','# What CodeConClave AI remembers about you\n\n'+(memory.length?memory.map(m=>'- '+m).join('\n'):'(nothing yet)')+'\n');
+      await put(memDir,'profile.md','# Your profile\n\n'+Object.entries(profile||{}).filter(([,v])=>v).map(([k,v])=>'**'+k+':** '+v).join('\n\n')+'\n');
+      const chats=await memDir.getDirectoryHandle('chats',{create:true});
+      for(const c of convos.slice(0,100)){ if(!c.messages?.length) continue;
+        const day=new Date(c.updated||Date.now()).toISOString().slice(0,10);
+        await put(chats,day+' '+mdName(c.title)+' ('+String(c.id).slice(-6)+').md','# '+(c.title||'Chat')+'\n\n'+c.messages.map(m=>(m.role==='user'?'**You:** ':'**CodeConClave AI:** ')+String(m.content||'')).join('\n\n')+'\n'); }
+      memSaved=Date.now(); paintMemFold();
+    }catch(e){ paintMemFold('Could not save: '+e.message); }
+  }
+  function scheduleMemFolder(){ if(!memDir) return; clearTimeout(memTimer); memTimer=setTimeout(writeMemFolder,4000); }
+  function paintMemFold(note){ const i=$('memFoldInfo'), b=$('memFoldBtn'); if(!i) return;
+    if(!window.showDirectoryPicker){ i.textContent='This browser cannot keep files in a folder — use Chrome, Edge or the CodeConClave desktop app.'; b.style.display='none'; return; }
+    i.textContent=note||(memDir?'Saving to “'+memDir.name+'”'+(memSaved?' · last saved '+new Date(memSaved).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'}):''):'Keep your memory, profile and chats as files on your phone or laptop.');
+    b.textContent=memDir?(note&&/allow/i.test(note)?'Allow saving':'Change folder'):'Choose a folder'; }
+  $('memFoldBtn').onclick=async()=>{
+    try{ if(memDir && await memDir.queryPermission({mode:'readwrite'})!=='granted' && await memDir.requestPermission({mode:'readwrite'})==='granted'){ await writeMemFolder(); return; }
+      const root=await window.showDirectoryPicker({mode:'readwrite',id:'cc-memory'}); memDir=await root.getDirectoryHandle('CodeConClave Memory',{create:true});
+      await memDbSet(memDir); await writeMemFolder(); toast('Your memory is now kept in “'+root.name+'/CodeConClave Memory”.'); }
+    catch(e){ if(e?.name!=='AbortError') toast('Could not use that folder: '+e.message); } };
+  memDbGet().then(d=>{ if(d){ memDir=d; } paintMemFold(); });
 
   // ---- Usage ring + "Plan usage limits" popover (5-hour rolling window and weekly), like the founder's screenshot ----
   const usePct=(w)=>w&&w.limit?Math.min(100,Math.round(w.used/w.limit*100)):0;
