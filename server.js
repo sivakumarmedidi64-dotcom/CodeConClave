@@ -13,6 +13,7 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
 import { openStore, hashPassword, checkPassword, newToken, tokenHash, encrypt, decrypt } from './store.js';
+import { registerApps } from './apps.js';
 import { parseSchedule, cleanSchedule, nextRun, describeSchedule, describeWhen, stripWhen } from './schedule.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1475,6 +1476,9 @@ function postPublic(url, payload) {
     req.end(data);
   });
 }
+// GitHub, Notion, Calendar, Todoist, Linear, Jira, Asana and news feeds (apps.js).
+registerApps(app, { wrap, fetchPublicPage });
+
 const sendTimes = new Map();
 app.post('/api/plugins/send', wrap(async (req, res) => {
   const kind = String(req.body?.kind || ''), cfg = req.body?.config || {}, text = String(req.body?.text || '').trim().slice(0, 3500);

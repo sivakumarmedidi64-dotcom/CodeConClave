@@ -61,6 +61,12 @@
   .bnote{margin-top:12px;line-height:1.6}
   .mailcard{background:#1c1c1c;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;font-size:14px}
   .mailcard .bnote{margin-top:0}
+  .appcard .fieldlbl{font-size:12.5px;color:var(--dim);font-weight:500;margin-top:8px}
+  .appcard .fieldlbl input{padding:8px 10px}
+  .applist a{color:var(--fg);text-decoration:none;font-weight:500}
+  .applist a:hover{text-decoration:underline}
+  .applist .dim{color:var(--dim);font-size:13px}
+  #pmFields textarea{background:#151515;color:var(--fg);border:1px solid #363636;border-radius:9px;padding:10px;font:inherit;font-size:14px}
   .mailsubj{color:var(--dim);font-size:13px;margin:4px 0 8px}
   .mailsum{line-height:1.55;margin-bottom:10px}
   .maildraft{width:100%;min-height:90px;background:#151515;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit;font-size:14px;resize:vertical}
@@ -725,6 +731,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(m.autoCard && !m.autoCard.skipped){ const k=autoCard(m.autoCard,{onChange:touch}); k.dataset.key='m'+i; b.appendChild(k); }
     if(m.sources) b.appendChild(sourcesRow(m.sources));
     if(m.plugCard && !m.plugCard.skipped) b.appendChild(plugCardEl(m.plugCard));
+    if(m.appList) b.appendChild(appListCard(m.appList));
+    if(m.appCard && !m.appCard.skipped) b.appendChild(appCardEl(m.appCard));
     return b;
   }
   function renderChat(){
@@ -1023,6 +1031,9 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     // "send this to slack" / "post on discord: …" — a card you check and send yourself; the AI never posts on its own
     const pk=!files.length && plugIntent(text);
     if(pk){ c.messages.push(plugReply(c,pk,text)); c.updated=Date.now(); saveC(); renderChat(); renderSide(); return; }
+    // "my github issues", "what's on my calendar", "add task to todoist: …" - the app answers (creating waits for your button)
+    const ak=!files.length && !researchOn && appIntent(text);
+    if(ak){ await runAppIntent(c,ak); return; }
     const research=researchOn && text && !files.length;
     busy=true; sendBtn.disabled=true;
     const wrap=chat.querySelector('.wrap')||(()=>{const w=document.createElement('div');w.className='wrap';chat.appendChild(w);return w;})();
@@ -1032,7 +1043,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const stepsDone=()=>aiEl._steps.querySelectorAll('div:not(.done)').forEach(s=>{ s.className='done'; s.textContent=s.dataset.t; });
 
     // messages to send: the real convo (user message without the file-name echo) + file text separately
-    const outMsgs=c.messages.map(m=>({role:m.role,content:m.content}));
+    const outMsgs=c.messages.map(m=>({role:m.role,content:m.ctx||m.content}));
     outMsgs[outMsgs.length-1]={role:'user',content:text||'(see attached file)'};
     if(currentId===briefChatId && briefText) outMsgs.unshift({role:'assistant',content:briefText});
     let full='', need=null;
@@ -1164,7 +1175,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
   function plugOn(id){
     if(id==='gmail') return Boolean(plugState?.gmail);
-    if(SEND_PLUGS[id]) return Boolean(plugCfg[id]);
+    if(SEND_PLUGS[id]||APP_PLUGS[id]) return Boolean(plugCfg[id]);
     if(id==='folder') return Boolean(folder&&folder.files);
     return true; // built in
   }
@@ -1184,7 +1195,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(id==='gmail') return showGmail(false);
     if(id==='folder'){ $('plugPage').classList.remove('open'); return folder&&folder.files?showFiles():folder?wakeFolder():openFolder(); }
     if(id==='auto'){ $('plugPage').classList.remove('open'); return showSched(); }
-    if(SEND_PLUGS[id]) return openPlugConnect(id);
+    if(SEND_PLUGS[id]||APP_PLUGS[id]) return openPlugConnect(id);
     if(id==='memory'){ $('plugPage').classList.remove('open'); return showMemory(); }
     if(id==='live'){ $('plugPage').classList.remove('open'); input.value='What is the weather in Hyderabad right now?'; input.focus(); }
   }
@@ -1596,13 +1607,165 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       how:['Make a webhook trigger: Zapier <b>Webhooks by Zapier → Catch Hook</b>, Make <b>Custom webhook</b>, n8n <b>Webhook</b> node, or IFTTT <b>Webhooks</b>.','Copy its URL (https://…) and paste it below.','CodeConClave sends <code>{"text", "source", "sentAt"}</code> — use it in any next step: Sheets, Notion, WhatsApp, email, CRM…'],
       fields:[['url','Webhook URL','https://hooks.zapier.com/… or your Make / n8n URL']]}};
   PLUGINS.push(...Object.entries(SEND_PLUGS).map(([id,p])=>({id, name:p.name, cat:id==='webhook'?'Automation':'Messaging', icon:()=>p.icon, desc:p.desc})));
+  // ---- App plugins: GitHub, Notion, Calendar, Todoist, Linear, Jira, Asana, news feeds ----
+  // Same idea as the messaging plugins: your token stays in this browser and goes with each request.
+  // Reading (issues, tasks, calendar) shows right away; creating something always waits for your button.
+  const APP_PLUGS={
+    github:{name:'GitHub', cat:'Development', icon:svgIco('<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7"/><path d="M18 10.5c0 4-6 3-11 5.5"/>'),
+      desc:'Your repos, issues, pull requests and notifications — and new issues you approve.',
+      how:['On GitHub open <b>Settings → Developer settings → Personal access tokens → Tokens (classic)</b> → <b>Generate new token (classic)</b>.','Tick the <b>repo</b> and <b>notifications</b> boxes, then <b>Generate token</b>.','Copy the token (starts with <code>ghp_</code>) and paste it below.'],
+      fields:[['token','Personal access token','ghp_…','secret']], ask:'my github issues · my pull requests · create a github issue in owner/repo: title',
+      writes:{create_issue:{label:'New GitHub issue', verb:'create on GitHub', button:'Create issue'}}},
+    notion:{name:'Notion', cat:'Productivity', icon:svgIco('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8v8"/><path d="M9 8l6 8"/><path d="M15 8v8"/>'),
+      desc:'Search your Notion pages and add notes to a page you choose.',
+      how:['Open <b>notion.so/profile/integrations</b> → <b>New integration</b> → type <b>Internal</b> → copy the <b>Internal Integration Secret</b>.','Open the Notion page CodeConClave may use → <b>•••</b> → <b>Connections</b> → add your integration.','Paste the secret and that page’s link below.'],
+      fields:[['token','Integration secret','ntn_…','secret'],['page','Page to add notes to (link)','https://www.notion.so/…']], ask:'search notion for project plan · save this to notion',
+      writes:{add_note:{label:'Add to Notion', verb:'add to your Notion page', button:'Add to Notion'}}},
+    calendar:{name:'Calendar (Google, Outlook)', cat:'Productivity', icon:()=>ICONS.calendar,
+      desc:'Reads your Google or Outlook calendar: today, tomorrow and the week ahead.',
+      how:['<b>Google:</b> calendar.google.com on a computer → <b>Settings</b> → click your calendar → <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>.','<b>Outlook:</b> Settings → Calendar → Shared calendars → <b>Publish a calendar</b> → copy the <b>ICS</b> link.','Paste it below (it is private — it stays on this device).'],
+      fields:[['url','Secret calendar link','https://calendar.google.com/calendar/ical/…/basic.ics','secret']], ask:'what’s on my calendar today · my meetings this week'},
+    todoist:{name:'Todoist', cat:'Productivity', icon:svgIco('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/>'),
+      desc:'Your tasks for today, and new tasks you approve.',
+      how:['In Todoist open <b>Settings → Integrations → Developer</b>.','Copy your <b>API token</b> and paste it below.'],
+      fields:[['token','API token','40 letters and numbers','secret']], ask:'my tasks today · add task to todoist: call the bank tomorrow',
+      writes:{add_task:{label:'New Todoist task', verb:'add to Todoist', button:'Add task'}}},
+    linear:{name:'Linear', cat:'Development', icon:svgIco('<path d="M4 15 15 4"/><path d="M4 20 20 4"/><path d="M9 20 20 9"/>'),
+      desc:'Issues assigned to you, and new issues you approve.',
+      how:['In Linear open <b>Settings → Account → Security &amp; access</b> → <b>Personal API keys</b> → <b>New API key</b>.','Copy the key (starts with <code>lin_api_</code>) and paste it below.'],
+      fields:[['token','Personal API key','lin_api_…','secret']], ask:'my linear issues · create a linear issue: title',
+      writes:{create_issue:{label:'New Linear issue', verb:'create in Linear', button:'Create issue'}}},
+    jira:{name:'Jira', cat:'Development', icon:svgIco('<path d="M12 3 3 12l9 9 9-9z"/><path d="M12 8.5 8.5 12l3.5 3.5 3.5-3.5z"/>'),
+      desc:'Your open Jira issues, and new issues you approve.',
+      how:['Open <b>id.atlassian.com/manage-profile/security/api-tokens</b> → <b>Create API token</b> → copy it.','Fill in your Jira site (like <code>yourteam.atlassian.net</code>), your Jira email and the token.'],
+      fields:[['site','Jira site','yourteam.atlassian.net'],['email','Your Jira email','you@example.com'],['token','API token','ATATT…','secret']], ask:'my jira issues · create a jira issue in CC: title',
+      writes:{create_issue:{label:'New Jira issue', verb:'create in Jira', button:'Create issue'}}},
+    asana:{name:'Asana', cat:'Productivity', icon:svgIco('<circle cx="12" cy="7" r="3.2"/><circle cx="6.5" cy="15.5" r="3.2"/><circle cx="17.5" cy="15.5" r="3.2"/>'),
+      desc:'Your open Asana tasks, and new tasks you approve.',
+      how:['Open <b>app.asana.com/0/my-apps</b> → <b>Create new token</b>.','Copy the personal access token and paste it below.'],
+      fields:[['token','Personal access token','2/1234…','secret']], ask:'my asana tasks · add task to asana: send the report',
+      writes:{add_task:{label:'New Asana task', verb:'add to Asana', button:'Add task'}}},
+    feeds:{name:'News feeds (RSS)', cat:'Data', icon:svgIco('<path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>'),
+      desc:'Latest stories from the sites, blogs and YouTube channels you follow.',
+      how:['Find the RSS or Atom link of a site you like (often at <code>/feed</code> or <code>/rss</code>). A YouTube channel’s is <code>https://www.youtube.com/feeds/videos.xml?channel_id=…</code>.','Paste up to 6 links below, one per line.'],
+      fields:[['urls','Feed links (one per line)','https://…/feed','textarea']], ask:'what’s new on my feeds'},
+  };
+  PLUGINS.push(...Object.entries(APP_PLUGS).map(([id,p])=>({id, name:p.name, cat:p.cat, icon:()=>typeof p.icon==='function'?p.icon():p.icon, desc:p.desc})));
+  const plugDef=(k)=>SEND_PLUGS[k]||APP_PLUGS[k];
+  const plugIcon=(k)=>{ const i=plugDef(k)?.icon; return typeof i==='function'?i():i||''; };
+  async function appCall(app,action,args={},cfg=plugCfg[app]){
+    const r=await fetch('/api/apps/'+app+'/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfg||{},args})});
+    const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'Could not reach the app.'); return d;
+  }
+  // What the message asks an app to do, or null. Questions about an app ("what is github?") stay with the AI.
+  function appIntent(t){
+    const s=t.toLowerCase(), after=((t.match(/:\s*([\s\S]+)$/)||[])[1]||'').trim();
+    if(/^\s*(how|what|why|when|who|explain|tell me about|is|are|can|does|do)\b/.test(s) && !/\b(my|our|do i|have i|i have)\b/.test(s)) return null;
+    const make=/\b(create|open|new|file|make|add|raise|log)\b/;
+    if(/\bgit\s?hub\b/.test(s) || /\bmy (open )?(pull requests?|prs)\b/.test(s)){
+      if(make.test(s) && /\bissue\b/.test(s) && !/\bmy (open )?issues\b/.test(s)) return {app:'github',action:'create_issue',args:{repo:(t.match(/\b([\w.-]+\/[\w.-]+)\b/)||[])[1]||'',title:after,body:''}};
+      if(/notification/.test(s)) return {app:'github',action:'notifications'};
+      if(/\b(pull requests?|prs?)\b/.test(s)) return {app:'github',action:'prs'};
+      if(/\bissues?\b/.test(s)) return {app:'github',action:'issues'};
+      if(/\b(my|our|show|list|check)\b/.test(s)) return {app:'github',action:'repos'};
+      return null;
+    }
+    if(/\bnotion\b/.test(s)){
+      if(/\b(add|save|put|write|append|send|note)\b/.test(s)) return {app:'notion',action:'add_note',args:{text:after}};
+      const q=(t.match(/\b(?:search|find|look\s+up|look\s+for)\s+(?:in\s+|on\s+)?(?:my\s+)?(?:notion\s+)?(?:for\s+)?(.+?)(?:\s+(?:in|on)\s+(?:my\s+)?notion)?\s*\??$/i)||[])[1]||'';
+      return {app:'notion',action:'search',args:{query:q.replace(/\bnotion\b/ig,'').trim()}};
+    }
+    if(/\bcalendar\b/.test(s) || /\bmy (meetings?|events?|appointments?|schedule)\b/.test(s) || /\b(what|which|any|show|list|do i have|have i got)\b[\s\S]*\b(meetings?|events?|appointments?)\b/.test(s)){
+      if(/\b(every|remind)\b/.test(s)) return null; // schedules and reminders belong to Automations
+      return {app:'calendar',action:'events',args:{range:/tomorrow/.test(s)?'tomorrow':/\b(week|upcoming|next few days)\b/.test(s)?'week':'today'}};
+    }
+    const taskText=()=>after||((t.match(/\badd\s+(.+?)\s+(?:to|in|on)\s+(?:my\s+)?(?:todoist|asana|to-?do list|tasks)\b/i)||[])[1]||'').trim();
+    for(const [k,re] of [['todoist',/\btodoist\b/],['asana',/\basana\b/]])
+      if(re.test(s)) return make.test(s)&&!/\bmy tasks\b/.test(s)?{app:k,action:'add_task',args:{content:taskText(),due:'',notes:''}}:{app:k,action:'tasks'};
+    const taskApp=plugCfg.todoist?'todoist':plugCfg.asana?'asana':null; // "my tasks" goes to whichever task app is connected
+    if(taskApp){
+      if(/\b(my|today'?s?) (tasks|to-?dos?|to-?do list)\b/.test(s) && !/\b(scheduled|automations?)\b/.test(s) && !make.test(s)) return {app:taskApp,action:'tasks'};
+      if(/\badd\b.*\b(task|to-?do)\b/.test(s) && !/\b(every|remind)\b/.test(s)) return {app:taskApp,action:'add_task',args:{content:taskText(),due:'',notes:''}};
+    }
+    if(/\b(linear (issues?|tickets?)|my linear|(in|to|on) linear)\b/.test(s))
+      return make.test(s)&&!/\bmy (linear )?issues\b/.test(s)?{app:'linear',action:'create_issue',args:{title:after,body:''}}:{app:'linear',action:'issues'};
+    if(/\bjira\b/.test(s))
+      return make.test(s)&&/\b(issue|ticket|task|bug)\b/.test(s)&&!/\bmy (jira )?(issues|tickets)\b/.test(s)
+        ?{app:'jira',action:'create_issue',args:{project:(t.match(/\b(?:in|to)\s+([A-Z][A-Z0-9_]{1,9})\b/)||[])[1]||'',title:after,body:''}}:{app:'jira',action:'issues'};
+    if(/\b(my feeds?|rss|news feeds?)\b/.test(s)) return {app:'feeds',action:'latest'};
+    return null;
+  }
+  async function runAppIntent(c,it){
+    const p=APP_PLUGS[it.app];
+    const done=()=>{ c.updated=Date.now(); saveC(); renderChat(); renderSide(); };
+    if(!plugCfg[it.app]){ c.messages.push({role:'assistant',content:`${p.name} isn’t connected yet. Open Plugins (left side) → ${p.name} to connect it — it takes a minute — then ask me again.`}); return done(); }
+    const w=p.writes?.[it.action];
+    if(w){
+      const args={...(it.args||{})};
+      if(it.action==='add_note' && !args.text) args.text=([...c.messages].reverse().find(m=>m.role==='assistant'&&m.content&&!m.appCard&&!m.appList)?.content||'').replace(/\s*📊\s*Source:[^\n]*/g,'').trim();
+      c.messages.push({role:'assistant',content:`Here’s what I’ll ${w.verb}. Check it, change anything, and press ${w.button}.`, appCard:{app:it.app,action:it.action,args}});
+      return done();
+    }
+    busy=true; sendBtn.disabled=true;
+    const wrap=chat.querySelector('.wrap'), wait=bubble('ai',''); wait._steps.appendChild(el('div',null,'Checking '+p.name+'…'));
+    wait.insertAdjacentHTML('beforeend','<span class="dots"><i></i><i></i><i></i></span>'); wrap.appendChild(wait); chat.scrollTop=chat.scrollHeight;
+    let msg;
+    try{
+      const d=await appCall(it.app,it.action,it.args||{}), items=d.items||[];
+      const lines=items.map(x=>'- '+x.title+(x.sub?' ('+x.sub+')':'')).join('\n');
+      msg={role:'assistant', content:items.length?`${d.title} — ${items.length}:`:`${d.title}: nothing right now.`, steps:['Checked '+p.name],
+        ctx:`${d.title}:\n${lines||'(none)'}`, appList:{app:it.app,title:d.title,items}};
+    }catch(e){ msg={role:'assistant',content:`I couldn’t reach ${p.name}: ${e.message}`}; }
+    c.messages.push(msg); busy=false; sendBtn.disabled=false; done(); input.focus();
+  }
+  function appListCard(l){
+    const box=el('div','mlist'), h=el('div','bhead'); h.innerHTML=plugIcon(l.app); h.appendChild(el('span',null,l.title)); box.appendChild(h);
+    if(!l.items.length){ box.appendChild(el('div','mailsubj','Nothing here right now.')); return box; }
+    const ul=el('ul','blist applist');
+    l.items.forEach(x=>{ const li=document.createElement('li');
+      if(x.url && /^https?:\/\//.test(x.url)) li.appendChild(Object.assign(document.createElement('a'),{href:x.url,target:'_blank',rel:'noopener noreferrer',textContent:x.title}));
+      else li.appendChild(el('b',null,x.title));
+      if(x.sub) li.appendChild(el('span','dim',' · '+x.sub)); ul.appendChild(li); });
+    box.appendChild(ul); return box;
+  }
+  const WRITE_FIELDS={
+    'github.create_issue':[['repo','Repository (owner/name)'],['title','Title'],['body','Details','textarea']],
+    'notion.add_note':[['text','Text to add','textarea']],
+    'todoist.add_task':[['content','Task'],['due','When (like “tomorrow 5pm”)']],
+    'linear.create_issue':[['title','Title'],['body','Details','textarea']],
+    'jira.create_issue':[['project','Project key (like CC)'],['title','Title'],['body','Details','textarea']],
+    'asana.add_task':[['content','Task'],['notes','Notes','textarea']],
+  };
+  function appCardEl(m){
+    const p=APP_PLUGS[m.app], w=p.writes[m.action], card=el('div','mailcard appcard');
+    const head=el('div','bnote'); head.innerHTML=plugIcon(m.app)+' '; head.appendChild(el('b',null,w.label)); card.appendChild(head);
+    const inputs=[];
+    (WRITE_FIELDS[m.app+'.'+m.action]||[]).forEach(([k,label,kind])=>{
+      const l=el('label','fieldlbl',label), i=document.createElement(kind==='textarea'?'textarea':'input');
+      if(kind==='textarea'){ i.rows=3; i.className='maildraft'; }
+      i.value=m.args[k]||''; i.disabled=Boolean(m.done); i.oninput=()=>{ m.args[k]=i.value; touch(); };
+      l.appendChild(i); card.appendChild(l); inputs.push(i); });
+    const act=el('div','mailact'), go=el('button','msend',w.button), skip=el('button','mskip','Cancel'), st=el('span','mstatus');
+    card.appendChild(act); act.append(go,skip,st);
+    const finished=()=>{ go.remove(); skip.remove(); inputs.forEach(i=>i.disabled=true); st.textContent='✅ '+(m.doneText||'Done')+' ';
+      if(m.url && /^https:\/\//.test(m.url)) st.appendChild(Object.assign(document.createElement('a'),{href:m.url,target:'_blank',rel:'noopener noreferrer',textContent:'Open'})); };
+    if(m.done) finished();
+    skip.onclick=()=>{ m.skipped=true; touch(); card.remove(); };
+    go.onclick=async()=>{ if(!plugCfg[m.app]){ st.textContent=p.name+' is not connected on this device.'; return; }
+      go.disabled=true; st.textContent='Working…';
+      try{ const d=await appCall(m.app,m.action,m.args); m.done=true; m.doneText=d.text; m.url=d.url; touch(); finished(); renderSide(); }
+      catch(e){ go.disabled=false; st.textContent=e.message; } };
+    return card;
+  }
+
   let pmKind=null;
   function openPlugConnect(kind){
-    const p=SEND_PLUGS[kind]; pmKind=kind;
-    $('pmIcon').innerHTML=p.icon; $('pmTitle').textContent=(plugCfg[kind]?'':'Connect ')+p.name; $('pmDesc').textContent=p.desc;
-    $('pmHow').innerHTML=p.how.map(h=>'<li>'+h+'</li>').join(''); $('pmErr').textContent=''; $('pmErr').style.color='';
+    const p=plugDef(kind); pmKind=kind;
+    $('pmIcon').innerHTML=plugIcon(kind); $('pmTitle').textContent=(plugCfg[kind]?'':'Connect ')+p.name; $('pmDesc').textContent=p.desc;
+    $('pmHow').innerHTML=p.how.map(h=>'<li>'+h+'</li>').join('')+(p.ask?'<li>Then just ask: <i>'+p.ask+'</i></li>':''); $('pmErr').textContent=''; $('pmErr').style.color='';
     const f=$('pmFields'); f.innerHTML='';
-    p.fields.forEach(([k,label,ph])=>{ const l=el('label','fieldlbl',label), i=document.createElement('input'); i.type=k==='token'?'password':'text'; i.id='pm_'+k; i.placeholder=ph; i.autocomplete='off'; i.value=plugCfg[kind]?.[k]||''; l.appendChild(i); f.appendChild(l); });
+    p.fields.forEach(([k,label,ph,kind2])=>{ const l=el('label','fieldlbl',label), i=document.createElement(kind2==='textarea'?'textarea':'input'); if(kind2==='textarea'){ i.rows=4; i.className='maildraft'; } else i.type=(k==='token'||kind2==='secret')?'password':'text'; i.id='pm_'+k; i.placeholder=ph; i.autocomplete='off'; i.value=plugCfg[kind]?.[k]||''; l.appendChild(i); f.appendChild(l); });
+    $('pmSave').textContent=APP_PLUGS[kind]?'Save and check it works':'Save and send a test message';
     $('pmRemove').style.display=plugCfg[kind]?'':'none'; $('plugModal').classList.add('open');
   }
   async function plugSend(kind,cfg,text){
@@ -1610,14 +1773,21 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'Could not send.');
   }
   $('pmSave').onclick=async()=>{
-    const cfg={}; SEND_PLUGS[pmKind].fields.forEach(([k])=>cfg[k]=$('pm_'+k).value.trim());
-    $('pmSave').disabled=true; $('pmErr').style.color=''; $('pmErr').textContent='Sending a test message…';
+    const cfg={}; plugDef(pmKind).fields.forEach(([k])=>cfg[k]=$('pm_'+k).value.trim());
+    $('pmSave').disabled=true; $('pmErr').style.color='';
+    if(APP_PLUGS[pmKind]){ // apps: check the token really works before saving it
+      $('pmErr').textContent='Checking…';
+      try{ const d=await appCall(pmKind,'test',{},cfg); plugCfg[pmKind]=cfg; savePlugCfg(); $('plugModal').classList.remove('open'); toast('✅ '+d.text); renderPlugins(); renderSide(); }
+      catch(e){ $('pmErr').textContent=e.message; }
+      $('pmSave').disabled=false; return;
+    }
+    $('pmErr').textContent='Sending a test message…';
     try{ await plugSend(pmKind,cfg,'✅ CodeConClave AI is connected. Ask me to "send this to '+SEND_PLUGS[pmKind].name.split(' ')[0].toLowerCase()+'" any time.');
       plugCfg[pmKind]=cfg; savePlugCfg(); $('plugModal').classList.remove('open'); toast('✅ '+SEND_PLUGS[pmKind].name+' connected — test message sent.'); renderPlugins(); renderSide(); }
     catch(e){ $('pmErr').textContent=e.message; }
     $('pmSave').disabled=false;
   };
-  $('pmRemove').onclick=()=>{ delete plugCfg[pmKind]; savePlugCfg(); $('plugModal').classList.remove('open'); toast(SEND_PLUGS[pmKind].name+' disconnected.'); renderPlugins(); renderSide(); };
+  $('pmRemove').onclick=()=>{ delete plugCfg[pmKind]; savePlugCfg(); $('plugModal').classList.remove('open'); toast(plugDef(pmKind).name+' disconnected.'); renderPlugins(); renderSide(); };
   $('pmClose').onclick=()=>$('plugModal').classList.remove('open');
   // "send this to slack", "post on discord: …", "tell my telegram that …", "send to zapier …"
   const PLUG_RE=/\b(send|post|share|message|tell|notify|forward|drop)\b[\s\S]*?\b(?:on|to|in|into|via|through)\s+(?:my\s+|the\s+|our\s+)?(slack|discord|telegram|webhook|zapier|make|n8n|ifttt)\b/i;
@@ -1706,7 +1876,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       const bar=el('div','sbar'), i=document.createElement('i'), p=usageNow.unlimited?0:Math.min(100,u.used/u.limit*100); i.style.width=p+'%'; i.style.background=p>=90?'#e5534b':p>=70?'#f2c200':'#1a93fe'; bar.appendChild(i); us.appendChild(bar);
       us.appendChild(el('div','sempty',u.resetsAt?'Resets '+when(u.resetsAt):'Starts with your next message')); us.lastChild.style.marginBottom='10px'; });
     // Connectors
-    const conns=[['Gmail',Boolean(plugState?.gmail)],['Local folder',Boolean(folder&&folder.files)],...Object.entries(SEND_PLUGS).map(([k,p])=>[p.name.split(' (')[0],Boolean(plugCfg[k])]),['Live data',true],['Memory',true]];
+    const conns=[['Gmail',Boolean(plugState?.gmail)],['Local folder',Boolean(folder&&folder.files)],...Object.entries(SEND_PLUGS).map(([k,p])=>[p.name.split(' (')[0],Boolean(plugCfg[k])]),...Object.entries(APP_PLUGS).map(([k,p])=>[p.name.split(' (')[0],Boolean(plugCfg[k])]),['Live data',true],['Memory',true]];
     const on=conns.filter(x=>x[1]); const cs=sec('Connectors · '+on.length+' connected');
     on.forEach(([n])=>{ const r=el('div','sitem'); r.innerHTML=svgIco('<path d="M20 6 9 17l-5-5"/>'); r.appendChild(el('span','grow',n)); cs.appendChild(r); });
     const more=el('div','srow'); const mb=el('button',null,'Connect more'); mb.onclick=()=>showPlugins(); more.appendChild(mb); cs.appendChild(more);
@@ -1715,6 +1885,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     (c?.messages||[]).forEach(m=>{
       if(m.card) outs.push(['<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>','Email: '+(m.card.subject||m.card.fromName||'draft'),m.card.sent?'sent':'draft']);
       if(m.autoCard) outs.push(['<rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/>',m.autoCard.task,m.autoCard.on?'on':'not on']);
+      if(m.appCard && m.appCard.done) outs.push([plugIcon(m.appCard.app).replace(/^<svg[^>]*>|<\/svg>$/g,''),APP_PLUGS[m.appCard.app]?.writes?.[m.appCard.action]?.label||'App','done']);
       if(m.plugCard) outs.push([SEND_PLUGS[m.plugCard.kind]?.icon.replace(/^<svg[^>]*>|<\/svg>$/g,'')||'','To '+SEND_PLUGS[m.plugCard.kind]?.name.split(' (')[0],m.plugCard.sent?'sent':'not sent']);
       if(m.sources) outs.push(['<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/>','Research · '+m.sources.length+' sources','']);
       if(m.fileCard) changes.push([m.fileCard.path,m.fileCard.kind==='create'?'new file':'edit']);
