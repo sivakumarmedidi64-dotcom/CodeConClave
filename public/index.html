@@ -2284,7 +2284,9 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   // read an answer aloud: the AI's cloud voice where it has one, else the device's voice for that language
   const VKEY='cc_voice_v1';
   const voicePref=()=>{ try{ return localStorage.getItem(VKEY)||'male'; }catch{ return 'male'; } };
-  $('voicePick').value=voicePref(); $('voicePick').onchange=()=>{ try{ localStorage.setItem(VKEY,$('voicePick').value); }catch{} toast('Voice set to '+$('voicePick').selectedOptions[0].text+'.'); };
+  $('voicePick').value=voicePref(); $('voicePick').onchange=async()=>{ const v=$('voicePick').value; try{ localStorage.setItem(VKEY,v); }catch{}
+    let own=false; if(v!=='standard'){ try{ own=(await (await fetch('/api/voice/status')).json()).own; }catch{} }
+    toast(v==='standard'||own?'Voice set to '+$('voicePick').selectedOptions[0].text+'.':'Voice set. The CodeConClave voices play while their voice server is on - until then you hear the standard voice.'); };
   function stopSpeaking(){ if(speaking){ try{ speaking.pause?.(); }catch{} speaking=null; } try{ speechSynthesis.cancel(); }catch{} }
   async function speak(text,btn){
     if(speaking||speechSynthesis.speaking){ stopSpeaking(); btn?.classList.remove('on'); return; }

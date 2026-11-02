@@ -1821,9 +1821,35 @@ app.post('/api/voice/transcribe', wrap(async (req, res) => {
   try { res.json(await cloudVoice('/audio/transcriptions', { audio, language: req.body?.language })); }
   catch (e) { res.status(e.status || 502).json({ error: e.message }); }
 }));
+// The founder's own voices (male = his, female = his sister's, with her OK) come from a voice server on his laptop.
+// The laptop's keep-voice-online.ps1 tells us its tunnel address every minute (no redeploy); stale after 3 minutes.
+const VOICE_KEY = String(process.env.VOICE_KEY || '').trim();
+let laptopVoice = { url: '', at: 0 };
+app.post('/api/voice/register', (req, res) => {
+  const k = String(req.get('x-voice-key') || '');
+  if (!VOICE_KEY || k.length !== VOICE_KEY.length || !crypto.timingSafeEqual(Buffer.from(k), Buffer.from(VOICE_KEY))) return res.status(401).json({ error: 'not allowed' });
+  const url = String(req.body?.url || '').trim();
+  if (!/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(url)) return res.status(400).json({ error: 'expected a trycloudflare.com address' });
+  laptopVoice = { url, at: Date.now() };
+  res.json({ ok: true });
+});
+const ownVoiceUp = () => laptopVoice.url && Date.now() - laptopVoice.at < 180000;
+async function ownVoice(text, voice, lang) {
+  const r = await fetch(`${laptopVoice.url}/speak`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-voice-key': VOICE_KEY },
+    body: JSON.stringify({ text, voice, lang }), signal: AbortSignal.timeout(120000) });
+  if (!r.ok) throw new Error(`voice server ${r.status}`);
+  return `data:audio/wav;base64,${Buffer.from(await r.arrayBuffer()).toString('base64')}`;
+}
+const OWN_VOICE_LANGS = new Set(['ar', 'da', 'de', 'el', 'en', 'es', 'fi', 'fr', 'he', 'hi', 'it', 'ja', 'ko', 'ms', 'nl', 'no', 'pl', 'pt', 'ru', 'sv', 'sw', 'tr', 'zh']);
+app.get('/api/voice/status', (_req, res) => res.json({ own: Boolean(ownVoiceUp()), languages: [...OWN_VOICE_LANGS] }));
 app.post('/api/voice/speak', wrap(async (req, res) => {
   if (!voiceOk(req)) return res.status(429).json({ error: 'Too much voice use - wait a few minutes.' });
   const text = String(req.body?.text || '').slice(0, 1500), lang = String(req.body?.lang || 'en').slice(0, 5);
+  const voice = ['male', 'female'].includes(req.body?.voice) ? req.body.voice : 'standard';
+  if (voice !== 'standard' && ownVoiceUp() && OWN_VOICE_LANGS.has(lang.slice(0, 2))) {
+    try { return res.json({ audio: await ownVoice(text.slice(0, 400), voice, lang.slice(0, 2)), own: true }); }
+    catch { /* the laptop is busy or gone: the standard voice below */ }
+  }
   try {
     const d = await cloudVoice('/audio/speech', { text, lang });
     if (!d.audio) return res.status(502).json({ error: 'No audio came back.' });
