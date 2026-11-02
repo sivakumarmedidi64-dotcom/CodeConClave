@@ -1383,17 +1383,18 @@ app.get('/api/status', wrap(async (_req, res) => {
     state: modelStatus.state, contextTokens: 4096, limits: { fiveHour: LIMIT_5H, weekly: LIMIT_WEEK } });
 }));
 
-// A short name for a chat, from its first question and answer.
+// A short name for a chat, from its first question. A message of three words or fewer ("hi") is its own name.
 app.post('/api/title', wrap(async (req, res) => {
   const text = String(req.body?.text || '').replace(/\s+/g, ' ').trim().slice(0, 600);
-  const answer = String(req.body?.answer || '').replace(/\s+/g, ' ').trim().slice(0, 600);
   if (!text) return res.status(400).json({ error: 'Nothing to name.' });
   let title = '';
-  if (BASE) {
+  if (BASE && text.split(' ').length > 3) {
     try {
       title = await callModel([
-        { role: 'system', content: 'You name chats. Reply with only a short title of 2 to 5 words that says what this chat is about. No quotes.' },
-        { role: 'user', content: `User: ${text}\nAssistant: ${answer}\n\nTitle:` }], 16, 0.2);
+        // Only the question: with the answer (or worked examples) in the prompt the model named the answer
+        // or copied the example ("say hello" became "AI Language Processing Tool").
+        { role: 'system', content: 'You write short titles for chats.' },
+        { role: 'user', content: `Question: ${text}\n\nWrite a title of 2 to 5 words for this question. Reply with the title only.` }], 16, 0.2);
     } catch { /* fall back to the question */ }
   }
   title = title.split('\n')[0].replace(/^title\s*:\s*/i, '').replace(/^["'*#\s]+|["'*.!\s]+$/g, '').slice(0, 48);

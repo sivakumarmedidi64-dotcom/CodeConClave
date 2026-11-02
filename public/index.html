@@ -1969,7 +1969,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const env=sec('Environment');
     row(env,'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>','CodeConClave AI',{online:'● Online',busy:'● Busy',offline:'● Offline'}[aiState]);
     env.lastChild.querySelector('.dim').style.color={online:'#7bd88f',busy:'#f2c200',offline:'#e5534b'}[aiState];
-    if(aiBrain) row(env,'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',aiBrain==='cloud'?'Always-on brain':'Laptop brain',aiBrain==='cloud'?'works with your laptop closed':'only while the laptop is on');
+    if(aiBrain) row(env,'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',aiBrain==='cloud'?'Always-on brain':'Laptop brain',aiBrain==='cloud'?'24/7':'laptop on');
+    if(aiBrain) env.lastChild.title=aiBrain==='cloud'?'Runs in the cloud — works even with your laptop closed':'Runs on the founder’s laptop — only while it is on';
     row(env,'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',folder?folder.name:'No folder connected',null,folder?null:['Connect',()=>openFolder()]);
     const standalone=matchMedia('(display-mode: standalone)').matches;
     if(DESK) row(env,'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>','Desktop app · terminal, browser, apps',null);
