@@ -1,0 +1,35 @@
+{
+  "name": "codeconclave-desktop",
+  "productName": "CodeConClave AI",
+  "version": "1.0.0",
+  "description": "CodeConClave AI on your computer: terminal, browser and files - every action only with your OK.",
+  "main": "main.js",
+  "author": "Saharsh Medidi",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "45.2.1",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "ai.codeconclave.desktop",
+    "productName": "CodeConClave AI",
+    "copyright": "Saharsh Medidi",
+    "files": ["main.js", "preload.js", "splash.html", "logo.png", "icon.png"],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "CodeConClave AI",
+      "artifactName": "CodeConClave-AI-Setup-${version}.${ext}"
+    }
+  }
+}
