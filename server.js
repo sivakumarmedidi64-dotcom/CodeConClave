@@ -1063,8 +1063,8 @@ async function spaceLive(q) {
 }
 
 // ---- Email (mom's idea): brief today's mail → flag the important ones → draft replies → user approves → send ----
-async function callModel(messages, maxTokens = 700, temperature = 0.3, responseFormat = null) {
-  const r = await brainPost('/chat/completions', { messages, temperature, max_tokens: maxTokens, ...(responseFormat ? { response_format: responseFormat } : {}) });
+async function callModel(messages, maxTokens = 700, temperature = 0.3, responseFormat = null, extra = null) {
+  const r = await brainPost('/chat/completions', { messages, temperature, max_tokens: maxTokens, ...(responseFormat ? { response_format: responseFormat } : {}), ...(extra || {}) });
   const d = await r.json();
   return d?.choices?.[0]?.message?.content?.trim() || '';
 }
@@ -1724,18 +1724,19 @@ app.post('/api/plan', wrap(async (req, res) => {
 }));
 
 // ---- Office files: the AI writes the content in a fixed shape; the browser builds the real .xlsx / .pptx / .docx / .pdf ----
+// Every list has a cap: without one the model looped on column names until it ran out of room (broken JSON).
 const DOC_SCHEMAS = {
-  sheet: { type: 'object', properties: { title: { type: 'string' }, columns: { type: 'array', items: { type: 'string' } },
-    rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } } }, required: ['title', 'columns', 'rows'] },
+  sheet: { type: 'object', properties: { title: { type: 'string' }, columns: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 8 },
+    rows: { type: 'array', items: { type: 'array', items: { type: 'string' }, maxItems: 8 }, minItems: 1, maxItems: 20 } }, required: ['title', 'columns', 'rows'] },
   slides: { type: 'object', properties: { title: { type: 'string' }, subtitle: { type: 'string' },
-    slides: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, bullets: { type: 'array', items: { type: 'string' } } }, required: ['title', 'bullets'] } } },
+    slides: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, bullets: { type: 'array', items: { type: 'string' }, maxItems: 5 } }, required: ['title', 'bullets'] }, minItems: 2, maxItems: 8 } },
     required: ['title', 'slides'] },
   doc: { type: 'object', properties: { title: { type: 'string' },
-    sections: { type: 'array', items: { type: 'object', properties: { heading: { type: 'string' }, paragraphs: { type: 'array', items: { type: 'string' } } }, required: ['heading', 'paragraphs'] } } },
+    sections: { type: 'array', items: { type: 'object', properties: { heading: { type: 'string' }, paragraphs: { type: 'array', items: { type: 'string' }, maxItems: 3 } }, required: ['heading', 'paragraphs'] }, minItems: 2, maxItems: 7 } },
     required: ['title', 'sections'] },
 };
 const DOC_ASK = {
-  sheet: 'a spreadsheet: a title, 3 to 8 column names, and 5 to 30 rows (each row has one value per column; numbers as plain digits)',
+  sheet: 'a spreadsheet: a title, 2 to 6 column names - only columns you can fill with a real value in every row - and 5 to 20 rows (each row has one value per column; numbers as plain digits like 342239)',
   slides: 'a slide deck: a title, a one-line subtitle, and 5 to 8 slides, each with a short title and 3 to 5 short bullet points',
   doc: 'a document: a title and 4 to 7 sections, each with a heading and 1 to 3 clear paragraphs',
 };
@@ -1766,7 +1767,7 @@ app.post('/api/doc', (req, res, next) => (async () => {
     const raw = await callModel([
       { role: 'system', content: 'You are CodeConClave AI. You write clear, correct content for files. Use the facts given; never invent numbers.' },
       { role: 'user', content: `${facts ? `${facts}\n\n` : ''}Request: ${request}\n\nWrite the content for ${DOC_ASK[kind]}.${extra} Reply only as JSON in this shape: ${JSON.stringify(DOC_SCHEMAS[kind].properties)}` }],
-    1800, temp, { type: 'json_object', schema: DOC_SCHEMAS[kind] }).catch(() => '');
+    1800, temp, { type: 'json_object', schema: DOC_SCHEMAS[kind] }).catch(() => '');   // (a repeat penalty broke numbers: "75, 998")
     try { d = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)); break; } catch { d = null; }
   }
   if (!d) return res.status(502).json({ error: 'I could not shape that into a file - try saying it a bit differently.' });
@@ -1775,6 +1776,10 @@ app.post('/api/doc', (req, res, next) => (async () => {
   if (kind === 'sheet') {
     out.columns = (d.columns || []).map((c) => t(c, 60)).filter(Boolean).slice(0, 12);
     out.rows = (d.rows || []).filter(Array.isArray).slice(0, 100).map((r) => out.columns.map((_, i) => t(r[i], 200)));
+    // drop columns the model left mostly empty, then rows that are mostly empty
+    const keep = out.columns.map((_, i) => out.rows.filter((r) => r[i]).length >= Math.max(1, out.rows.length * 0.6));
+    out.columns = out.columns.filter((_, i) => keep[i]);
+    out.rows = out.rows.map((r) => r.filter((_, i) => keep[i])).filter((r) => r.filter(Boolean).length >= Math.ceil(r.length / 2));
     if (!out.columns.length || !out.rows.length) return res.status(502).json({ error: 'The table came out empty - try again with a little more detail.' });
   } else if (kind === 'slides') {
     out.subtitle = t(d.subtitle, 160);
