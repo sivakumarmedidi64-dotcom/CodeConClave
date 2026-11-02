@@ -1655,15 +1655,17 @@ app.post('/api/import-link', wrap(async (req, res) => {
 // The conversation text is taken from the page's own data (long text strings) or, failing that, its visible
 // text. Sites that hide shared chats from servers get a clear message; the desktop app then reads the page
 // in its own browser instead.
-const CODE_LIKE = /function\s*\(|=>\s*\{|\bvar \w+\s*=|webpack|__next|window\.|document\.|@media|\{\s*"|^\s*[[{]|\.css\b|\.js\b|cookie|javascript/i;
+const CODE_LIKE = /function\s*\(|=>\s*\{|\bvar \w+\s*=|webpack|__next|window\.|document\.|@media|\{\s*"|^\s*[[{]|\.css\b|\.js\b|cookie|javascript|\{[A-Za-z_]+\}|::[A-Z_]+::/i;   // {placeholder} = the site's own prompt templates
+// A real shared conversation carries message data; an empty/missing share page is just the app's shell
+// (tested: a missing ChatGPT share has none of these) - then nothing is imported.
+const CHAT_DATA = /\\?"role\\?"\s*[:,]\s*\\?"(assistant|model|user)\\?"|\\?"parts\\?"\s*[:,]|data-message-author-role|\\?"sender\\?"\s*[:,]\s*\\?"(assistant|human)\\?"/i;
 function extractChat(html) {
+  if (!CHAT_DATA.test(html)) return null;
   const title = clean(visibleText((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '')).slice(0, 120);
   const seen = new Set();
   const parts = stringsIn(html).map((x) => x.trim())
     .filter((x) => x.length >= 40 && !/^https?:\/\/\S+$/.test(x) && !CODE_LIKE.test(x) && /\s/.test(x) && !seen.has(x) && seen.add(x));
-  let text = parts.join('\n\n');
-  if (text.length < 300) text = visibleText(html);
-  return { title, text: text.slice(0, 30000) };
+  return { title, text: parts.join('\n\n').slice(0, 30000) };
 }
 const clean = (x) => String(x || '').replace(/\s+/g, ' ').trim();
 app.post('/api/import-chat', wrap(async (req, res) => {
