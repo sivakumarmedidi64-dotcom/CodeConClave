@@ -1759,12 +1759,17 @@ app.post('/api/doc', (req, res, next) => (async () => {
   if (!BASE) return res.status(503).json({ error: 'CodeConClave AI is offline right now.' });
   if (await overLimit(req, res)) return;
   const facts = await topicFacts(request);
-  const raw = await callModel([
-    { role: 'system', content: 'You are CodeConClave AI. You write clear, correct content for files. Use the facts given; never invent numbers.' },
-    { role: 'user', content: `${facts ? `${facts}\n\n` : ''}Request: ${request}\n\nWrite the content for ${DOC_ASK[kind]}. Reply only as JSON in this shape: ${JSON.stringify(DOC_SCHEMAS[kind].properties)}` }],
-  1800, 0.4, { type: 'json_object', schema: DOC_SCHEMAS[kind] });
-  let d;
-  try { d = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)); } catch { return res.status(502).json({ error: 'I could not shape that into a file - try saying it a bit differently.' }); }
+  // Two tries: the live check found about 1 in 2 first tries came back as broken JSON (too long / cut off);
+  // the second try is calmer and shorter.
+  let d = null;
+  for (const [temp, extra] of [[0.4, ''], [0.1, ' Keep it short: at most 12 rows, 6 slides or 5 sections.']]) {
+    const raw = await callModel([
+      { role: 'system', content: 'You are CodeConClave AI. You write clear, correct content for files. Use the facts given; never invent numbers.' },
+      { role: 'user', content: `${facts ? `${facts}\n\n` : ''}Request: ${request}\n\nWrite the content for ${DOC_ASK[kind]}.${extra} Reply only as JSON in this shape: ${JSON.stringify(DOC_SCHEMAS[kind].properties)}` }],
+    1800, temp, { type: 'json_object', schema: DOC_SCHEMAS[kind] }).catch(() => '');
+    try { d = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)); break; } catch { d = null; }
+  }
+  if (!d) return res.status(502).json({ error: 'I could not shape that into a file - try saying it a bit differently.' });
   const t = (x, n) => String(x ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
   const out = { kind: want, title: t(d.title, 120) || t(request, 80) };
   if (kind === 'sheet') {
