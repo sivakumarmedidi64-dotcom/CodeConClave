@@ -6,7 +6,8 @@
 const BASE_MODEL = '@cf/meta/llama-3.2-3b-instruct';
 // Seeing pictures: Llama 3.2 11B Vision (open weights; the founder accepted Meta's license on 2026-11-02).
 const VISION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
-const LORA = 'codeconclave-scout-1';
+// round 2 (2026-11-02): exam 28/30 vs 25 - identity 8/8, same code/facts; 'codeconclave-scout-1' stays uploaded for a quick rollback
+const LORA = 'codeconclave-scout-2';
 const NAME = 'codeconclave-scout';
 
 const INDIC = { te: 'tel_Telu', hi: 'hin_Deva', ta: 'tam_Taml', kn: 'kan_Knda', ml: 'mal_Mlym', mr: 'mar_Deva', bn: 'ben_Beng', gu: 'guj_Gujr', pa: 'pan_Guru', ur: 'urd_Arab', or: 'ory_Orya', as: 'asm_Beng', ne: 'npi_Deva', sa: 'san_Deva' };
