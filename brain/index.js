@@ -4,6 +4,8 @@
 // laptop model (/v1/chat/completions, /v1/models), so the app can use either one.
 // Locked with BRAIN_KEY (a Worker secret): nobody else can spend the account's AI allowance.
 const BASE_MODEL = '@cf/meta/llama-3.2-3b-instruct';
+// Seeing pictures: Llama 3.2 11B Vision (open weights; the founder accepted Meta's license on 2026-11-02).
+const VISION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
 const LORA = 'codeconclave-scout-1';
 const NAME = 'codeconclave-scout';
 
@@ -54,6 +56,17 @@ function aiInput(body) {
   if (rf?.schema) input.response_format = { type: 'json_schema', json_schema: rf.schema };
   else if (rf?.type === 'json_object') input.response_format = { type: 'json_object' };
   return input;
+}
+
+// Vision requests keep the chat format; only the newest picture is kept (the model sees one at a time).
+function visionInput(body) {
+  let seen = false;
+  const messages = body.messages.slice(-12).reverse().map((m) => {
+    if (!Array.isArray(m.content)) return { role: m.role, content: String(m.content ?? '') };
+    const parts = m.content.filter((p) => p?.type === 'text' || (p?.type === 'image_url' && !seen && /^data:image\//.test(p.image_url?.url || '') && (seen = true)));
+    return { role: m.role, content: parts.length === 1 && parts[0].type === 'text' ? parts[0].text : parts };
+  }).reverse();
+  return { messages, stream: Boolean(body.stream), max_tokens: num(body.max_tokens, 1, 2048) ?? 1024, temperature: num(body.temperature, 0, 2) ?? 0.5 };
 }
 
 // The tuned model sometimes writes training markers like "<|endoftext|>" as plain text; drop them.
@@ -128,9 +141,11 @@ export default {
       let body;
       try { body = await req.json(); } catch { return json({ error: { message: 'Bad JSON.' } }, 400); }
       if (!Array.isArray(body?.messages) || !body.messages.length) return json({ error: { message: 'No messages.' } }, 400);
-      const input = aiInput(body);
+      // A message with a picture goes to the vision model (it sees one picture per request).
+      const picture = body.messages.some((m) => Array.isArray(m.content) && m.content.some((p) => p?.type === 'image_url'));
+      const input = picture ? visionInput(body) : aiInput(body);
       try {
-        const result = await env.AI.run(BASE_MODEL, input);
+        const result = await env.AI.run(picture ? VISION_MODEL : BASE_MODEL, input);
         if (input.stream) {
           return new Response(toOpenAIStream(result), { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' } });
         }

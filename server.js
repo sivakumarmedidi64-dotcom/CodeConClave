@@ -41,6 +41,7 @@ const brainHeaders = (b) => ({ 'Content-Type': 'application/json', ...(b.key ? {
 // first, then cut the middle out of the longest message (its start and its end - usually the
 // question - stay).
 function fitMessages(messages, b, maxTokens = 1024) {
+  if (messages.some((m) => Array.isArray(m.content))) return messages;   // a picture message: the vision brain handles its own size
   const room = Math.floor((b.context - Math.min(maxTokens, b.context / 3) - 150) * 3.4);
   const size = (list) => list.reduce((n, m) => n + String(m.content || '').length + 12, 0);
   let list = messages.slice();
@@ -59,6 +60,7 @@ async function brainPost(pathname, body) {
   let last = new Error('no model endpoint');
   for (let i = 0; i < BRAINS.length; i++) {
     const b = BRAINS[i];
+    if (b.name === 'laptop' && body.messages?.some((m) => Array.isArray(m.content))) continue;   // the laptop brain cannot see pictures
     const ctl = new AbortController();
     const timer = i < BRAINS.length - 1 ? setTimeout(() => ctl.abort(), 45000) : null;
     const sized = Array.isArray(body.messages) ? { ...body, messages: fitMessages(body.messages, b, body.max_tokens) } : body;
@@ -767,6 +769,17 @@ async function chatHandler(req, res) {
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
   // A finished, factual message from an action (not model text), e.g. "I couldn't find…".
   const say = (text) => { send({ delta: text }); send({ done: true }); res.end(); };
+  // A picture attached: the vision brain looks at it (one picture per message; only the cloud brain can see).
+  const picture = files.map((f) => f && f.image).find((u) => typeof u === 'string' && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 4_000_000);
+  if (picture) {
+    if (!BRAINS.some((b) => b.name === 'cloud')) return say("I can't see pictures right now - that needs my always-on brain, which isn't connected.");
+    send({ step: 'Looking at your picture' });
+    const ask = lastUser.trim() && lastUser.trim() !== '(see attached file)' ? lastUser : 'Describe this picture in detail.';
+    const visionMsgs = [{ role: 'system', content: `${sys}\nYou can see the picture the user attached. Describe what is really in it; if you are not sure about something, say so.` },
+      ...messages.slice(1, -1), { role: 'user', content: [{ type: 'text', text: fileBlock ? `${fileBlock}\n\n${ask}` : ask }, { type: 'image_url', image_url: { url: picture } }] }];
+    await streamAnswer(res, visionMsgs, 0.4);
+    return;
+  }
   // Private things about the founder the AI does not know: a fixed honest answer, never a guess.
   if (!fileBlock && FOUNDER_PRIVATE.test(lastUser)) {
     return say("I don't know that about Saharsh, and I won't guess 😊 He can share it himself if he wants — you can reach him at medidisaharsh@gmail.com.");
@@ -1636,6 +1649,34 @@ app.post('/api/import-link', wrap(async (req, res) => {
       : 'I could not find the answer to the memory prompt on that page. Make sure the shared chat is the one where you pasted the prompt — or copy the answer and paste it in the box below.' });
   }
   res.json(found);
+}));
+
+// ---- Continue a chat from any AI: read a public share link (ChatGPT, Gemini, Claude, Perplexity, Grok…) ----
+// The conversation text is taken from the page's own data (long text strings) or, failing that, its visible
+// text. Sites that hide shared chats from servers get a clear message; the desktop app then reads the page
+// in its own browser instead.
+const CODE_LIKE = /function\s*\(|=>\s*\{|\bvar \w+\s*=|webpack|__next|window\.|document\.|@media|\{\s*"|^\s*[[{]|\.css\b|\.js\b|cookie|javascript/i;
+function extractChat(html) {
+  const title = clean(visibleText((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '')).slice(0, 120);
+  const seen = new Set();
+  const parts = stringsIn(html).map((x) => x.trim())
+    .filter((x) => x.length >= 40 && !/^https?:\/\/\S+$/.test(x) && !CODE_LIKE.test(x) && /\s/.test(x) && !seen.has(x) && seen.add(x));
+  let text = parts.join('\n\n');
+  if (text.length < 300) text = visibleText(html);
+  return { title, text: text.slice(0, 30000) };
+}
+const clean = (x) => String(x || '').replace(/\s+/g, ' ').trim();
+app.post('/api/import-chat', wrap(async (req, res) => {
+  const url = String(req.body?.url || '').trim().slice(0, 600);
+  if (!/^https:\/\/\S+$/i.test(url)) return res.status(400).json({ error: 'Paste a share link that starts with https://' });
+  let html;
+  try { html = await fetchPublicPage(url); } catch (e) { return res.status(422).json({ error: e.message || 'Could not open that link.', blocked: true }); }
+  const walled = /challenge-platform|cf-chl|Just a moment|enable JavaScript and cookies/i.test(html);
+  const got = walled ? null : extractChat(html);
+  if (!got || got.text.length < 200) {
+    return res.status(422).json({ blocked: true, error: 'That site hides shared chats from other apps, so I could not read it here. In the CodeConClave desktop app I can open it in my own browser — or copy the conversation and paste it.' });
+  }
+  res.json({ ...got, site: new URL(url).hostname.replace(/^www\./, '') });
 }));
 
 // Last stop for errors from wrapped handlers: a plain message, never a stack trace.
