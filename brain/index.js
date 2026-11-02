@@ -134,6 +134,34 @@ export default {
     if (path === '' || path === '/healthz') return json({ ok: true, name: 'CodeConClave AI brain' });
     if (!(await authOk(req, env))) return json({ error: { message: 'Not allowed.' } }, 401);
 
+    // Voice: speech -> text in ~99 languages (Whisper large v3 turbo, open weights)
+    if (req.method === 'POST' && path === '/v1/audio/transcriptions') {
+      let body;
+      try { body = await req.json(); } catch { return json({ error: { message: 'Bad JSON.' } }, 400); }
+      const audio = String(body?.audio || '');
+      if (!audio || audio.length > 14_000_000 || !/^[A-Za-z0-9+/=]+$/.test(audio.slice(0, 200))) return json({ error: { message: 'Send the audio as base64.' } }, 400);
+      // the hint teaches Whisper our names (without it: "Code Conclave", "Sahar Shmadidi")
+      const input = { audio, task: 'transcribe', vad_filter: true, initial_prompt: 'CodeConClave AI, Saharsh Medidi.' };
+      if (/^[a-z]{2,3}$/.test(body.language || '')) input.language = body.language;
+      try {
+        const r = await env.AI.run('@cf/openai/whisper-large-v3-turbo', input);
+        return json({ text: String(r?.text || '').trim(), language: r?.transcription_info?.language || null, seconds: r?.transcription_info?.duration || null });
+      } catch (e) { return aiError(e); }
+    }
+    // Voice: text -> speech (MeloTTS, open weights) for the languages it speaks; others use the device's voices
+    if (req.method === 'POST' && path === '/v1/audio/speech') {
+      let body;
+      try { body = await req.json(); } catch { return json({ error: { message: 'Bad JSON.' } }, 400); }
+      const lang = { en: 'en', es: 'es', fr: 'fr', zh: 'zh', ja: 'jp', ko: 'kr' }[String(body?.lang || 'en').slice(0, 2)];
+      const text = String(body?.text || '').replace(/```[\s\S]*?```/g, ' (code) ').replace(/[*#_`>|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 1200);
+      if (!lang) return json({ error: { message: 'This language uses the device voice.' } }, 415);
+      if (!text) return json({ error: { message: 'Nothing to say.' } }, 400);
+      try {
+        const r = await env.AI.run('@cf/myshell-ai/melotts', { prompt: text, lang });
+        return json({ audio: r?.audio || null, format: 'mp3' });
+      } catch (e) { return aiError(e); }
+    }
+
     if (req.method === 'GET' && path === '/v1/models') {
       return json({ object: 'list', data: [{ id: NAME, object: 'model', owned_by: 'codeconclave' }] });
     }

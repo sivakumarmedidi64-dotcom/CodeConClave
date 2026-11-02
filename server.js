@@ -1651,6 +1651,39 @@ app.post('/api/import-link', wrap(async (req, res) => {
   res.json(found);
 }));
 
+// ---- Voice: talk in any language (Whisper, ~99 languages) and hear answers (MeloTTS; other languages use the device voice) ----
+const voiceTimes = new Map(); // ip -> times, 80 voice calls / 10 min
+function voiceOk(req) {
+  const now = Date.now(), t = (voiceTimes.get(req.ip) || []).filter((x) => now - x < 600000);
+  if (t.length >= 80) return false;
+  t.push(now); voiceTimes.set(req.ip, t); return true;
+}
+async function cloudVoice(path, body) {
+  const cloud = BRAINS.find((b) => b.name === 'cloud');
+  if (!cloud) throw Object.assign(new Error('Voice needs the always-on brain.'), { status: 503 });
+  const r = await fetch(`${cloud.base}${path}`, { method: 'POST', headers: brainHeaders(cloud), body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(d?.error?.message || 'Voice did not work.'), { status: r.status });
+  return d;
+}
+app.post('/api/voice/transcribe', wrap(async (req, res) => {
+  if (!voiceOk(req)) return res.status(429).json({ error: 'Too much voice use - wait a few minutes.' });
+  const audio = String(req.body?.audio || '').replace(/^data:[^,]*,/, '');
+  if (!audio || audio.length > 6_000_000) return res.status(400).json({ error: 'That recording is empty or too long (2 minutes at most).' });
+  try { res.json(await cloudVoice('/audio/transcriptions', { audio, language: req.body?.language })); }
+  catch (e) { res.status(e.status || 502).json({ error: e.message }); }
+}));
+app.post('/api/voice/speak', wrap(async (req, res) => {
+  if (!voiceOk(req)) return res.status(429).json({ error: 'Too much voice use - wait a few minutes.' });
+  const text = String(req.body?.text || '').slice(0, 1500), lang = String(req.body?.lang || 'en').slice(0, 5);
+  try {
+    const d = await cloudVoice('/audio/speech', { text, lang });
+    if (!d.audio) return res.status(502).json({ error: 'No audio came back.' });
+    const type = d.audio.startsWith('UklGR') ? 'audio/wav' : 'audio/mpeg';   // the voice model answers with WAV ("RIFF")
+    res.json({ audio: `data:${type};base64,${d.audio}` });
+  } catch (e) { res.status(e.status || 502).json({ error: e.message, device: e.status === 415 }); }
+}));
+
 // ---- Continue a chat from any AI: read a public share link (ChatGPT, Gemini, Claude, Perplexity, Grok…) ----
 // The conversation text is taken from the page's own data (long text strings) or, failing that, its visible
 // text. Sites that hide shared chats from servers get a clear message; the desktop app then reads the page

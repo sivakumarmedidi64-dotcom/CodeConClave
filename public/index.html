@@ -90,6 +90,14 @@
   .spill .fav{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-size:10px;font-weight:700;color:#111;margin-left:-5px;border:2px solid var(--bg)}
   .spill .fav:first-child{margin-left:0}
   .srcs.hidden{display:none}
+  .mic{flex:none;height:34px;min-width:34px;align-self:center;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:none;border:0;color:#b4b4b4;border-radius:999px;cursor:pointer;padding:0 8px}
+  .mic svg{width:19px;height:19px}
+  .mic:hover{background:#2a2a2a;color:var(--fg)}
+  .mic.rec{background:#e5534b;color:#fff;animation:micp 1.4s infinite}
+  .mic.busy{opacity:.6}
+  #micTime{font-size:12.5px;font-variant-numeric:tabular-nums}
+  #micTime:empty{display:none}
+  @keyframes micp{0%,100%{box-shadow:0 0 0 0 #e5534b88}50%{box-shadow:0 0 0 6px #e5534b00}}
   .pvframe{display:block;width:100%;height:380px;margin-top:8px;border:1px solid var(--edge);border-radius:12px;background:#fff}
   .uimgs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .uimgs img{max-width:160px;max-height:160px;border-radius:10px;border:1px solid var(--edge);display:block}
@@ -713,6 +721,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
         <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none" />
         <div class="slash" id="slash"></div>
         <textarea id="input" rows="1" placeholder="Assign a task or ask anything"></textarea>
+        <button class="mic" id="micBtn" title="Talk (any language)" aria-label="Talk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg><span id="micTime"></span></button>
         <button class="ring" id="usageRing" title="Usage" aria-label="Usage limits"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="rbg" cx="18" cy="18" r="15.9155"/><circle class="rfg" cx="18" cy="18" r="15.9155"/></svg></button>
         <button class="send" id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
       </div>
@@ -1154,12 +1163,13 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       stepsDone();
       if(full||msg.card||msg.list||msg.fileCard||msg.autoCard){ msg.content=full; if(research) msg.research=true; c.messages.push(msg); c.updated=Date.now(); saveC(); notify(); nameChat(c);
         // the finished answer gets its buttons (copy, share, like, sources…) and previews, without redrawing the chat
-        const i=c.messages.length-1; if(msg.content && !msg.appCard && !msg.plugCard && aiEl.isConnected){ const pv=previewRow(msg.content); if(pv) aiEl.appendChild(pv); aiEl.appendChild(actionBar(msg,i,aiEl)); } }
+        const i=c.messages.length-1; if(msg.content && !msg.appCard && !msg.plugCard && aiEl.isConnected){ const pv=previewRow(msg.content); if(pv) aiEl.appendChild(pv); aiEl.appendChild(actionBar(msg,i,aiEl)); }
+        if(voiceTurn && msg.content){ speak(msg.content, aiEl.querySelector('.acts button[title="Read aloud"]')); } }
       else { aiEl.remove(); }
     }catch{
       aiEl.remove(); wrap.appendChild(el('div','err','Could not reach the server.'));
     }
-    busy=false; sendBtn.disabled=false; chat.scrollTop=chat.scrollHeight; input.focus(); refreshUsage();
+    voiceTurn=false; busy=false; sendBtn.disabled=false; chat.scrollTop=chat.scrollHeight; input.focus(); refreshUsage();
   }
 
   // Draft cards the AI's latest turn is asking about ("send it like this, or change something?").
@@ -2004,6 +2014,48 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     return box;
   }
 
+  // ---- Voice: talk in any language, hear the answers ----
+  let rec=null, recChunks=[], recTimer=null, voiceTurn=false, speaking=null;
+  const SCRIPTS=[[/[\u0C00-\u0C7F]/,'te'],[/[\u0900-\u097F]/,'hi'],[/[\u0B80-\u0BFF]/,'ta'],[/[\u0C80-\u0CFF]/,'kn'],[/[\u0D00-\u0D7F]/,'ml'],[/[\u0980-\u09FF]/,'bn'],
+    [/[\u0A80-\u0AFF]/,'gu'],[/[\u0A00-\u0A7F]/,'pa'],[/[\u0600-\u06FF]/,'ar'],[/[\u3040-\u30FF]/,'ja'],[/[\uAC00-\uD7AF]/,'ko'],[/[\u4E00-\u9FFF]/,'zh'],[/[\u0400-\u04FF]/,'ru']];
+  const langOf=(t)=>(SCRIPTS.find(([re])=>re.test(t))||[])[1]||lastVoiceLang||'en';
+  let lastVoiceLang=null;
+  const toB64=(blob)=>new Promise((ok,no)=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).split(',')[1]||''); r.onerror=no; r.readAsDataURL(blob); });
+  async function micClick(){
+    const b=$('micBtn');
+    if(rec){ rec.stop(); return; }
+    if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){ toast('Your browser cannot record audio here.'); return; }
+    let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch{ toast('Allow the microphone to talk to CodeConClave.'); return; }
+    const type=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4'].find(t=>MediaRecorder.isTypeSupported?.(t))||'';
+    rec=new MediaRecorder(stream,type?{mimeType:type}:{}); recChunks=[]; const t0=Date.now();
+    rec.ondataavailable=(e)=>{ if(e.data.size) recChunks.push(e.data); };
+    rec.onstop=async()=>{ clearInterval(recTimer); $('micTime').textContent=''; b.classList.remove('rec'); stream.getTracks().forEach(t=>t.stop()); const r=rec; rec=null;
+      const blob=new Blob(recChunks,{type:r.mimeType||'audio/webm'}); if(blob.size<1500){ toast('I did not hear anything — hold on a moment longer.'); return; }
+      b.classList.add('busy'); b.disabled=true;
+      try{ const audio=await toB64(blob); const res=await fetch('/api/voice/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audio})});
+        const d=await res.json().catch(()=>({})); if(!res.ok) throw new Error(d.error||'I could not understand the recording.');
+        if(!d.text){ toast('I did not catch any words — try again.'); return; }
+        lastVoiceLang=d.language||null; input.value=(input.value?input.value+' ':'')+d.text; voiceTurn=true; send(); }
+      catch(e){ toast(e.message); }
+      finally{ b.classList.remove('busy'); b.disabled=false; } };
+    rec.start(250); b.classList.add('rec'); b.title='Stop and send';
+    recTimer=setInterval(()=>{ const sec=Math.floor((Date.now()-t0)/1000); $('micTime').textContent=Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); if(sec>=120) rec?.stop(); },300);
+  }
+  $('micBtn').onclick=micClick;
+  // read an answer aloud: the AI's cloud voice where it has one, else the device's voice for that language
+  function stopSpeaking(){ if(speaking){ try{ speaking.pause?.(); }catch{} speaking=null; } try{ speechSynthesis.cancel(); }catch{} }
+  async function speak(text,btn){
+    if(speaking||speechSynthesis.speaking){ stopSpeaking(); btn?.classList.remove('on'); return; }
+    const clean=String(text||'').replace(/\s*📊\s*Source:[^\n]*/g,'').replace(/```[\s\S]*?```/g,' code shown on screen. ').trim().slice(0,1500); if(!clean) return;
+    const lang=langOf(clean); btn?.classList.add('on');
+    const done=()=>{ speaking=null; btn?.classList.remove('on'); };
+    try{ const r=await fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:clean,lang})}); const d=await r.json().catch(()=>({}));
+      if(r.ok&&d.audio){ const a=new Audio(d.audio); speaking=a; a.onended=done; a.onerror=done; await a.play(); return; } }catch{}
+    const u=new SpeechSynthesisUtterance(clean); u.lang=lang; const v=speechSynthesis.getVoices().find(x=>x.lang?.toLowerCase().startsWith(lang)); if(v) u.voice=v;
+    else if(lang!=='en'){ toast('Your device has no '+lang+' voice — showing the text only.'); done(); return; }
+    u.onend=done; u.onerror=done; speechSynthesis.speak(u);
+  }
+
   // ---- Usage ring + "Plan usage limits" popover (5-hour rolling window and weekly), like the founder's screenshot ----
   const usePct=(w)=>w&&w.limit?Math.min(100,Math.round(w.used/w.limit*100)):0;
   function resetText(w){ if(!w?.resetsAt) return 'Starts with your next message'; const d=new Date(w.resetsAt), t=d.toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'});
@@ -2030,13 +2082,14 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     share:'<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/>',
     up:'<path d="M7 10v11"/><path d="M15 5.9 14 10h5.8a2 2 0 0 1 2 2.3l-1.4 7A2 2 0 0 1 18.4 21H7V10l4.6-7.4A1.6 1.6 0 0 1 15 4.4z"/>',
     down:'<path d="M17 14V3"/><path d="M9 18.1 10 14H4.2a2 2 0 0 1-2-2.3l1.4-7A2 2 0 0 1 5.6 3H17v11l-4.6 7.4A1.6 1.6 0 0 1 9 19.6z"/>',
-    retry:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/>'};
+    retry:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/>',voice:'<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>'};
   const FAV_COLORS=['#f2c200','#1a93fe','#7bd88f','#e5534b','#c57f16','#8e6bd8','#23998d'];
   const plainAnswer=(m)=>String(m.content||'').replace(/\s*📊\s*Source:[^\n]*/g,'').trim();
   function actionBar(m,i,b){
     const row=el('div','acts'), c=current();
     const btn=(icon,title,fn)=>{ const x=document.createElement('button'); x.title=title; x.setAttribute('aria-label',title); x.innerHTML=svgIco(ACT_ICONS[icon]); x.onclick=()=>fn(x); row.appendChild(x); return x; };
     btn('copy','Copy',async(x)=>{ try{ await navigator.clipboard.writeText(plainAnswer(m)); x.innerHTML=svgIco(ACT_ICONS.ok); setTimeout(()=>{ x.innerHTML=svgIco(ACT_ICONS.copy); },1500); }catch{ toast('Copy did not work in this browser.'); } });
+    btn('voice','Read aloud',(x)=>speak(m.content,x));
     btn('share','Share',async()=>{ const q=[...(c?.messages||[]).slice(0,i)].reverse().find(x=>x.role==='user')?.content||'';
       const text=(q?'Q: '+q.replace(/\n📄.*/g,'')+'\n\n':'')+'CodeConClave AI: '+plainAnswer(m);
       try{ if(navigator.share) await navigator.share({title:'CodeConClave AI',text}); else { await navigator.clipboard.writeText(text); toast('Copied — paste it anywhere to share.'); } }catch{} });
