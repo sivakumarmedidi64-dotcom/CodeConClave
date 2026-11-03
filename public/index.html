@@ -1390,7 +1390,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       const resp=research
         ? await fetch('/api/research',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({question:text})})
         : await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
-          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), recall:recallSnippets(text,c.id), ...extra})});
+          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:memory.join('\n'), profile, folder:folderInfo(), rules:[await folderRules(), window.ccMyRules?window.ccMyRules():''].filter(Boolean).join('\n'), teach:(()=>{ try{ return JSON.parse(localStorage.getItem('cc_teach_v1'))===true; }catch{ return false; } })(), recall:recallSnippets(text,c.id), ...extra})});
       if(!resp.ok && !/event-stream/.test(resp.headers.get('content-type')||'')){   // e.g. the usage limit is reached
         const d=await resp.json().catch(()=>({})); dots.remove(); wrap.appendChild(el('div','err',d.error||'Something went wrong — please try again.'));
         if(d.usage) usageNow=d.usage; renderSide(); return; }
@@ -2741,7 +2741,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     showArtifact(art,true);
     let full='';
     try{
-      const r=await fetch('/api/build',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request:editing?(said||request):request,kind,current:editing?prev.code:''})});
+      const r=await fetch('/api/build',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request:editing?(said||request):request,kind,current:editing?prev.code:'',rules:window.ccMyRules?window.ccMyRules():''})});
       if(!r.ok && !/event-stream/.test(r.headers.get('content-type')||'')){ const d=await r.json().catch(()=>({})); throw new Error(d.error||'I couldn’t build that.'); }
       const rd=r.body.getReader(), dec=new TextDecoder(); let buf='';
       while(true){ const {done,value}=await rd.read(); if(done) break; buf+=dec.decode(value,{stream:true}); let idx;
@@ -2808,9 +2808,11 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const paths=[...folder.files.keys()].filter(p=>!/(^|\/)(node_modules|\.git|dist|build|\.next|__pycache__)\//.test(p)).slice(0,500);
     const find=(p)=>{ const t=String(p||'').replace(/^\.?\//,''); return folder.files.has(t)?t:paths.find(x=>x.toLowerCase()===t.toLowerCase())||paths.find(x=>x.toLowerCase().endsWith('/'+t.toLowerCase()))||t; };
     const hist=[], edits=new Map(); let summary='', err='';
+    const pol=window.ccSpaces?await window.ccSpaces.policy():null;
+    const isProtected=(p)=>(pol?.protectedPaths||[]).some(x=>x&&(p===x||p.startsWith(x.replace(/^\/+/,''))||p.includes('/'+x.replace(/^\/+/,''))));
     try{
       for(let step=0; step<16; step++){
-        const r=await fetch('/api/agent/step',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal,files:paths,history:hist,desktop:Boolean(DESK),folder:folder.name})});
+        const r=await fetch('/api/agent/step',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal,files:paths,history:hist,desktop:Boolean(DESK),folder:folder.name,rules:window.ccMyRules?window.ccMyRules():''})});
         const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'The coding agent stopped.');
         const a=d.action; hist.push({role:'assistant',content:JSON.stringify(a)});
         let result='';
@@ -2822,7 +2824,10 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
           const p=find(a.path); let before=null; try{ before=await readLocal(p); }catch{}
           w.step((before===null?'Creating ':'Editing ')+p);
           const next=a.tool==='write'?String(a.content??''):before===null?null:applyLineOp(before,a);
-          if(next===null) result=before===null?'ERROR: '+p+' does not exist - use write to create it.':'ERROR: that change does not fit '+p+' - read it again and use its line numbers.';
+          if(pol?.agentMode==='readonly') result='ERROR: your organization allows the agent to read only - suggest the change in words instead.';
+          else if(isProtected(p)) result='ERROR: '+p+' is protected by your organization - do not change it; tell the user to ask an admin.';
+          else if(pol?.agentMode==='ask' && !confirm('CodeConClave wants to '+(before===null?'create ':'change ')+p+'. Allow it?')) result='The user said no to changing '+p+'.';
+          else if(next===null) result=before===null?'ERROR: '+p+' does not exist - use write to create it.':'ERROR: that change does not fit '+p+' - read it again and use its line numbers.';
           else if(edits.size>=12 && !edits.has(p)) result='ERROR: too many files changed - finish with done.';
           else { await writeLocal(p,next); const e=edits.get(p)||{path:p,before:before!==null&&before.length<=100000?before:(before===null?null:undefined)}; e.content=next; e.saved='saved'; e.stats=lineStats(e.before||'',next); edits.set(p,e);
             result=a.tool==='write'?'OK - saved '+p+'.':'OK - saved. '+p+' now:\n'+numberedLines(next.slice(0,20000)); }
@@ -3943,5 +3948,6 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
 
   load(); renderProfile(); reconnectFolder(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
 </script>
+<script src="/spaces.js"></script>
 </body>
 </html>

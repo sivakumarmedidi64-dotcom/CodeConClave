@@ -24,6 +24,8 @@ import { readEmotion, emotionHint, EMOTION_RANGE } from './emotions.js';
 import { fixTypos, kindOf, isVague, ABILITY_Q, clarifyFor, innerLife, innerHint, SELF_TALK } from './mind.js';
 import { CAMERA_WORDS, liveCameras } from './cams.js';
 import { FORECAST_WORDS, MAP_WORDS, windyForecast, windyMap } from './windy.js';
+import { registerSpaces, maskPrivate } from './spaces.js';
+import { registerSolo } from './solo.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -930,6 +932,14 @@ async function chatHandler(req, res) {
     routed = { tool: 'code', args: { goal: lastUser }, say: routed.say };
   // weather and forecasts for a place are live data (with the Windy forecast), not a web search
   if (routed?.tool === 'web' && /^open-meteo/.test(detect(lastUser)?.sourceId || '')) routed = null;
+  // An organization's rules for its members: tools it turned off, private data hidden from the AI, and an audit entry
+  const policy = req.user && !req.automationRun ? await spaces.policyFor(req.user).catch(() => null) : null;
+  if (policy) {
+    const tool = routed?.tool || 'chat';
+    if (policy.disabledTools.includes(tool)) return say(`Your organization has turned off “${tool}” for its members. Ask an admin if you need it.`);
+    if (policy.maskPrivate) for (let i = 0; i < messages.length; i++) if (messages[i].role === 'user' && typeof messages[i].content === 'string') messages[i] = { ...messages[i], content: maskPrivate(messages[i].content) };
+    spaces.audit(policy.orgs[0], req.user, `ai.${tool}`, '').catch(() => {});
+  }
   // "create an image", "make a game", "can you build a website?" - ask what, with ideas to tap (not build blindly)
   const typed = fixTypos(lastUser);
   if (!second && !fileBlock && !req.automationRun && !/^\s*\//.test(lastUser)) {
@@ -1050,6 +1060,11 @@ ${f.summary}`, source: `${ev.source}, ${f.source}` };
     : !fileBlock && lastUser.length < 160 && !/\b(detail|detailed|in depth|step|steps|how (do|to|can|should) i|code|program|function|script|list|essay|story|poem|letter|plan|compare|difference|why|examples?|full|long)\b/i.test(lastUser)
       ? 'Answer in 2-4 short sentences - the user can ask for more.'
     : '');
+  // Solo "Teach me" mode: explain the why, not only the answer
+  if (req.body?.teach === true) {
+    const kt = messages.map((m) => m.role).lastIndexOf('user');
+    messages[kt] = { role: 'user', content: `${messages[kt].content}\n\n[Teach-me mode: explain WHY it works, step by step, with one small example and how to debug it if it fails - like a patient teacher. Then give a tiny practice question.]` };
+  }
   // Live voice chat: the answer is spoken, so keep it short and plain.
   if (req.body?.live === true) {
     const k = messages.map((m) => m.role).lastIndexOf('user');
@@ -1284,6 +1299,7 @@ async function runDue() {
   if (!store || ticking) return;
   ticking = true;
   try {
+    await spaces.applyRetention().catch(() => {});
     for (const a of await store.dueAutomations(Date.now(), 5)) {
       try { await runAutomation(a); } catch (e) { console.error('Automation failed:', e?.message || e); }
     }
@@ -1836,6 +1852,11 @@ function postPublic(url, payload) {
 // GitHub, Notion, Calendar, Todoist, Linear, Jira, Asana and news feeds (apps.js).
 registerApps(app, { wrap, fetchPublicPage });
 registerStudio(app, { cloud: cloudBrain, headers: brainHeaders, wrap, overLimit });
+// Teams and organizations (shared, on the server) and the Solo tools - three separate spaces
+const spaces = registerSpaces(app, { store, wrap, engineAsk });
+registerSolo(app, { wrap, engineAsk, overLimit });
+// the organization rules that apply to this person's own AI use (the browser checks them for the coding agent)
+app.get('/api/my-policy', wrap(async (req, res) => res.json({ policy: req.user ? await spaces.policyFor(req.user) : null })));
 
 const sendTimes = new Map();
 app.post('/api/plugins/send', wrap(async (req, res) => {

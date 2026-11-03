@@ -39,6 +39,8 @@ export function decrypt(blob) {
 }
 
 const userOut = (u) => u && { id: String(u.id), email: u.email, name: u.name, role: u.role, google: Boolean(u.google_sub) };
+const spaceOut = (r) => r && { id: r.id, kind: r.kind, name: r.name, ownerId: String(r.owner_id ?? r.ownerId), parentId: r.parent_id ?? r.parentId ?? null, settings: r.settings || {}, created: Number(r.created) };
+const itemOut = (r) => r && { id: r.id, kind: r.kind, data: r.data, authorId: r.author_id == null ? (r.authorId ?? null) : String(r.author_id), updated: Number(r.updated) };
 
 // ---- Neon Postgres ----
 async function pgStore(url) {
@@ -99,7 +101,36 @@ async function pgTables(pool) {
       user_id bigint not null references users(id) on delete cascade,
       name text not null,
       value jsonb not null,
-      primary key (user_id, name));`);
+      primary key (user_id, name));
+    create table if not exists spaces (
+      id text primary key,
+      kind text not null,
+      name text not null,
+      owner_id bigint not null references users(id) on delete cascade,
+      parent_id text,
+      settings jsonb not null default '{}',
+      created bigint not null);
+    create table if not exists space_members (
+      space_id text not null references spaces(id) on delete cascade,
+      user_id bigint not null references users(id) on delete cascade,
+      role text not null default 'member',
+      joined bigint not null,
+      primary key (space_id, user_id));
+    create table if not exists space_invites (
+      token_hash text primary key,
+      space_id text not null references spaces(id) on delete cascade,
+      role text not null default 'member',
+      expires bigint not null,
+      created_by bigint not null);
+    create table if not exists space_items (
+      space_id text not null references spaces(id) on delete cascade,
+      kind text not null,
+      id text not null,
+      data jsonb not null,
+      author_id bigint,
+      updated bigint not null,
+      primary key (space_id, kind, id));
+    create index if not exists space_items_recent on space_items (space_id, kind, updated);`);
   const autoOut = (r) => r && { id: r.id, task: r.task, steps: r.steps || null, schedule: r.schedule, enabled: r.enabled,
     nextRun: r.next_run === null ? null : Number(r.next_run), lastRun: r.last_run === null ? null : Number(r.last_run), lastStatus: r.last_status };
   const one = async (text, params) => (await q(text, params)).rows[0] || null;
@@ -164,6 +195,26 @@ async function pgTables(pool) {
     async putPref(userId, name, value) {
       await q('insert into prefs values ($1,$2,$3) on conflict (user_id, name) do update set value = excluded.value', [userId, name, JSON.stringify(value)]);
     },
+    // ---- shared spaces ----
+    async createSpace(sp) { await q('insert into spaces values ($1,$2,$3,$4,$5,$6,$7)', [sp.id, sp.kind, sp.name, sp.ownerId, sp.parentId || null, JSON.stringify(sp.settings || {}), sp.created]); return sp; },
+    async getSpace(id) { const r = await one('select * from spaces where id = $1', [id]); return r && spaceOut(r); },
+    async updateSpace(id, f) { if (f.name !== undefined) await q('update spaces set name = $2 where id = $1', [id, f.name]); if (f.settings !== undefined) await q('update spaces set settings = $2 where id = $1', [id, JSON.stringify(f.settings)]); },
+    async deleteSpace(id) { await q('delete from spaces where id = $1', [id]); },
+    async listSpaces(userId) { return (await q('select s.*, m.role as my_role from spaces s join space_members m on m.space_id = s.id where m.user_id = $1 order by s.created', [userId])).rows.map((r) => ({ ...spaceOut(r), myRole: r.my_role })); },
+    async childSpaces(parentId) { return (await q('select * from spaces where parent_id = $1 order by created', [parentId])).rows.map(spaceOut); },
+    async allOrgs() { return (await q("select * from spaces where kind = 'org'")).rows.map(spaceOut); },
+    async listOrgsByDomain(dom) { return (await q("select * from spaces where kind = 'org' and settings->>'domain' = $1", [dom])).rows.map(spaceOut); },
+    async addMember(spaceId, userId, role) { await q('insert into space_members values ($1,$2,$3,$4) on conflict (space_id, user_id) do update set role = excluded.role', [spaceId, userId, role, Date.now()]); },
+    async memberRole(spaceId, userId) { return (await one('select role from space_members where space_id = $1 and user_id = $2', [spaceId, userId]))?.role || null; },
+    async removeMember(spaceId, userId) { await q('delete from space_members where space_id = $1 and user_id = $2', [spaceId, userId]); },
+    async listMembers(spaceId) { return (await q('select u.id, u.email, u.name, m.role, m.joined from space_members m join users u on u.id = m.user_id where m.space_id = $1 order by m.joined', [spaceId])).rows.map((r) => ({ id: String(r.id), email: r.email, name: r.name, role: r.role, joined: Number(r.joined) })); },
+    async createInvite(hash, spaceId, role, expires, by) { await q('insert into space_invites values ($1,$2,$3,$4,$5)', [hash, spaceId, role, expires, by]); },
+    async getInvite(hash) { const r = await one('select * from space_invites where token_hash = $1', [hash]); return r && { spaceId: r.space_id, role: r.role, expires: Number(r.expires) }; },
+    async putItem(spaceId, kind, id, data, authorId) { await q('insert into space_items values ($1,$2,$3,$4,$5,$6) on conflict (space_id, kind, id) do update set data = excluded.data, updated = excluded.updated', [spaceId, kind, id, JSON.stringify(data), authorId || null, Date.now()]); },
+    async getItem(spaceId, kind, id) { const r = await one('select * from space_items where space_id = $1 and kind = $2 and id = $3', [spaceId, kind, id]); return r && itemOut(r); },
+    async listItems(spaceId, kind, { since = 0, limit = 200 } = {}) { return (await q('select * from space_items where space_id = $1 and kind = $2 and updated > $3 order by updated desc limit $4', [spaceId, kind, since, limit])).rows.map(itemOut); },
+    async deleteItem(spaceId, kind, id) { await q('delete from space_items where space_id = $1 and kind = $2 and id = $3', [spaceId, kind, id]); },
+    async deleteItemsBefore(spaceId, kind, before) { return (await q('delete from space_items where space_id = $1 and kind = $2 and updated < $3', [spaceId, kind, before])).rowCount; },
   };
 }
 
@@ -171,7 +222,7 @@ async function pgTables(pool) {
 function fileStore(dir) {
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, 'db.json');
-  let db = { nextId: 1, users: [], sessions: [], chats: [], memories: {}, secrets: [], automations: [], prefs: {} };
+  let db = { nextId: 1, users: [], sessions: [], chats: [], memories: {}, secrets: [], automations: [], prefs: {}, spaces: [], members: [], invites: [], items: [] };
   try { db = { ...db, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { /* first run */ }
   const save = () => { fs.writeFileSync(file + '.tmp', JSON.stringify(db)); fs.renameSync(file + '.tmp', file); };
   const uid = (id) => String(id);
@@ -241,6 +292,26 @@ function fileStore(dir) {
     async userById(id) { return userOut(db.users.find((u) => uid(u.id) === uid(id))); },
     async getPref(userId, name) { return db.prefs[`${uid(userId)}:${name}`] ?? null; },
     async putPref(userId, name, value) { db.prefs[`${uid(userId)}:${name}`] = value; save(); },
+    // ---- shared spaces ----
+    async createSpace(sp) { db.spaces.push({ ...sp, ownerId: uid(sp.ownerId) }); save(); return sp; },
+    async getSpace(id) { return spaceOut(db.spaces.find((x) => x.id === id)); },
+    async updateSpace(id, f) { const x = db.spaces.find((y) => y.id === id); if (x) { if (f.name !== undefined) x.name = f.name; if (f.settings !== undefined) x.settings = f.settings; save(); } },
+    async deleteSpace(id) { db.spaces = db.spaces.filter((x) => x.id !== id); db.members = db.members.filter((x) => x.spaceId !== id); db.items = db.items.filter((x) => x.spaceId !== id); save(); },
+    async listSpaces(userId) { return db.members.filter((m) => m.userId === uid(userId)).map((m) => ({ ...spaceOut(db.spaces.find((x) => x.id === m.spaceId)), myRole: m.role })).filter((x) => x.id); },
+    async childSpaces(parentId) { return db.spaces.filter((x) => x.parentId === parentId).map(spaceOut); },
+    async allOrgs() { return db.spaces.filter((x) => x.kind === 'org').map(spaceOut); },
+    async listOrgsByDomain(dom) { return db.spaces.filter((x) => x.kind === 'org' && x.settings?.domain === dom).map(spaceOut); },
+    async addMember(spaceId, userId, role) { const m = db.members.find((x) => x.spaceId === spaceId && x.userId === uid(userId)); if (m) m.role = role; else db.members.push({ spaceId, userId: uid(userId), role, joined: Date.now() }); save(); },
+    async memberRole(spaceId, userId) { return db.members.find((x) => x.spaceId === spaceId && x.userId === uid(userId))?.role || null; },
+    async removeMember(spaceId, userId) { db.members = db.members.filter((x) => !(x.spaceId === spaceId && x.userId === uid(userId))); save(); },
+    async listMembers(spaceId) { return db.members.filter((m) => m.spaceId === spaceId).map((m) => { const u = db.users.find((y) => uid(y.id) === m.userId) || {}; return { id: m.userId, email: u.email, name: u.name, role: m.role, joined: m.joined }; }); },
+    async createInvite(hash, spaceId, role, expires, by) { db.invites.push({ hash, spaceId, role, expires, by: uid(by) }); save(); },
+    async getInvite(hash) { const r = db.invites.find((x) => x.hash === hash); return r && { spaceId: r.spaceId, role: r.role, expires: r.expires }; },
+    async putItem(spaceId, kind, id, data, authorId) { const x = db.items.find((y) => y.spaceId === spaceId && y.kind === kind && y.id === id); if (x) { x.data = data; x.updated = Date.now(); } else db.items.push({ spaceId, kind, id, data, authorId: authorId ? uid(authorId) : null, updated: Date.now() }); save(); },
+    async getItem(spaceId, kind, id) { return itemOut(db.items.find((y) => y.spaceId === spaceId && y.kind === kind && y.id === id)); },
+    async listItems(spaceId, kind, { since = 0, limit = 200 } = {}) { return db.items.filter((y) => y.spaceId === spaceId && y.kind === kind && y.updated > since).sort((a, b) => b.updated - a.updated).slice(0, limit).map(itemOut); },
+    async deleteItem(spaceId, kind, id) { db.items = db.items.filter((y) => !(y.spaceId === spaceId && y.kind === kind && y.id === id)); save(); },
+    async deleteItemsBefore(spaceId, kind, before) { const n = db.items.length; db.items = db.items.filter((y) => !(y.spaceId === spaceId && y.kind === kind && y.updated < before)); save(); return n - db.items.length; },
   };
 }
 

@@ -73,7 +73,8 @@ export function registerStudio(app, { cloud, headers, wrap, overLimit }) {
     if (await overLimit(req, res)) return;
     const current = String(req.body?.current || '').slice(0, 60000);
     const kind = ['game', 'website', 'app'].includes(req.body?.kind) ? req.body.kind : 'app';
-    const messages = [{ role: 'system', content: BUILD_SYSTEM }];
+    const myRules = String(req.body?.rules || '').slice(0, 3000).trim();
+    const messages = [{ role: 'system', content: myRules ? `${BUILD_SYSTEM}\nThe user's own rules - follow them:\n${myRules}` : BUILD_SYSTEM }];
     if (current) {
       messages.push({ role: 'user', content: `Here is the current version:\n\`\`\`html\n${current}\n\`\`\`` });
       messages.push({ role: 'user', content: `Change it: ${request}\nReply with the WHOLE updated file in one \`\`\`html block (keep everything that already works), then one short line about what changed.` });
@@ -129,7 +130,7 @@ Do the task step by step. Reply with exactly ONE JSON action per message, nothin
 {"tool":"write","path":"...","content":"the COMPLETE file"}   (new files, or rewriting a small file)${run}
 {"tool":"done","summary":"2-4 short lines: what you changed and how to try it"}
 Rules: read a file before you change it; use the line numbers from your LAST read of that file (after a change you get the new numbered file); never put line numbers inside "text"; keep changes small and working; never delete files; at most 10 changes; when the task is finished (or impossible) use done.
-Files in the folder:\n${files.join('\n') || '(empty folder)'}`;
+Files in the folder:\n${files.join('\n') || '(empty folder)'}${String(req.body?.rules || '').trim() ? `\nThe user's own rules - follow them:\n${String(req.body.rules).slice(0, 3000)}` : ''}`;
     let action = null;
     for (let i = 0; i < 2 && !action; i++) {
       try {
