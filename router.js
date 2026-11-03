@@ -5,12 +5,12 @@
 // nothing picked them. A bigger open model (the engine) makes the choice as JSON; clear cases
 // (slash commands, "draw a cat") skip it.
 
-export const TOOLS = ['chat', 'live', 'web', 'research', 'image', 'audio', 'video', 'build', 'doc', 'browser', 'files', 'automation', 'remember', 'mail', 'plan', 'code'];
+export const TOOLS = ['chat', 'live', 'web', 'research', 'image', 'audio', 'video', 'build', 'doc', 'browser', 'files', 'automation', 'remember', 'mail', 'plan', 'code', 'app', 'device'];
 
 export const ROUTER_SYSTEM = `You are the planner inside CodeConClave AI, an assistant that really CAN do all of these through its tools:
 - chat: talk, explain, answer from knowledge, write text/poems/emails-to-copy, maths, small code snippets, advice.
 - live: real-time data. args {"kind":"weather|air|crypto|currency|earthquake|space|pincode|dictionary","query":"place / coin / 'USD INR' / word"}.
-- web: look up anything current or factual on the internet (news, prices, sports scores, movies, releases, people, companies, "latest", "today", "2026"). args {"query":"search words"}.
+- web: ONLY for things that change or are recent: news, today's events, prices, sports results, new movies/releases, current office holders, "latest", "this week", 2026 events. args {"query":"search words"}. General knowledge (history, science, how things work, famous places, definitions) is chat - you know it.
 - research: a deep, multi-source report when the user asks to research / compare / write a detailed report. args {"question":"..."}.
 - image: create / draw / generate / design a picture, logo, poster, wallpaper, art. args {"prompt":"a detailed English description of the picture"}.
 - audio: make an audio file / voice note / speak text aloud as a file. args {"text":"exactly what to say","voice":"male|female"}.
@@ -23,7 +23,9 @@ export const ROUTER_SYSTEM = `You are the planner inside CodeConClave AI, an ass
 - remember: the user tells a fact about themselves or something they like ("I love movies", "my name is Ravi", "remember that..."). args {"fact":"the fact, about 'the user'","interest":"one-word topic to watch for news, or empty"}.
 - mail: their Gmail - check inbox, read, reply, write an email. args {"action":"check|find|reply|write","target":"person or email","detail":"what to say"}.
 - plan: a big multi-step goal ("plan and do...", "help me launch..."). args {"goal":"..."}.
-Pick exactly ONE tool. Use chat when no tool is needed. Questions ABOUT a topic ("what is an image?", "how do videos work?") are chat, not image/video.
+- app: do something inside the CodeConClave app itself: open a page (automations, plugins, library, creations, skills, personalization, memory, files, settings), start a new chat, clear or rename this chat, change the answer language or the voice (male/female/standard), turn the sound on/off, start the live voice chat, connect a folder, search my chats. args {"action":"open|new_chat|clear_chat|rename_chat|language|voice|sound|live|folder|search_chats","target":"page / language / voice / new name / on|off / search words"}.
+- device: on the user's computer (desktop app): open or close an app or program (WhatsApp, Spotify, Chrome, Notepad, VS Code, Word, Excel, Calculator, Settings...), or open a file/folder. args {"action":"open_app|close_app|open_path","target":"app name or path"}.
+Pick exactly ONE tool. Use chat when no tool is needed - most questions are chat. Questions about the user ("who am I", "what is my name"), about you, greetings, feelings, advice, explanations, maths, writing and code questions are chat. Questions ABOUT a topic ("what is an image?", "how do videos work?") are chat, not image/video. Opening a WEBSITE is browser; opening an APP on the computer is device.
 Reply with JSON only: {"tool":"...","args":{...},"say":"one short friendly line TO the user about what you are doing"}`;
 
 const EXAMPLES = [
@@ -35,6 +37,12 @@ const EXAMPLES = [
   ['i love movies', { tool: 'remember', args: { fact: 'The user loves movies', interest: 'movies' }, say: 'Noted - I will tell you when new movies come out.' }],
   ['who won the last ipl final?', { tool: 'web', args: { query: 'IPL final winner latest' }, say: 'Checking the latest result.' }],
   ['what is recursion?', { tool: 'chat', args: {}, say: '' }],
+  ['who am i', { tool: 'chat', args: {}, say: '' }],
+  ['tell me about the taj mahal', { tool: 'chat', args: {}, say: '' }],
+  ['open my automations', { tool: 'app', args: { action: 'open', target: 'automations' }, say: 'Opening your automations.' }],
+  ['change the language to telugu', { tool: 'app', args: { action: 'language', target: 'telugu' }, say: 'Switching my answers to Telugu.' }],
+  ['open whatsapp', { tool: 'device', args: { action: 'open_app', target: 'whatsapp' }, say: 'Opening WhatsApp on your computer.' }],
+  ['close chrome', { tool: 'device', args: { action: 'close_app', target: 'chrome' }, say: 'Closing Chrome on your computer.' }],
 ];
 export const ROUTER_EXAMPLES = EXAMPLES.flatMap(([q, a]) => [{ role: 'user', content: q }, { role: 'assistant', content: JSON.stringify(a) }]);
 

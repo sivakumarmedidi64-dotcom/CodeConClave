@@ -11,7 +11,14 @@ Rules:
 - Works on phones and computers: responsive layout; games get touch buttons/gestures AND keyboard controls.
 - Polished, modern design (dark theme unless asked otherwise), smooth animation, clear text.
 - Games: start screen, score, levels or rising difficulty when it fits, game over + restart, high score saved in localStorage (wrapped in try/catch).
-- Finish everything: no "TODO", no placeholder functions, no lorem ipsum unless asked.`;
+- Finish everything: no "TODO", no placeholder functions, no lorem ipsum unless asked.
+- 3D games and 3D scenes (and any "open world", racing, flying, shooter, adventure): use three.js, loaded with
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+  and <script type="module">import * as THREE from 'three';</script>. Make it look real: sky (gradient or Sky addon), fog, sun + ambient light, soft shadows,
+  procedural terrain (noise hills), trees/rocks/buildings built from shapes, a player you move (WASD/arrows + mouse look, and a touch joystick on phones),
+  a following camera, moving things (cars, animals, enemies, clouds), collectibles, a HUD (score, health, mini-map or objective), and a start + game-over screen.
+  Ask for mouse capture (pointer lock) only on a real click, inside try/catch, and keep the game playable without it (drag to look).
+  Keep 60 fps: reuse geometries/materials, limit shadows to the sun, size the renderer to the window and handle resize.`;
 
 const VIDEO_SYSTEM = `You plan short narrated videos for CodeConClave AI. Reply with JSON only:
 {"title":"...","scenes":[{"caption":"max 8 words shown on screen","narration":"1-2 short spoken sentences (max 28 words)","image":"a detailed English description of the picture for this scene, same visual style in every scene"}]}
@@ -76,7 +83,7 @@ export function registerStudio(app, { cloud, headers, wrap, overLimit }) {
     res.flushHeaders?.();
     const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
     try {
-      const r = await post('/engine/chat/completions', { engine: 'builder', messages, stream: true, max_tokens: 14000, temperature: 0.4, think: false }, 300000);
+      const r = await post('/engine/chat/completions', { engine: 'builder', messages, stream: true, max_tokens: 16000, temperature: 0.4, think: false }, 300000);
       if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
       const reader = r.body.getReader(), dec = new TextDecoder();
       let buf = '', any = false;

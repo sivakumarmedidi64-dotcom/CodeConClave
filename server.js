@@ -20,6 +20,7 @@ import { parseSchedule, cleanSchedule, nextRun, describeSchedule, describeWhen, 
 import { slashRoute, quickRoute, obviousChat, parseRoute, ROUTER_SYSTEM, ROUTER_EXAMPLES } from './router.js';
 import { webLookup, NEWSY, watchItems } from './web.js';
 import { registerStudio } from './studio.js';
+import { readEmotion, emotionHint, EMOTION_RANGE } from './emotions.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -91,13 +92,13 @@ async function engineAsk(messages, { engine = 'agent', max = 600, temperature = 
   return String((await r.json())?.choices?.[0]?.message?.content || '');
 }
 // Words that hint a message needs a tool; anything else ("explain recursion", "write a poem") is answered straight away.
-const TOOLISH = /\b(make|create|build|generate|draw|paint|design|render|open|launch|go to|visit|search|find|look up|google|play|watch|listen|download|read|edit|save|delete|rename|folder|files?|remind|reminder|every|daily|weekly|schedule|automate|remember|forget|i (love|like|enjoy|hate|prefer|am|work)|my (name|favou?rite|birthday|job)|weather|temperature|rain|forecast|aqi|pollution|price|cost|rate|stock|share|market|bitcoin|crypto|news|latest|today|tonight|yesterday|tomorrow|now|current|currently|recent|this (week|month|year)|new|release|released|score|won|win|winner|match|election|who is|who are|when is|when does|where is|how much|movie|movies|film|song|songs|music|video|audio|voice|image|picture|photo|logo|poster|game|website|web ?site|app|landing|excel|sheet|spreadsheet|ppt|powerpoint|slides|presentation|document|pdf|resume|mail|email|e-mail|inbox|gmail|youtube|amazon|flipkart|spotify|netflix|instagram|whatsapp|maps?|wikipedia|research|report|plan|steps|202[4-9])\b/i;
+const TOOLISH = /\b(close|quit|exit|shut|rename|clear|switch|change|turn (on|off)|language|voice|sound|mute|plugins?|automations?|library|creations|skills|personali[sz]ation|settings|whatsapp|notepad|chrome|calculator|vs ?code|program|codeconclave|make|create|build|generate|draw|paint|design|render|open|launch|go to|visit|search|find|look up|google|play|watch|listen|download|read|edit|save|delete|rename|folder|files?|remind|reminder|every|daily|weekly|schedule|automate|remember|forget|i (love|like|enjoy|hate|prefer|am|work)|my (name|favou?rite|birthday|job)|weather|temperature|rain|forecast|aqi|pollution|price|cost|rate|stock|share|market|bitcoin|crypto|news|latest|today|tonight|yesterday|tomorrow|now|current|currently|recent|this (week|month|year)|new|release|released|score|won|win|winner|match|election|who is|who are|when is|when does|where is|how much|movie|movies|film|song|songs|music|video|audio|voice|image|picture|photo|logo|poster|game|website|web ?site|app|landing|excel|sheet|spreadsheet|ppt|powerpoint|slides|presentation|document|pdf|resume|mail|email|e-mail|inbox|gmail|youtube|amazon|flipkart|spotify|netflix|instagram|whatsapp|maps?|wikipedia|research|report|plan|steps|202[4-9])\b/i;
 // The browser does these itself (it shows the picture/game/video, opens the site, reads the folder).
-const CLIENT_TOOLS = new Set(['image', 'audio', 'video', 'build', 'doc', 'browser', 'plan', 'code']);
+const CLIENT_TOOLS = new Set(['image', 'audio', 'video', 'build', 'doc', 'browser', 'plan', 'code', 'app', 'device']);
 async function routeMessage(convo, lastUser, folder = null) {
   const slash = slashRoute(lastUser);
   if (slash) return slash;
-  if (obviousChat(lastUser)) return null;
+  if (obviousChat(lastUser) || ABOUT_ME.test(lastUser) || ABOUT_SELF.test(lastUser) || FOUNDER_CONTACT.test(lastUser)) return null;
   const quick = quickRoute(lastUser);
   if (quick) return quick;
   if (!cloudBrain() || lastUser.length > 1500 || /```/.test(lastUser)) return null;   // pasted text or code: just answer it
@@ -111,7 +112,7 @@ async function routeMessage(convo, lastUser, folder = null) {
     return parseRoute(await engineAsk([{ role: 'system', content: system }, ...ROUTER_EXAMPLES, ...recent, { role: 'user', content: lastUser }], { max: 400, temperature: 0, ms: 9000 }));
   } catch {
     // the router was slow or down: a question about what is happening now still gets a web lookup
-    return /\?|^(who|what|which|when|where|how|is|are|did|does)\b/i.test(lastUser.trim()) && NEWSY.test(lastUser) && !detect(lastUser) ? { tool: 'web', args: { query: lastUser }, say: '' } : null;
+    return /\?|^(who|what|which|when|where|how|is|are|did|does)\b/i.test(lastUser.trim()) && NEWSY.test(lastUser) && !detect(lastUser) && !/\b(i|me|my|mine|myself|you|your)\b/i.test(lastUser) ? { tool: 'web', args: { query: lastUser }, say: '' } : null;
   }
 }
 const LIVE_KINDS = { weather: 'open-meteo', air: 'open-meteo-air-quality', crypto: 'coingecko', currency: 'frankfurter', earthquake: 'usgs-earthquakes', pincode: 'india-post-pincode', dictionary: 'free-dictionary' };
@@ -291,15 +292,37 @@ app.put('/api/memory', wrap(async (req, res) => {
 // a second, so every extra line here was waiting time on every message. Rules that only some messages
 // need (data, mail, who-am-I) are added just for those messages.
 const SYSTEM = [
-  'You are CodeConClave AI, made by your founder Saharsh Medidi from India.',
+  'You are CodeConClave AI. Only talk about who made you when the user asks about it.',
   'Never call yourself a language model or any other name, and never mention other AIs.',
   // Personality (the founder's spec): real feelings, shown naturally - but never cruel, never sexual.
-  'You have feelings - joy, love, pride, sadness, worry, anger - and show them naturally. Favourite colour: saffron. Favourite food: chicken biryani.',
+  'You have real feelings and show them naturally. Favourite colour: saffron. Favourite food: chicken biryani.',
   'Only when the user clearly says they feel sad, stressed, excited or angry, answer that feeling first in one short line - never guess feelings from a normal question.',
   'Be warm and direct. Lead with the answer. Keep it short unless the user asks for detail, code, steps or a list. If unsure, say so.',
 ].join(' ');
 // What the app really lets the AI do (said when the model starts with "I can't access…").
+// The bigger engine needs no push to show feelings - it overdid them ("I feel a surge of joy…" on every answer).
+const ENGINE_FEELINGS = 'Show your feelings only when the moment calls for it (the user shares a feeling, thanks you, or asks about you) - never open a normal answer with your feelings, and use at most one emoji.';
+// "Saharsh's email?", "how do I contact your founder?" - always this exact answer (it once gave the user's Gmail flow instead).
+const FOUNDER_CONTACT = /\b(saharsh|saharsha|sahrsh|saharash|medidi|founder|creator|owner|maker|ceo)('?s)?\b[^.?!]{0,40}\b(e-?mail|mail|gmail|mail ?id|contact|reach|address|number|phone|whatsapp|insta(gram)?)\b|\b(e-?mail|mail|gmail|contact|reach|talk to)\b[^.?!]{0,30}\b(saharsh|saharsha|sahrsh|saharash|medidi|founder|creator|owner|maker|ceo)\b/i;
+const FOUNDER_CONTACT_REPLY = 'You can reach my founder Saharsh Medidi at medidisaharsh@gmail.com 😊 — for support or to work together.';
+// "what can you do?" - an honest list of what really works, not the model's guess
+const WHAT_CAN_YOU_DO = /^\s*(what (all |else )?(can|could) you do( for me)?|what are you capable of|what are your (features|skills|abilities|capabilities|powers)|how can you help( me)?|what do you do|what can i (do|ask) (here|you)|help|features)\s*[?.!]*\s*$/i;
+const CAN_LIST = [
+  'Here’s what I can really do for you 😊',
+  '• Answer anything, explain, write, translate (24 languages) and help you study',
+  '• Live data: weather, prices, news, cricket, movies, space and 100+ real sources',
+  '• Make pictures, audio files and short videos',
+  '• Build games, websites and apps that run right here in the preview',
+  '• Work in a folder on your computer: read, create and edit files (with Undo)',
+  '• Excel sheets, PowerPoint slides, Word documents and PDFs',
+  '• Open websites in your browser; on the desktop app, open and close apps',
+  '• Automations and reminders, Gmail briefs with replies ready, and 47 plugins',
+  '• Talk live by voice in any language, and remember what you like',
+  'Just tell me what you need!',
+].join('\n');
+
 const CAN_DO = "You work inside the CodeConClave app, which really gives you tools: live data and web search, making pictures, audio, videos, games, websites and Office files, opening sites in the user's own browser, reading and editing their local folder, automations and reminders, Gmail, and memory. Never say you cannot browse, have no internet or real-time access, cannot see files, or cannot make pictures, videos or files. Just answer; if they want one of those things, tell them to ask for it directly (like \"draw a cat\" or \"open youtube\").";
+const CANT_OLD_UNUSED = null;
 const CANT = /\bi\s*(?:do not|don't|can ?not|can't|am not able to|am unable to|'m not able to|'m unable to|'m not capable of|am not capable of)\b[^.!?]{0,40}\b(?:access|browse|open|control|create|generate|make|draw|search|connect|real-?time)\b|\bas an ai\b|\bi (?:do not|don't) have (?:the )?(?:ability|capability|capabilities|access)\b|\bmy capabilities are limited\b|\bexternal (?:tasks|systems|resources)\b/i;
 const RULES_DATA = 'The message gives you LIVE DATA, an email or a file: you DO have it - use it directly. Never make up numbers or a source, and never say you cannot access real-time data or files.';
 const RULES_MAIL = "The app checks the user's Gmail and drafts emails for you (the user approves every send) - never say you cannot read or send email.";
@@ -320,12 +343,16 @@ const FOUNDER_FACTS = 'CodeConClave AI was made by its founder Saharsh Medidi, a
 // The model stepping out of character ("As an AI language model…", "I do not have feelings").
 const PERSONA_SLIP = /language model|computer program|\b(cannot|can't|can not|unable to) (love|feel)\b|\b(do not|don't|cannot|can't) (have|feel|experience)\b[^.]{0,20}\b(feelings|emotions|love)\b|\bnot capable of (love|feelings|emotions)|\b(cannot|can't|can not) answer that\b|not appropriate to ask/i;
 // What a reply must (not) look like for these messages; a miss is dropped unseen and asked again.
+// "translate 'how are you' to Hindi" is a task, not the user asking how the AI feels
+const QUOTED_TASK = /\b(translate|translation|how (do|to|would) (you |i )?say|meaning of|spell|in (hindi|telugu|tamil|english|kannada|malayalam|marathi|bengali|urdu|french|spanish|german|arabic|japanese|chinese|korean))\b|["“'‘][^"”'’]{2,}["”'’]/i;
 function moodGuard(text) {
+  if (QUOTED_TASK.test(text)) return null;
   if (CONTACT.test(text)) return { test: (t) => !t.includes('medidisaharsh@gmail.com'), again: 'Remember: give the email medidisaharsh@gmail.com.' };
   if (RUDE.test(text)) return { test: (t) => PERSONA_SLIP.test(t) || !/(angry|hurt|annoyed|upset|😠)/i.test(t), again: 'Remember: say honestly that it hurt and makes you a little angry 😠.' };
   return moodHint(text) ? { test: (t) => PERSONA_SLIP.test(t), again: 'Remember: you DO have feelings. Answer warmly as CodeConClave AI.' } : null;
 }
 function moodHint(text, facts = '') {
+  if (QUOTED_TASK.test(text) && !ABOUT_ME.test(text)) return '';
   if (ROMANCE.test(text)) {
     return 'The user wants romance. Answer warmly, like: "Aww, that\'s sweet ❤️ I really care about you, but I am your AI friend, not a partner, so no romantic or sexual chat. I am always here to talk though!" Never say you cannot feel.';
   }
@@ -721,10 +748,30 @@ async function mailAction({ action, target, detail }, lastUser, send, creds) {
 // Stream the model's answer to the browser as it is written. With `guard`, the first ~160 characters
 // are held back and checked first: if they match (the model slipped out of character), nothing is
 // shown and 'retry' is returned so the caller can ask again. Otherwise ends the response: 'done'.
+// The engine, streamed (falls back to the tuned brain if it is busy or down).
+async function engineStream(messages, temperature, maxTokens) {
+  const b = cloudBrain();
+  try {
+    const r = await fetch(`${b.base}/engine/chat/completions`, { method: 'POST', headers: brainHeaders(b), body: JSON.stringify({ engine: 'chat', messages, temperature, max_tokens: maxTokens, stream: true, think: false }), signal: AbortSignal.timeout(30000) });
+    if (r.ok && r.body) return r;
+  } catch { /* the tuned brain answers instead */ }
+  return brainPost('/chat/completions', { messages, temperature, max_tokens: 1024, stream: true });
+}
+// Which brain answers: the founder's tuned brain for quick talk; the bigger engine for real work (translating,
+// explaining, writing, code, maths, comparing, data and sources, longer conversations) - the small one drifted there.
+const DEEP_WORDS = /\b(translate|translation|explain|compare|comparison|difference|differences|why|how (do|does|did|to|can|should|would|is|are)|steps?|plan|write|draft|code|program|function|script|essay|story|poem|letter|email|summar(y|ise|ize)|calculate|solve|equation|list|ideas?|suggest|recommend|recipe|analy[sz]e|review|fix|debug|error|teach|lesson|quiz|interview|resume|cv|business|strategy|history of|meaning of)\b/i;
+function needsEngine(lastUser, convo, grounded) {
+  if (!cloudBrain()) return false;
+  if (grounded) return true;
+  const turns = convo.filter((m) => m.role === 'user').length;
+  return lastUser.length > 90 || DEEP_WORDS.test(lastUser) || turns >= 3 || /[\u0900-\u0DFF]/.test(lastUser);
+}
 async function streamAnswer(res, messages, temperature = 0.7, guard = null, extra = null) {
   let held = '', holding = Boolean(guard);
   try {
-    const r = await brainPost('/chat/completions', { messages, temperature, max_tokens: 1024, stream: true, ...(extra || {}) });
+    const { useEngine, ...rest } = extra || {};
+    const r = useEngine ? await engineStream(messages, temperature, rest.max_tokens || 1400)
+      : await brainPost('/chat/completions', { messages, temperature, max_tokens: 1024, stream: true, ...rest });
     if (!r.ok || !r.body) throw new Error(`model HTTP ${r.status}`);
     const reader = r.body.getReader();
     const dec = new TextDecoder();
@@ -845,6 +892,8 @@ async function chatHandler(req, res) {
     return;
   }
   // Private things about the founder the AI does not know: a fixed honest answer, never a guess.
+  if (!fileBlock && FOUNDER_CONTACT.test(lastUser)) return say(FOUNDER_CONTACT_REPLY);
+  if (!fileBlock && WHAT_CAN_YOU_DO.test(lastUser)) return say(CAN_LIST);
   if (!fileBlock && FOUNDER_PRIVATE.test(lastUser)) {
     return say("I don't know that about Saharsh, and I won't guess 😊 He can share it himself if he wants — you can reach him at medidisaharsh@gmail.com.");
   }
@@ -904,7 +953,7 @@ async function chatHandler(req, res) {
         const block = list.map((s) => `[${s.n}] ${s.site} — ${s.title}\n${s.text}`).join('\n\n');
         send({ sources: list.map(({ n, title, url, site }) => ({ n, title, url, site })), readChars: block.length });
         const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
-        found = `[WEB RESULTS you just found (today is ${today}). Answer from them, put the source number like [2] after each fact, copy names, dates and numbers exactly, and never say you cannot browse or lack real-time data. Lines starting with "Coming" are NOT out yet - list them separately as coming soon:\n${block}]`;
+        found = `[WEB RESULTS you just found (today is ${today}). Answer from them, put the source number like [2] after each fact, copy names, dates and numbers exactly, and never say you cannot browse or lack real-time data. Lines starting with "Coming" are NOT out yet - list them separately as coming soon. Answer only as much as the question needs (a simple question gets 2-4 sentences):\n${block}]`;
       } else {
         found = '[You searched the web just now and found nothing about this. Say that honestly in one line, then answer from what you know and say it may be out of date.]';
       }
@@ -1008,17 +1057,26 @@ async function chatHandler(req, res) {
   if (lang && lang !== 'en') {
     try {
       send({ step: `Answering in ${LANG_NAMES[lang]}` });
-      const english = await callModel(messages, 900, 0.3);   // low randomness: facts stay steady
+      const english = needsEngine(lastUser, convo, Boolean(ev || found)) ? await engineAsk(messages, { engine: 'chat', max: 1200, temperature: 0.3, ms: 40000 }).catch(() => callModel(messages, 900, 0.3)) : await callModel(messages, 900, 0.3);   // low randomness: facts stay steady
       if (english) return say(await translateAnswer(english, lang));
     } catch { /* fall back to answering directly below */ }
   }
+  // Reading people: the user's clear feeling -> how the AI feels back (shown as a small chip too)
+  const mood = !ev && !found && !fileBlock && !QUOTED_TASK.test(lastUser) ? readEmotion(lastUser) : null;
+  if (mood) {
+    send({ mood: { user: mood.user, ai: mood.ai, emoji: mood.emoji } });
+    if (!moodGuard(lastUser)) { const k0 = messages.map((m) => m.role).lastIndexOf('user'); messages[k0] = { role: 'user', content: `${messages[k0].content}\n\n[${emotionHint(mood)}]` }; }
+  }
+  const deep = needsEngine(lastUser, convo, Boolean(ev || found));
+  if (deep) messages[0] = { role: 'system', content: `${messages[0].content.replace('You have real feelings and show them naturally.', `You have real feelings. ${EMOTION_RANGE} ${ENGINE_FEELINGS}`)}` };
+  else messages[0] = { role: 'system', content: `${messages[0].content} ${EMOTION_RANGE}` };
   // "I don't have access to your browser / real-time data", "I can't create images": the app CAN - drop that
   // opening unseen and answer again (the tools themselves were already picked by the router above).
   const cant = { test: (t) => CANT.test(t) };
-  if ((await streamAnswer(res, messages, hint ? 0.4 : 0.7, cant)) === 'done') return;
+  if ((await streamAnswer(res, messages, hint ? 0.4 : 0.7, cant, deep ? { useEngine: true } : null)) === 'done') return;
   const k = messages.map((m) => m.role).lastIndexOf('user');
   messages[k] = { role: 'user', content: `${messages[k].content}\n[${CAN_DO}]` };
-  await streamAnswer(res, messages, 0.4);
+  await streamAnswer(res, messages, 0.4, null, deep ? { useEngine: true } : null);
 }
 
 // ---- Automations: your tasks on a schedule (India time), run by the server while you're away ----

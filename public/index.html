@@ -511,24 +511,26 @@
   .topdot.offline::after{content:'offline'}
   /* live voice */
   .livego{color:#f2c200}
-  .liveov{position:fixed;inset:0;z-index:70;background:radial-gradient(circle at 50% 38%,#232016 0%,#111 55%,#0b0b0b 100%);display:none;flex-direction:column;align-items:center;padding:22px 18px 30px;color:#e6e6e6}
+  .liveov{position:fixed;inset:0;z-index:70;background:radial-gradient(circle at 50% 34%,#0f2340 0%,#0c1320 45%,#0a0a0d 100%);display:none;flex-direction:column;align-items:center;padding:22px 18px 30px;color:#e6e6e6}
   .liveov.open{display:flex}
   .livetop{width:100%;max-width:720px;display:flex;justify-content:space-between;align-items:center;color:#8c8c8c;font-size:14px}
-  .livebrand{color:#e6e6e6;font-weight:600}.livelang{color:#f2c200}
-  .liveorb{--lvl:0;margin:6vh 0 18px;width:190px;height:190px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center;transition:transform .08s linear}
-  .liveorb i{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe27a,#f2c200 35%,#c57f16 70%,#5a3a06 100%);box-shadow:0 0 60px rgba(242,194,0,.35)}
+  .livebrand{color:#e6e6e6;font-weight:600}.livelang{color:#7cc8ff}
+  .liveorb{--lvl:0;margin:6vh 0 18px;width:230px;height:230px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center;transition:transform .08s linear}
+  .liveorb canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:50%}
+  .liveorb i{position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(120,200,255,.35),inset -14px -18px 40px rgba(0,40,120,.35),0 0 70px rgba(40,150,255,.35);pointer-events:none}
+  .liveorb.nogl i{background:radial-gradient(circle at 35% 30%,#d9f3ff,#5cc8ff 35%,#1a6fe0 70%,#0a2a7a 100%)}
   .liveorb.listen{transform:scale(calc(1 + var(--lvl) * .35))}
-  .liveorb.think i{animation:lvspin 1.2s linear infinite;background:conic-gradient(from 0deg,#f2c200,#1a93fe,#23998d,#f2c200)}
-  .liveorb.speak i{animation:lvpulse 1s ease-in-out infinite}
+  .liveorb.think{transform:scale(.96)}
+  .liveorb.speak{animation:lvpulse 1.1s ease-in-out infinite}
   @keyframes lvspin{to{transform:rotate(360deg)}}
-  @keyframes lvpulse{50%{transform:scale(1.08);box-shadow:0 0 90px rgba(242,194,0,.55)}}
+  @keyframes lvpulse{50%{transform:scale(1.05)}}
   .livestate{font-size:17px;color:#e6e6e6;min-height:26px;text-align:center}
   .livelog{flex:1;width:100%;max-width:720px;overflow-y:auto;margin:18px 0;display:flex;flex-direction:column;gap:10px}
   .ll{background:#1c1c1c;border-radius:12px;padding:9px 12px;font-size:14.5px;line-height:1.5}.ll b{display:block;font-size:12px;color:#8c8c8c;margin-bottom:2px}
   .ll.me{align-self:flex-end;background:#2c2c2c;max-width:85%}.ll.ai{max-width:92%}
   .livebtns{display:flex;gap:22px}
   .livebtn{width:62px;height:62px;border-radius:50%;border:none;background:#2c2c2c;color:#e6e6e6;display:flex;align-items:center;justify-content:center;cursor:pointer}
-  .livebtn .ico{width:26px;height:26px}.livebtn.off{background:#5a1f1f;color:#ff8a8a}.livebtn.end{background:#e5534b;color:#fff}
+  .livebtn .ico{width:26px;height:26px}.livebtn.off{background:#5a1f1f;color:#ff8a8a}.livebtn.end{background:#e5534b;color:#fff;width:72px}.livebtn.end:hover{background:#d63f37}
   /* automations page */
   .autohead h1{flex:1}
   .autotabs{padding-left:22px;border-bottom:1px solid #2c2c2c;margin:0 22px 0 22px;padding-left:0}
@@ -580,6 +582,9 @@
   .trcard b{font-weight:500;font-size:14.5px}.trcard span{color:#8c8c8c;font-size:12.5px}
   .trform{display:flex;flex-direction:column;gap:8px}.annote{color:#b3b3b3;font-size:14px;line-height:1.5}
   @media(max-width:720px){ .trgrid{grid-template-columns:1fr} .calcell{min-height:64px;padding:4px} .calev{display:none} .autohead{flex-wrap:wrap} }
+  .moodchip{display:inline-block;margin-left:8px;font-size:11.5px;color:#d9c27a;background:#2a2615;border:1px solid #3a3420;border-radius:999px;padding:1px 8px;vertical-align:1px;text-transform:none;letter-spacing:0}
+  .savebar{display:flex;gap:8px;padding:8px 10px;border-top:1px solid #2c2c2c;background:#161616}.savebar .aninput{padding:7px 10px;font-size:13px}
+  .cbhead button+button{margin-left:6px}
 </style>
 </head>
 <body>
@@ -963,6 +968,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const box=el('div','codeblock'), head=el('div','cbhead'); head.appendChild(el('span',null,lang||'code'));
     const copy=el('button',null,'Copy'); copy.onclick=async()=>{ try{ await navigator.clipboard.writeText(code); copy.textContent='Copied ✓'; setTimeout(()=>{ copy.textContent='Copy'; },1500); }catch{ toast('Copy did not work in this browser.'); } };
     head.appendChild(copy);
+    const sv=el('button',null,'Save to folder'); sv.onclick=()=>saveCodeToFolder(code,lang,sv); head.appendChild(sv);
     const pre=document.createElement('pre'), c=document.createElement('code');
     if(window.hljs){ try{ const r=lang&&hljs.getLanguage(lang)?hljs.highlight(code,{language:lang,ignoreIllegals:true}):hljs.highlightAuto(code); c.innerHTML=r.value; c.className='hljs language-'+(lang||r.language||''); if(!lang&&r.language) head.firstChild.textContent=r.language; }catch{ c.textContent=code; } }
     else c.textContent=code;
@@ -983,9 +989,12 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     });
     b._text.replaceWith(frag); b._text=null;
   }
+  // reading people: what the AI feels back, shown small next to its name
+  function moodChip(md){ const s=el('span','moodchip',(md.emoji||'💛')+' '+(md.ai||'')); s.title='You seem to feel '+(md.user||'something')+' — I feel '+(md.ai||'')+' for you'; return s; }
   function decorate(b,m,i){
     if(m.role!=='user') renderRich(b,m.content);
     if(m.thought) b._think.textContent='💭 '+m.thought;
+    if(m.mood) b.querySelector('.who')?.after(moodChip(m.mood));
     (m.steps||[]).forEach(s=>b._steps.appendChild(el('div','done',s)));
     if(m.list) b.appendChild(mailListCard(m.list));
     if(m.card && !m.card.skipped){ const k=draftCard(m.card,{compact:true,onChange:touch}); k.dataset.key='m'+i; b.appendChild(k); }
@@ -1004,7 +1013,10 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(m.edits) b.appendChild(editSummary(m.edits,touch));
     if(m.pasteImport) b.appendChild(pasteImportEl(m.pasteImport));
     if(m.updates) b.appendChild(updatesEl(m.updates));
-    if(m.folderAsk){ const row=el('div','mailact'), go=el('button','msend',folder?'📁 Folder connected: '+(folder.name||'folder'):'📁 Choose a folder'); go.onclick=()=>folder&&folder.files?showFiles():folder?wakeFolder():openFolder(); row.appendChild(go); b.appendChild(row); }
+    if(m.folderAsk){ const fa=typeof m.folderAsk==='object'?m.folderAsk:{}; const row=el('div','mailact');
+      if(fa.done) row.appendChild(el('span','mstatus','📁 '+(folder?.name||'Folder')+' connected'));
+      else { const go=el('button','msend','📁 Choose a folder'); go.onclick=()=>folder&&folder.files?resumeAfterFolder():folder?wakeFolder():openFolder(); row.appendChild(go); }
+      b.appendChild(row); }
     if(m.role!=='user'){ const rr=codeRunRow(m.content); if(rr) b.appendChild(rr); const pv=previewRow(m.content); if(pv) b.appendChild(pv); }
     if(m.role!=='user' && m.content && !m.appCard && !m.plugCard) b.appendChild(actionBar(m,i,b));
     return b;
@@ -1078,7 +1090,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
   async function useFolder(root){
     folder={name:root.name||'folder', live:true, root, files:await indexDir(root)};
-    renderFolder(); toast('📁 '+root.name+' connected — ask me about its files');
+    renderFolder(); toast('📁 '+root.name+' connected');
+    resumeAfterFolder();
   }
   function useSnapshot(list){ // browsers without live folders: <input webkitdirectory>
     const files=new Map(); let name='folder';
@@ -1394,6 +1407,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
           if(j.needFile){ need=j.needFile; }
           else if(j.tool){ toolCall=j.tool; }
           else if(j.interest){ addWatch(j.interest); }
+          else if(j.mood){ msg.mood=j.mood; aiEl.querySelector('.who')?.after(moodChip(j.mood)); }
           else if(j.autoCard){ msg.autoCard=j.autoCard; msg.pending='m'+at; const k=autoCard(j.autoCard,{onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
           else if(j.fileCard){ msg.fileCard=j.fileCard; msg.pending='m'+at; const k=fileCard(j.fileCard,{onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
           else if(j.think){ dots.remove(); msg.thought=j.think; aiEl._think.textContent='💭 '+j.think; }
@@ -1581,6 +1595,40 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     {id:'find-bug', name:'Find the bug', cat:'Coding', color:'#3d6b2f', icon:()=>ICONS.bug, desc:'Finds the mistake in your code and shows the fix.', prompt:'Find the bug in this code and show the fix: '},
     {id:'plan-day', name:'Plan my day', cat:'Productivity', color:'#7a2f5f', icon:()=>ICONS.calendar, desc:'Your tasks turned into a simple time-blocked plan.', prompt:'Plan my day in time blocks. My tasks are: '},
   ];
+  // more ready-made skills: one tap fills the message box (or does the thing right away)
+  const SK_I=(d)=>()=>svgIco(d);
+  SKILLS.push(
+    {id:'image', name:'Make a picture', cat:'Create', color:'#1f5f8a', icon:SK_I('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>'), desc:'Any picture, logo, poster or wallpaper from a few words.', prompt:'/image '},
+    {id:'video', name:'Make a video', cat:'Create', color:'#6a2f8a', icon:SK_I('<rect x="2" y="5" width="15" height="14" rx="2"/><path d="m17 10 5-3v10l-5-3z"/>'), desc:'A short narrated video with pictures and captions.', prompt:'/video '},
+    {id:'game', name:'Build a game', cat:'Create', color:'#2f6a3a', icon:SK_I('<rect x="2" y="6" width="20" height="12" rx="4"/><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="16" cy="11" r="1"/><circle cx="18" cy="13" r="1"/>'), desc:'2D or 3D games you can play right here — snake, racing, open-world.', prompt:'/game '},
+    {id:'website', name:'Build a website', cat:'Create', color:'#1f4f6a', icon:SK_I('<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/>'), desc:'A complete website for your shop, portfolio or idea.', prompt:'/website '},
+    {id:'audio', name:'Voice note', cat:'Create', color:'#7a5a1f', icon:SK_I('<path d="M3 12h2"/><path d="M7 8v8"/><path d="M11 5v14"/><path d="M15 8v8"/><path d="M19 10v4"/>'), desc:'Any text turned into an audio file in my voice.', prompt:'/audio '},
+    {id:'slides', name:'Presentation', cat:'Create', color:'#8a3d1f', icon:SK_I('<rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v4"/><path d="M8 20h8"/>'), desc:'PowerPoint slides on any topic, ready to download.', prompt:'/slides '},
+    {id:'resume', name:'Resume builder', cat:'Career', color:'#2a5d6f', icon:SK_I('<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="9" r="2.5"/><path d="M8.5 16a4 4 0 0 1 7 0"/>'), desc:'A clean, strong resume from your details (Word file).', prompt:'Make a professional resume as a Word document. My details: '},
+    {id:'interview', name:'Interview practice', cat:'Career', color:'#4a2f6a', icon:()=>ICONS.bulb, desc:'Questions for your job role, one at a time, with feedback.', prompt:'Act as an interviewer for this role and ask me one question at a time, then give feedback on my answer. The role is: '},
+    {id:'cover', name:'Cover letter', cat:'Career', color:'#5a4a1f', icon:()=>ICONS.mail, desc:'A short cover letter that fits the job.', prompt:'Write a short, strong cover letter. The job and my background: '},
+    {id:'linkedin', name:'LinkedIn post', cat:'Writing', color:'#1f4a7a', icon:()=>ICONS.pen, desc:'A post about your news or idea, in a professional voice.', prompt:'Write a LinkedIn post (short, professional, 3 hashtags) about: '},
+    {id:'insta', name:'Instagram caption', cat:'Writing', color:'#8a2f5a', icon:()=>ICONS.pen, desc:'Catchy captions with emojis and hashtags.', prompt:'Write 5 catchy Instagram captions with emojis and hashtags for: '},
+    {id:'yt-script', name:'YouTube script', cat:'Writing', color:'#8a1f1f', icon:SK_I('<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>'), desc:'Hook, sections and ending for your next video.', prompt:'Write a YouTube video script (hook, 3 sections, ending with a call to subscribe) about: '},
+    {id:'story', name:'Story writer', cat:'Writing', color:'#5a2f2f', icon:()=>ICONS.book, desc:'A short story in any style — for kids, love, thriller…', prompt:'Write a short story about: '},
+    {id:'translate', name:'Translate', cat:'Writing', color:'#2f5a4a', icon:SK_I('<path d="M4 5h8"/><path d="M8 3v2"/><path d="M5 9c2 3 5 5 8 6"/><path d="M11 5c-1 4-3 7-7 9"/><path d="m13 21 4-9 4 9"/><path d="M14.5 18h5"/>'), desc:'Into Telugu, Hindi, Tamil, English and 20 more.', prompt:'Translate this into Telugu: '},
+    {id:'summarize', name:'Summarize', cat:'Study', color:'#3d4a8a', icon:()=>ICONS.book, desc:'Long text or a file turned into 5 clear points.', prompt:'Summarize this in 5 short bullet points: '},
+    {id:'quiz', name:'Quiz me', cat:'Study', color:'#6a5a1f', icon:()=>ICONS.bulb, desc:'A 5-question quiz on any topic, one at a time.', prompt:'Quiz me with 5 questions, one at a time, and tell me if I am right. Topic: '},
+    {id:'exam-plan', name:'Exam study plan', cat:'Study', color:'#2f6a5a', icon:()=>ICONS.calendar, desc:'A day-by-day plan until your exam.', prompt:'Make me a day-by-day study plan. My exam, the date and the subjects: '},
+    {id:'math', name:'Solve maths', cat:'Study', color:'#3d3d8a', icon:SK_I('<path d="M5 12h14"/><path d="M12 5v14"/><rect x="3" y="3" width="18" height="18" rx="3"/>'), desc:'Step-by-step solutions you can follow.', prompt:'Solve this step by step and explain each step simply: '},
+    {id:'code-review', name:'Code review', cat:'Coding', color:'#2f4a6a', icon:()=>ICONS.code, desc:'Problems, risks and cleaner ways to write your code.', prompt:'Review this code: point out bugs, security risks and cleaner ways to write it: '},
+    {id:'sql', name:'SQL helper', cat:'Coding', color:'#1f5a5a', icon:()=>ICONS.code, desc:'Write or fix a SQL query from plain words.', prompt:'Write a SQL query for this (and explain it in one line): '},
+    {id:'regex', name:'Regex helper', cat:'Coding', color:'#4a1f5a', icon:()=>ICONS.code, desc:'A regular expression from plain words, with examples.', prompt:'Write a regular expression that matches this, with 3 examples that match and 2 that do not: '},
+    {id:'project', name:'Work in my project', cat:'Coding', color:'#1f6a3d', icon:()=>ICONS.folder, desc:'I change your project files like a developer — with Undo.', prompt:'/code '},
+    {id:'biz-plan', name:'Business plan', cat:'Business', color:'#5a3d1f', icon:()=>ICONS.chart, desc:'A one-page plan: customers, money, first steps.', prompt:'Make a one-page business plan (customers, what I sell, prices, costs, first 5 steps) for: '},
+    {id:'names', name:'Name ideas', cat:'Business', color:'#6a1f4a', icon:()=>ICONS.spark, desc:'Names for your shop, brand, app or channel.', prompt:'Give me 10 short, catchy name ideas for: '},
+    {id:'marketing', name:'Marketing ideas', cat:'Business', color:'#1f3d6a', icon:()=>ICONS.chart, desc:'Ten cheap ways to get your first customers.', prompt:'Give me 10 cheap, practical marketing ideas to get my first customers for: '},
+    {id:'budget', name:'Budget sheet', cat:'Productivity', color:'#2f5a2f', icon:()=>ICONS.chart, desc:'A monthly budget as an Excel sheet.', prompt:'/sheet a monthly budget for: '},
+    {id:'recipe', name:'Recipe', cat:'Life', color:'#8a4a1f', icon:SK_I('<path d="M3 11h18"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 4v3"/>'), desc:'Easy recipes with Indian measures, step by step.', prompt:'Give me an easy recipe (Indian measures, step by step) for: '},
+    {id:'fitness', name:'Fitness plan', cat:'Life', color:'#1f6a4a', icon:SK_I('<path d="M6 7v10"/><path d="M18 7v10"/><path d="M3 10v4"/><path d="M21 10v4"/><path d="M6 12h12"/>'), desc:'A simple weekly workout you can do at home.', prompt:'Make a simple weekly home workout plan for me. My age, goal and time per day: '},
+    {id:'trip', name:'Trip planner', cat:'Life', color:'#1f4a5a', icon:SK_I('<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>'), desc:'Day-by-day plan with places, food and budget.', prompt:'Plan my trip day by day (places, food, rough budget). Where, how many days, and my budget: '},
+    {id:'gift', name:'Gift ideas', cat:'Life', color:'#8a2f3d', icon:()=>ICONS.spark, desc:'Thoughtful gifts for anyone, any budget.', prompt:'Give me 8 thoughtful gift ideas. Who it is for, the occasion and my budget: '},
+  );
   let mySkills=[], skillTab='All';
   async function showSkills(){
     showPage('skillPage'); renderSkills();
@@ -1596,7 +1644,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const all=[...SKILLS, ...mySkills.map(k=>({...k, cat:'My skills', color:k.steps?'#3a2a2a':'#3a3a3a', icon:()=>k.steps?REC_SVG:ICONS.spark,
       desc:k.steps?k.steps.join(' → '):k.prompt, mine:true}))];
     const tabs=$('skillTabs'); tabs.innerHTML='';
-    ['All','Writing','Study','Coding','Mail','Productivity','My skills'].forEach(t=>{ const b=el('button',t===skillTab?'on':'',t); b.onclick=()=>{ skillTab=t; renderSkills(); }; tabs.appendChild(b); });
+    ['All','Create','Writing','Study','Coding','Career','Business','Life','Mail','Productivity','My skills'].forEach(t=>{ const b=el('button',t===skillTab?'on':'',t); b.onclick=()=>{ skillTab=t; renderSkills(); }; tabs.appendChild(b); });
     const q=$('skillSearch').value.toLowerCase(), grid=$('skillGrid'); grid.innerHTML='';
     const list=all.filter(k=>(skillTab==='All'||k.cat===skillTab) && (k.name+' '+k.desc).toLowerCase().includes(q));
     if(!list.length) grid.appendChild(el('div','mailsubj',skillTab==='My skills'?(me?'No skills of your own yet — press ＋ Create.':'Sign in to create your own skills.'):'No skill matches.'));
@@ -2536,7 +2584,10 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(t.tool==='build') return makeBuild(c,a.request||text,a.kind,text);
     if(t.tool==='doc') return makeDoc(c,DOC_FROM_ROUTER[a.kind]||'doc',a.request||text);
     if(t.tool==='browser') return openSite(c,a.url,t.say);
-    if(t.tool==='files') return addMsg(c,{role:'assistant',content:'I can read, search and edit the files on your computer. Pick the folder you want me to work in — I only see that folder, and nothing changes until you press Save.',folderAsk:true},true);
+    if(t.tool==='files'){ const make=/^(edit|create)$/.test(a.action||'');
+      return addMsg(c,{role:'assistant',content:make?'Pick the folder to work in, and I’ll do it right away — create the files, write the code and show you every change (with Undo).':'Pick the folder you want me to work in and I’ll carry on right away — I only see that folder.',folderAsk:{goal:text,kind:make?'code':'files',at:Date.now()}},true); }
+    if(t.tool==='app') return appControl(c,a);
+    if(t.tool==='device') return deviceControl(c,a);
     if(t.tool==='plan') return startPlan(c,a.goal||text);
     if(t.tool==='code') return runCodeAgent(c,a.goal||text);
     return addMsg(c,{role:'assistant',content:'I wasn’t sure how to do that — could you say it another way?'},true);
@@ -2746,7 +2797,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     return null;
   }
   async function runCodeAgent(c,goal){
-    if(!folder||!folder.files) return addMsg(c,{role:'assistant',content:'Pick your project folder first, then tell me the task again — I’ll read the files, make the changes and show you what changed (with Undo).',folderAsk:true},true);
+    if(!folder||!folder.files) return addMsg(c,{role:'assistant',content:'Pick your project folder and I’ll start right away — I’ll read the files, create and change what’s needed, and show you every change (with Undo).',folderAsk:{goal,kind:'code',at:Date.now()}},true);
     if(!folder.live) return addMsg(c,{role:'assistant',content:'This browser can only read the folder, not save into it. Open CodeConClave in Chrome or Edge (or the desktop app) so I can edit your files.'},true);
     busy=true; sendBtn.disabled=true;
     const w=working('Looking at your project '+folder.name);
@@ -2785,6 +2836,70 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const list=[...edits.values()];
     const text=(summary||(list.length?'I made these changes.':err||'I looked at the project but didn’t change anything.'))+(err&&summary?'\n('+err+')':'');
     addMsg(c,{role:'assistant',content:text,steps:st,edits:list.length?list:undefined,ctx:'[I worked in the user’s folder "'+folder.name+'" on: '+goal+'. '+(summary||err)+' Files changed: '+(list.map(e=>e.path).join(', ')||'none')+']'});
+  }
+
+  // ---- "Do it inside CodeConClave": the AI works the app itself (pages, chats, language, voice, sound, live) ----
+  const PAGE_OPEN={automation:showSched,schedule:showSched,plugin:showPlugins,connector:showPlugins,library:showLibrary,creation:showCreations,skill:showSkills,
+    personali:showPersonalization,profile:showPersonalization,memory:showMemory,setting:()=>$('meBtn').click(),file:()=>folder&&folder.files?showFiles():openFolder(),folder:()=>folder&&folder.files?showFiles():openFolder()};
+  async function appControl(c,a){
+    const act=String(a.action||'').toLowerCase(), raw=String(a.target||'').trim(), tgt=raw.toLowerCase();
+    const say=(t)=>addMsg(c,{role:'assistant',content:t},true);
+    if(act==='open'){ const k=Object.keys(PAGE_OPEN).find(k=>tgt.includes(k)); if(!k) return say('Which page should I open? Automations, Plugins, Library, Creations, Skills, Personalization or Memory.'); say('Opening '+raw+' ✅'); return PAGE_OPEN[k](); }
+    if(act==='new_chat'){ newChat(); return toast('New chat started.'); }
+    if(act==='clear_chat'){ c.messages=[]; c.title='New chat'; saveC(); renderSidebar(); renderChat(); return toast('This chat is cleared.'); }
+    if(act==='rename_chat'){ if(!raw) return say('Tell me the new name for this chat.'); c.title=raw.slice(0,48); c.named=true; saveC(); renderSidebar(); return say('Renamed this chat to “'+c.title+'” ✅'); }
+    if(act==='language'){ const opt=[...$('pfLang').options].find(o=>o.value&&(o.textContent.toLowerCase().includes(tgt)||o.value===tgt));
+      if(!opt) return say('I couldn’t find that language. I can answer in: '+[...$('pfLang').options].filter(o=>o.value).map(o=>o.textContent).join(', ')+'.');
+      $('pfLang').value=opt.value; await saveProfile(); return say('Done ✅ From now on I answer in '+opt.textContent+'.'); }
+    if(act==='voice'){ const v=/female|woman|girl|lady|sister|her/.test(tgt)?'female':/standard|normal|default|plain/.test(tgt)?'standard':'male';
+      try{ localStorage.setItem(VKEY,v); }catch{} $('voicePick').value=v; return say('Done ✅ My voice is now '+$('voicePick').selectedOptions[0].text+'.'); }
+    if(act==='sound'){ const off=/off|mute|stop|no/.test(tgt); try{ localStorage.setItem(SKEY,off?'off':'on'); }catch{} const box=document.getElementById('soundToggle'); if(box) box.checked=!off; return say(off?'Sound off 🔇 — no guitar sound until you turn it on.':'Sound on 🔔 — you’ll hear my guitar sound when answers and updates arrive.'); }
+    if(act==='live') return startLive();
+    if(act==='folder') return addMsg(c,{role:'assistant',content:'Pick the folder you want me to work in:',folderAsk:{goal:'',kind:'files'}},true);
+    if(act==='search_chats'){ $('chatSearch').value=raw; renderSidebar(); document.body.classList.add('open'); return say('Here are your chats about “'+raw+'” — on the left.'); }
+    return say('I’m not sure what to change in the app — say it like “open my automations”, “new chat” or “answer in Telugu”.');
+  }
+
+  // ---- Your computer (desktop app): open and close apps - every command waits for your OK in a real window ----
+  const OPEN_APP={whatsapp:'Start-Process "whatsapp:"',spotify:'Start-Process "spotify:"',chrome:'Start-Process chrome',edge:'Start-Process msedge',firefox:'Start-Process firefox',
+    notepad:'Start-Process notepad',calculator:'Start-Process calc',calc:'Start-Process calc',paint:'Start-Process mspaint','file explorer':'Start-Process explorer',explorer:'Start-Process explorer',
+    'vs code':'Start-Process code','vscode':'Start-Process code',word:'Start-Process winword',excel:'Start-Process excel',powerpoint:'Start-Process powerpnt',outlook:'Start-Process outlook',
+    teams:'Start-Process "msteams:"',settings:'Start-Process "ms-settings:"',camera:'Start-Process "microsoft.windows.camera:"',store:'Start-Process "ms-windows-store:"',terminal:'Start-Process powershell',cmd:'Start-Process cmd',
+    zoom:'Start-Process "zoommtg:"',discord:'Start-Process "discord:"',telegram:'Start-Process "tg:"',vlc:'Start-Process vlc',photos:'Start-Process "ms-photos:"',clock:'Start-Process "ms-clock:"'};
+  const PROC={whatsapp:'WhatsApp',spotify:'Spotify',chrome:'chrome',edge:'msedge',firefox:'firefox',notepad:'notepad',calculator:'CalculatorApp',calc:'CalculatorApp',paint:'mspaint',
+    'vs code':'Code',vscode:'Code',word:'WINWORD',excel:'EXCEL',powerpoint:'POWERPNT',outlook:'OUTLOOK',teams:'ms-teams',zoom:'Zoom',discord:'Discord',telegram:'Telegram',vlc:'vlc',photos:'Microsoft.Photos'};
+  async function deviceControl(c,a){
+    const act=String(a.action||''), raw=String(a.target||'').trim(), tgt=raw.toLowerCase().replace(/\b(app|application|the|my)\b/g,'').trim();
+    if(!DESK) return addMsg(c,{role:'assistant',content:'Opening and closing apps on your computer needs the CodeConClave desktop app (each step waits for your OK). In this browser I can open any website for you — like “open youtube”.'+(DESK_URL?' Desktop app: '+DESK_URL:'')},true);
+    const safe=(x)=>x.replace(/["'`$;|&<>]/g,'').slice(0,80);
+    let cmd='';
+    if(act==='close_app'){ const p=PROC[tgt]||Object.entries(PROC).find(([k])=>tgt.includes(k))?.[1]||safe(tgt); cmd=`Stop-Process -Name "${p}" -ErrorAction SilentlyContinue; "closed ${p}"`; }
+    else if(act==='open_path') cmd=`Start-Process "${safe(raw)}"`;
+    else { cmd=OPEN_APP[tgt]||Object.entries(OPEN_APP).find(([k])=>tgt.includes(k))?.[1]||`Start-Process "${safe(tgt)}"`; }
+    return deskRun(c,cmd);
+  }
+
+  // ---- After you pick a folder, I carry on with what you asked (create, build, edit - not just look) ----
+  function resumeAfterFolder(){
+    const c=current(); if(!c||!folder?.files) return;
+    const m=[...c.messages].reverse().find(x=>x.role==='assistant'); if(!m?.folderAsk||m.folderAsk.done||!(Date.now()-(m.folderAsk.at||0)<30*60000)) return;   // only a request from the last half hour
+    const goal=m.folderAsk.goal; m.folderAsk.done=true; saveC(); renderChat();
+    if(!goal) return;
+    if(m.folderAsk.kind==='code') runCodeAgent(c,goal); else { input.value=goal; send(); }
+  }
+  // "Save to folder" on any code block: it goes into your project (asks for the file name right there)
+  async function saveCodeToFolder(code,lang,btn){
+    if(!folder?.files){ toast('Pick a folder first — then press Save again.'); return openFolder(); }
+    const ext={javascript:'js',js:'js',typescript:'ts',ts:'ts',python:'py',py:'py',html:'html',css:'css',json:'json',java:'java',c:'c',cpp:'cpp','c++':'cpp',csharp:'cs',go:'go',rust:'rs',php:'php',ruby:'rb',sql:'sql',bash:'sh',shell:'sh',powershell:'ps1',markdown:'md',yaml:'yml',xml:'xml',kotlin:'kt',swift:'swift',dart:'dart'}[lang]||'txt';
+    const box=btn.closest('.codeblock'); if(box.querySelector('.savebar')) return;
+    const bar=el('div','savebar'), name=document.createElement('input'), ok=el('button','msend','Save');
+    name.value=(lang==='html'?'index':'code')+'.'+ext; name.className='aninput'; bar.append(name,ok); box.appendChild(bar); name.focus(); name.select();
+    ok.onclick=async()=>{ const p=name.value.trim().replace(/^\/+/,''); if(!p||p.includes('..')) return toast('Type a file name.');
+      let before=null; try{ before=await readLocal(p); }catch{}
+      try{ const how=await writeLocal(p,code); bar.remove(); const c=current();
+        if(c&&how==='saved') addMsg(c,{role:'assistant',content:(before===null?'Created ':'Updated ')+p+' in '+folder.name+' ✅',edits:[{path:p,content:code,saved:'saved',stats:lineStats(before||'',code),before:before!==null&&before.length<=100000?before:(before===null?null:undefined)}]},true);
+        else toast('⬇ Downloaded '+p); }
+      catch(e){ toast('Not saved: '+e.message); } };
   }
 
   // ---- Interest watches: "I love movies" -> the guitar sound + a message when something new comes out ----
@@ -2909,25 +3024,63 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   // It listens, notices when you stop talking, understands any language, answers out loud and listens again.
   // Talk over it to interrupt. What you both say is saved in the chat.
   let live=null;
+  // a phone handset turned down = hang up
+  const LIVE_HANGUP='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(135deg)"><path fill="currentColor" d="M20 15.5c-1.2 0-2.4-.2-3.6-.6-.3-.1-.7 0-1 .2l-2.2 2.2c-2.8-1.4-5.1-3.8-6.6-6.6l2.2-2.2c.3-.3.4-.7.2-1-.3-1.1-.5-2.3-.5-3.5 0-.6-.4-1-1-1H4c-.6 0-1 .4-1 1 0 9.4 7.6 17 17 17 .6 0 1-.4 1-1v-3.5c0-.6-.4-1-1-1z"/></svg>';
   const LIVE_ICO={mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',end:'<path d="M10.7 13.3a16 16 0 0 0 3.4 2.6l1.3-1.3a1.5 1.5 0 0 1 1.6-.3c1 .4 2 .6 3 .7a1.5 1.5 0 0 1 1.3 1.5v2.4a1.5 1.5 0 0 1-1.6 1.5A19 19 0 0 1 3.6 4.6 1.5 1.5 0 0 1 5.1 3h2.4A1.5 1.5 0 0 1 9 4.3c.1 1 .3 2 .7 3a1.5 1.5 0 0 1-.3 1.6L8.1 10.2"/><path d="m2 2 20 20"/>',wave:'<path d="M3 12h2"/><path d="M7 8v8"/><path d="M11 5v14"/><path d="M15 8v8"/><path d="M19 10v4"/>'};
+  // The live orb: flowing blue "liquid marble" drawn by the graphics card; it swirls faster while thinking,
+  // pulses while speaking and grows with your voice. (No WebGL: a soft CSS gradient instead.)
+  const ORB={mode:'listen',lvl:0,gl:null,raf:0};
+  const ORB_FS=`precision highp float;uniform float t;uniform float lvl;uniform float speed;uniform vec2 res;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);}
+float fbm(vec2 p){float v=0.,a=.5;mat2 m=mat2(1.6,1.2,-1.2,1.6);for(int i=0;i<5;i++){v+=a*noise(p);p=m*p;a*=.5;}return v;}
+void main(){vec2 uv=(gl_FragCoord.xy*2.-res)/res.y;float r=length(uv);if(r>1.){gl_FragColor=vec4(0.);return;}
+vec2 p=uv*(1.15+.4*r*r);float tt=t*speed;
+vec2 q=vec2(fbm(p+vec2(0.,tt*.15)),fbm(p+vec2(5.2,1.3)-tt*.12));
+vec2 w=vec2(fbm(p+3.*q+vec2(1.7,9.2)+tt*.2),fbm(p+3.*q+vec2(8.3,2.8)-tt*.18));
+float f=fbm(p+3.5*w);float streak=pow(1.-abs(sin((f*6.+w.x*4.)*1.2)),7.);
+vec3 deep=vec3(.02,.22,.72),mid=vec3(.10,.58,.95),light=vec3(.62,.90,1.),aqua=vec3(.22,.82,.78);
+vec3 col=mix(deep,mid,smoothstep(.2,.7,f));col=mix(col,aqua,smoothstep(.45,.9,w.y)*.45);col=mix(col,light,smoothstep(.55,1.,f+q.x*.3));
+col+=streak*vec3(.9,.97,1.)*.6;col+=lvl*.22*vec3(.6,.9,1.);
+float rim=smoothstep(.8,1.,r);col=mix(col,vec3(.10,.42,.78),rim*.55);
+col+=pow(max(0.,1.-length(uv-vec2(-.38,.46))*1.5),3.)*.4;
+float edge=smoothstep(1.,.985,r);gl_FragColor=vec4(col*edge,edge);}`;
+  function orbStart(canvas){
+    if(ORB.raf) return;
+    if(!ORB.gl){ const gl=canvas.getContext('webgl',{premultipliedAlpha:true,alpha:true}); if(!gl){ canvas.parentElement.classList.add('nogl'); return; }
+      const sh=(type,src)=>{ const x=gl.createShader(type); gl.shaderSource(x,src); gl.compileShader(x); return x; };
+      const pr=gl.createProgram(); gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}')); gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,ORB_FS)); gl.linkProgram(pr);
+      if(!gl.getProgramParameter(pr,gl.LINK_STATUS)){ canvas.parentElement.classList.add('nogl'); return; }
+      gl.useProgram(pr); const b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+      const loc=gl.getAttribLocation(pr,'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+      ORB.gl=gl; ORB.u={t:gl.getUniformLocation(pr,'t'),lvl:gl.getUniformLocation(pr,'lvl'),speed:gl.getUniformLocation(pr,'speed'),res:gl.getUniformLocation(pr,'res')}; ORB.clock=0; ORB.last=performance.now(); }
+    const gl=ORB.gl;
+    const frame=(now)=>{ ORB.raf=requestAnimationFrame(frame);
+      const dt=Math.min(0.05,(now-ORB.last)/1000); ORB.last=now;
+      const sp=ORB.mode==='think'?2.4:ORB.mode==='speak'?1.3+0.4*Math.sin(now/260):0.55+ORB.lvl*2.2; ORB.clock+=dt*sp;
+      gl.viewport(0,0,canvas.width,canvas.height); gl.uniform1f(ORB.u.t,ORB.clock); gl.uniform1f(ORB.u.speed,1); gl.uniform1f(ORB.u.lvl,ORB.mode==='speak'?0.35+0.25*Math.sin(now/180):ORB.lvl);
+      gl.uniform2f(ORB.u.res,canvas.width,canvas.height); gl.drawArrays(gl.TRIANGLE_STRIP,0,4); };
+    ORB.raf=requestAnimationFrame(frame);
+  }
+  function orbStop(){ cancelAnimationFrame(ORB.raf); ORB.raf=0; }
   function liveEl(){
     let o=$('liveOv'); if(o) return o;
     o=el('div','liveov'); o.id='liveOv';
-    o.innerHTML='<div class="livetop"><span class="livebrand">CodeConClave AI · Live</span><span class="livelang" id="liveLang"></span></div><div class="liveorb" id="liveOrb"><i></i></div><div class="livestate" id="liveState"></div><div class="livelog" id="liveLog"></div>'+
-      '<div class="livebtns"><button class="livebtn" id="liveMute" title="Mute the microphone">'+svgIco(LIVE_ICO.mic)+'</button><button class="livebtn end" id="liveEnd" title="End the live chat">'+svgIco(LIVE_ICO.end)+'</button></div>';
+    o.innerHTML='<div class="livetop"><span class="livebrand">CodeConClave AI · Live</span><span class="livelang" id="liveLang"></span></div><div class="liveorb" id="liveOrb"><canvas id="liveCanvas" width="460" height="460"></canvas><i></i></div><div class="livestate" id="liveState"></div><div class="livelog" id="liveLog"></div>'+
+      '<div class="livebtns"><button class="livebtn" id="liveMute" title="Mute the microphone">'+svgIco(LIVE_ICO.mic)+'</button><button class="livebtn end" id="liveEnd" title="Hang up">'+LIVE_HANGUP+'</button></div>';
     document.body.appendChild(o);
     $('liveEnd').onclick=stopLive;
     $('liveMute').onclick=()=>{ if(!live) return; live.muted=!live.muted; $('liveMute').classList.toggle('off',live.muted); if(live.muted){ dropRec(); liveState('Muted — tap the mic to talk again'); } else { liveState('Listening… just talk'); beginRec(); } };
     return o;
   }
   const liveState=(t)=>{ const s=$('liveState'); if(s) s.textContent=t; };
-  const setOrb=(mode,lvl=0)=>{ const o=$('liveOrb'); if(!o) return; o.className='liveorb '+mode; o.style.setProperty('--lvl',String(Math.min(1,lvl))); };
+  const setOrb=(mode,lvl=0)=>{ const o=$('liveOrb'); if(!o) return; o.className='liveorb '+mode+(o.classList.contains('nogl')?' nogl':''); o.style.setProperty('--lvl',String(Math.min(1,lvl))); ORB.mode=mode; ORB.lvl=ORB.lvl*0.6+Math.min(1,lvl)*0.4; };
   function liveLog(who,text){ const l=$('liveLog'); if(!l) return; const p=el('div','ll '+who); p.appendChild(el('b',null,who==='me'?'You':'CodeConClave AI')); p.appendChild(el('span',null,text)); l.appendChild(p); l.scrollTop=l.scrollHeight; }
   async function startLive(){
     if(live) return;
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder) return toast('Your browser can’t use the microphone here.');
     let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); }catch{ return toast('Allow the microphone to talk live.'); }
-    stopSpeaking(); liveEl().classList.add('open'); $('liveLog').innerHTML=''; $('liveLang').textContent='';
+    stopSpeaking(); liveEl().classList.add('open'); $('liveLog').innerHTML=''; $('liveLang').textContent=''; orbStart($('liveCanvas'));
     const ac=new (window.AudioContext||window.webkitAudioContext)(); try{ await ac.resume(); }catch{}
     const an=ac.createAnalyser(); an.fftSize=1024; ac.createMediaStreamSource(stream).connect(an);
     let c=current(); if(!c){ newChat(); c=current(); }
@@ -2938,7 +3091,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   function stopLive(){
     if(!live) return; const L=live; live=null;
     clearInterval(L.timer); try{ L.rec&&L.rec.state!=='inactive'&&L.rec.stop(); }catch{} L.stream.getTracks().forEach(t=>t.stop()); try{ L.ac.close(); }catch{}
-    stopSpeaking(); $('liveOv')?.classList.remove('open'); renderChat();
+    stopSpeaking(); orbStop(); $('liveOv')?.classList.remove('open'); renderChat();
   }
   function beginRec(){
     if(!live||live.muted||(live.rec&&live.rec.state==='recording')) return;
