@@ -904,7 +904,7 @@ async function chatHandler(req, res) {
         const block = list.map((s) => `[${s.n}] ${s.site} — ${s.title}\n${s.text}`).join('\n\n');
         send({ sources: list.map(({ n, title, url, site }) => ({ n, title, url, site })), readChars: block.length });
         const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
-        found = `[WEB RESULTS you just found (today is ${today}). Answer from them, put the source number like [2] after each fact, copy names, dates and numbers exactly, and never say you cannot browse or lack real-time data:\n${block}]`;
+        found = `[WEB RESULTS you just found (today is ${today}). Answer from them, put the source number like [2] after each fact, copy names, dates and numbers exactly, and never say you cannot browse or lack real-time data. Lines starting with "Coming" are NOT out yet - list them separately as coming soon:\n${block}]`;
       } else {
         found = '[You searched the web just now and found nothing about this. Say that honestly in one line, then answer from what you know and say it may be out of date.]';
       }
