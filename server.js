@@ -23,6 +23,7 @@ import { registerStudio } from './studio.js';
 import { readEmotion, emotionHint, EMOTION_RANGE } from './emotions.js';
 import { fixTypos, kindOf, isVague, ABILITY_Q, clarifyFor, innerLife, innerHint, SELF_TALK } from './mind.js';
 import { CAMERA_WORDS, liveCameras } from './cams.js';
+import { FORECAST_WORDS, MAP_WORDS, windyForecast, windyMap } from './windy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -389,7 +390,8 @@ const EMPTY_ANSWER = "I didn't get an answer from my model that time — please 
 // ---- Agent Sai (live data via the edge worker) ----
 function place(s) {
   return s.trim()
-    .replace(/\s+(?:today|now|right now|currently|please|for me|this (?:morning|evening|afternoon|week|weekend))\b.*$/i, '')
+    .replace(/\s+(?:today|tomorrow|tonight|now|right now|currently|later|please|for me|next (?:week|few days|\d+ days)|on (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this (?:morning|evening|afternoon|week|weekend))\b.*$/i, '')
+    .replace(/^(?:tomorrow|tonight|today)\s+(?:in|at)\s+/i, '')
     .replace(/[?.!,]+$/, '').replace(/\s+/g, ' ').trim();
 }
 function detect(message) {
@@ -897,11 +899,17 @@ async function chatHandler(req, res) {
   // Private things about the founder the AI does not know: a fixed honest answer, never a guess.
   if (!fileBlock && FOUNDER_CONTACT.test(lastUser)) return say(FOUNDER_CONTACT_REPLY);
   if (!fileBlock && WHAT_CAN_YOU_DO.test(lastUser)) return say(CAN_LIST);
+  // the live weather map (Windy)
+  if (!fileBlock && MAP_WORDS.test(lastUser)) {
+    const where = lastUser.replace(MAP_WORDS, ' ').replace(/\b(show|me|the|a|live|now|current|of|in|for|near|around|please|open|weather|map|today|can|you|give)\b/gi, ' ').replace(/[?.!,]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const m = await windyMap(where || 'India', lastUser).catch(() => null);
+    if (m) { send({ windyMap: m }); return say(`Here's the live ${m.title.split(' · ')[0].toLowerCase()} 🌦️ Move and zoom it, or tap any spot for its forecast.`); }
+  }
   // live public cameras (official feeds only)
   if (!fileBlock && CAMERA_WORDS.test(lastUser)) {
     send({ step: 'Looking for live public cameras' });
     const r = await liveCameras(lastUser).catch(() => ({ cams: [], needsKey: true, place: '' }));
-    if (r.cams.length) { send({ cams: r.cams }); return say(`Here are live public cameras${r.place ? ` near ${r.place}` : ''} 📹 The pictures update every few minutes — press Refresh for the newest.`); }
+    if (r.cams.length) { send({ cams: r.cams }); return say(r.wider && r.wider.toLowerCase() === r.place.toLowerCase() ? `Here are public live cameras in ${r.wider} 📹 Press Refresh for the newest picture.` : r.wider ? `There's no public live camera near ${r.place} yet, so here are the nearest ones in ${r.wider} 📹 Press Refresh for the newest picture.` : `Here are live public cameras${r.place ? ` near ${r.place}` : ''} 📹 The pictures update every few minutes — press Refresh for the newest.`); }
     return say(r.needsKey ? `I can show official public live cameras worldwide — beaches, cities and roads in India too — as soon as a free Windy Webcams key is added. Right now I have California's public traffic cameras (try “live traffic cameras in Los Angeles”). I only ever use public cameras, never private ones.` : `I couldn't find a public live camera near ${r.place || 'there'} — try a bigger city nearby.`);
   }
   if (!fileBlock && FOUNDER_PRIVATE.test(lastUser)) {
@@ -920,6 +928,8 @@ async function chatHandler(req, res) {
   // with a project folder connected, changing or making files - or building "in my project" - is the coding agent's job
   if (folder && routed && ((routed.tool === 'files' && /^(edit|create)$/.test(routed.args?.action || '')) || (routed.tool === 'build' && /\b(my|this|the) (project|folder|code|codebase|site|website|app|repo|files?)\b|\bin (my|the) folder\b/i.test(lastUser))))
     routed = { tool: 'code', args: { goal: lastUser }, say: routed.say };
+  // weather and forecasts for a place are live data (with the Windy forecast), not a web search
+  if (routed?.tool === 'web' && /^open-meteo/.test(detect(lastUser)?.sourceId || '')) routed = null;
   // "create an image", "make a game", "can you build a website?" - ask what, with ideas to tap (not build blindly)
   const typed = fixTypos(lastUser);
   if (!second && !fileBlock && !req.automationRun && !/^\s*\//.test(lastUser)) {
@@ -965,6 +975,12 @@ async function chatHandler(req, res) {
     if (ev) { /* live space data, used below like any live data */ } else if (plan.action === 'live_data') {
       send({ step: 'Getting live data' });
       ev = await fetchLive(plan.hit);
+      // "will it rain tomorrow?" - the next days too (Windy forecast)
+      if (ev && plan.hit?.sourceId === 'open-meteo' && FORECAST_WORDS.test(lastUser)) {
+        const f = await windyForecast(plan.hit.query).catch(() => null);
+        if (f) ev = { ...ev, summary: `Right now: ${ev.summary}
+${f.summary}`, source: `${ev.source}, ${f.source}` };
+      }
       if (!ev && /^open-meteo/.test(plan.hit?.sourceId)) return say(`I couldn't find a place called "${plan.hit.query}" 🤔 Is the spelling right? Try the nearest town or city name, like "weather in Ongole".`);
       if (!ev) return say("I couldn't get that live data right now — please try again in a minute.");
     } else if (plan.action === 'web') {

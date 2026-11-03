@@ -2,6 +2,8 @@
 // Windy Webcams (worldwide, incl. India; needs a free WINDY_KEY) and California's Caltrans traffic cameras
 // (open data). Never private, home, or "unsecured" cameras.
 
+import { geocode } from './windy.js';
+
 const UA = { 'User-Agent': 'CodeConClave-AI/1.0 (https://codeconclave-ww5x.onrender.com)' };
 const get = async (url, headers = {}) => { const r = await fetch(url, { headers: { ...UA, ...headers }, signal: AbortSignal.timeout(12000) }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); };
 export const CAMERA_WORDS = /\b(cctv|live ?cams?|live cameras?|webcams?|traffic cam(era)?s?|camera feeds?|street cam(era)?s?|city cam(era)?s?|beach cam(era)?s?)\b/i;
@@ -13,13 +15,14 @@ export const cameraPlace = (q) => String(q || '').replace(CAMERA_WORDS, ' ').rep
 export async function liveCameras(q) {
   const place = cameraPlace(q);
   const out = [];
-  const windy = (process.env.WINDY_KEY || '').trim();
+  const windy = (process.env.WINDY_WEBCAMS_KEY || process.env.WINDY_KEY || '').trim();
   if (windy && place) {
     try {
-      const g = await get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1`);
-      const p = g?.results?.[0];
+      const p = await geocode(place);
       if (p) {
-        const d = await get(`https://api.windy.com/webcams/api/v3/webcams?nearby=${p.latitude},${p.longitude},60&include=images,location,urls&limit=6`, { 'x-windy-api-key': windy });
+        let d = await get(`https://api.windy.com/webcams/api/v3/webcams?nearby=${p.lat},${p.lon},100&include=images,location,urls&limit=6`, { 'x-windy-api-key': windy });
+        // few public cameras near there (India has only a handful so far): the nearest ones in the same country
+        if (!d?.webcams?.length && p.cc) { d = await get(`https://api.windy.com/webcams/api/v3/webcams?countries=${p.cc}&include=images,location,urls&limit=8`, { 'x-windy-api-key': windy }); if (d?.webcams?.length) out.wider = p.country; }
         for (const w of d?.webcams || []) {
           const img = w.images?.current?.preview || w.images?.current?.thumbnail;
           if (img) out.push({ title: w.title, image: img, url: w.urls?.detail || `https://www.windy.com/webcams/${w.webcamId}`, source: 'Windy Webcams', where: [w.location?.city, w.location?.region].filter(Boolean).join(', ') });
@@ -36,5 +39,5 @@ export async function liveCameras(q) {
       }
     } catch { /* nothing open here */ }
   }
-  return { place, cams: out, needsKey: !windy };
+  return { place, cams: out, wider: out.wider || '', needsKey: !windy };
 }

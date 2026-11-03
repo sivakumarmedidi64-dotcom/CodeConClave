@@ -552,6 +552,8 @@
   .camcard{background:#232323;border-radius:12px;overflow:hidden}.camcard img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:#111;cursor:zoom-in}
   .cammeta{padding:8px 10px;display:flex;flex-direction:column;gap:3px}.cammeta b{font-size:13px;font-weight:500}.cammeta span{color:#8c8c8c;font-size:12px}.cammeta .mskip{align-self:flex-start;margin-top:4px;padding:3px 10px;font-size:12px}
   .runout{margin:0;padding:10px 14px;border-top:1px solid #2c2c2c;background:#0f0f0f;color:#b9f6ca;font:12.5px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;max-height:260px;overflow:auto}
+  .windybox{margin:10px 0 4px;max-width:720px}.windybox b{display:block;font-size:13px;color:#b3b3b3;margin-bottom:6px;font-weight:500}
+  .windybox iframe{display:block;width:100%;height:380px;border:0;border-radius:12px;background:#111}
 </style>
 </head>
 <body>
@@ -1002,6 +1004,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(m.thinking) b._steps.after(thinkingEl(m.thinking));
     if(m.ask) b.appendChild(askChipsEl(m.ask));
     if(m.cams) b.appendChild(camsEl(m.cams));
+    if(m.windyMap) b.appendChild(windyMapEl(m.windyMap));
     if(m.edits) b.appendChild(editSummary(m.edits,touch));
     if(m.pasteImport) b.appendChild(pasteImportEl(m.pasteImport));
     if(m.updates) b.appendChild(updatesEl(m.updates));
@@ -1402,6 +1405,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
           else if(j.mood){ msg.mood=j.mood; aiEl.querySelector('.who')?.after(moodChip(j.mood)); }
           else if(j.ask){ msg.ask=j.ask; }
           else if(j.cams){ msg.cams=j.cams; aiEl.appendChild(camsEl(j.cams)); }
+          else if(j.windyMap){ msg.windyMap=j.windyMap; aiEl.appendChild(windyMapEl(j.windyMap)); }
           else if(j.thinking){ msg.thinking=j.thinking; aiEl._steps.after(thinkingEl(j.thinking)); }
           else if(j.autoCard){ msg.autoCard=j.autoCard; msg.pending='m'+at; const k=autoCard(j.autoCard,{onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
           else if(j.fileCard){ msg.fileCard=j.fileCard; msg.pending='m'+at; const k=fileCard(j.fileCard,{onChange:touch}); k.dataset.key='m'+at; aiEl.appendChild(k); }
@@ -2919,6 +2923,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       const rf=el('button','mskip','↻ Refresh'); rf.onclick=load; meta.appendChild(rf); card.append(im,meta); g.appendChild(card); });
     return g;
   }
+  // the live weather map (Windy), right in the answer
+  function windyMapEl(m){ const box=el('div','windybox'); box.appendChild(el('b',null,m.title)); const f=document.createElement('iframe'); f.src=m.url; f.title=m.title; f.loading='lazy'; f.referrerPolicy='no-referrer'; f.setAttribute('allowfullscreen',''); box.appendChild(f); return box; }
   // ---- Its thinking, shown like a note you can open ----
   function thinkingEl(t){
     const d=document.createElement('details'); d.className='thinkbox';
