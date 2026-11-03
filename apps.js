@@ -5,6 +5,8 @@
 // Reading happens right away; anything that creates something (an issue, a page, a task) is only
 // called after the person checks it on its card and presses the button.
 
+import { MORE_APPS } from './apps-more.js';
+
 const UA = 'CodeConClave-AI';
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const bad = (msg) => Object.assign(new Error(msg), { status: 400 });
@@ -377,6 +379,7 @@ const APPS = {
     write: {},
   },
 };
+Object.assign(APPS, MORE_APPS);   // ~25 more read-only plugins (apps-more.js)
 
 const calls = new Map(); // ip -> times, 60 calls / 10 min
 export function registerApps(app, { wrap, fetchPublicPage }) {

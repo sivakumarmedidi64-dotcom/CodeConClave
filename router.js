@@ -5,7 +5,7 @@
 // nothing picked them. A bigger open model (the engine) makes the choice as JSON; clear cases
 // (slash commands, "draw a cat") skip it.
 
-export const TOOLS = ['chat', 'live', 'web', 'research', 'image', 'audio', 'video', 'build', 'doc', 'browser', 'files', 'automation', 'remember', 'mail', 'plan'];
+export const TOOLS = ['chat', 'live', 'web', 'research', 'image', 'audio', 'video', 'build', 'doc', 'browser', 'files', 'automation', 'remember', 'mail', 'plan', 'code'];
 
 export const ROUTER_SYSTEM = `You are the planner inside CodeConClave AI, an assistant that really CAN do all of these through its tools:
 - chat: talk, explain, answer from knowledge, write text/poems/emails-to-copy, maths, small code snippets, advice.
@@ -40,7 +40,7 @@ export const ROUTER_EXAMPLES = EXAMPLES.flatMap(([q, a]) => [{ role: 'user', con
 
 // Clear cases that need no thinking (fast, and the router's model is never asked).
 const SLASH = { image: 'image', img: 'image', draw: 'image', audio: 'audio', voice: 'audio', video: 'video', game: 'build', website: 'build', site: 'build', app: 'build', build: 'build',
-  web: 'web', search: 'web', research: 'research', sheet: 'doc', excel: 'doc', slides: 'doc', ppt: 'doc', word: 'doc', pdf: 'doc', open: 'browser', files: 'files', remember: 'remember', automate: 'automation', remind: 'automation', plan: 'plan', weather: 'live' };
+  web: 'web', search: 'web', research: 'research', sheet: 'doc', excel: 'doc', slides: 'doc', ppt: 'doc', word: 'doc', pdf: 'doc', open: 'browser', files: 'files', remember: 'remember', automate: 'automation', remind: 'automation', plan: 'plan', weather: 'live', code: 'code' };
 const DOC_KIND = { sheet: 'sheet', excel: 'sheet', slides: 'slides', ppt: 'slides', word: 'word', pdf: 'pdf' };
 export function slashRoute(text) {
   const m = String(text || '').trim().match(/^\/([a-z]+)\b\s*([\s\S]*)$/i);
@@ -52,7 +52,7 @@ export function slashRoute(text) {
     image: { prompt: rest }, audio: { text: rest, voice: 'male' }, video: { topic: rest }, web: { query: rest }, research: { question: rest },
     build: { kind: cmd === 'game' ? 'game' : cmd === 'app' ? 'app' : 'website', request: rest }, doc: { kind: DOC_KIND[cmd] || 'word', request: rest },
     browser: { url: /^https?:\/\//.test(rest) ? rest : `https://www.google.com/search?q=${encodeURIComponent(rest)}` }, files: { action: 'list', target: rest, detail: rest },
-    remember: { fact: rest, interest: '' }, automation: { when: rest, what: rest }, plan: { goal: rest }, live: { kind: 'weather', query: rest },
+    remember: { fact: rest, interest: '' }, automation: { when: rest, what: rest }, plan: { goal: rest }, live: { kind: 'weather', query: rest }, code: { goal: rest },
   }[tool];
   return rest || tool === 'files' ? { tool, args, say: '' } : null;
 }

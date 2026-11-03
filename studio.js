@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 // The studio: things CodeConClave AI MAKES - pictures, games/websites/apps (code that runs live in a
 // preview), and the plan for a video (the browser turns the plan + pictures + voice into the video file).
 // All of it runs on the always-on brain (Cloudflare): FLUX for pictures, the bigger open "builder"
@@ -22,6 +23,9 @@ function firstJson(s) {
   try { return JSON.parse(t.slice(a, b + 1)); } catch { return null; }
 }
 
+// A video counts as ONE message: its plan hands out a ticket that covers the scene pictures.
+const tickets = new Map();   // ticket -> { left, until }
+
 export function registerStudio(app, { cloud, headers, wrap, overLimit }) {
   const brain = () => cloud();
   const post = (path, body, ms) => {
@@ -34,7 +38,9 @@ export function registerStudio(app, { cloud, headers, wrap, overLimit }) {
   app.post('/api/image', wrap(async (req, res) => {
     const prompt = String(req.body?.prompt || '').trim().slice(0, 1500);
     if (!prompt) return res.status(400).json({ error: 'Say what to draw.' });
-    if (!req.body?.free && await overLimit(req, res)) return;
+    const t = tickets.get(String(req.body?.ticket || ''));
+    if (t && t.left > 0 && t.until > Date.now()) t.left--;
+    else if (await overLimit(req, res)) return;
     const size = { square: [1024, 1024], wide: [1280, 720], tall: [720, 1280] }[req.body?.shape] || [1024, 1024];
     let r, d = {}, b64 = null;
     // the sharp model first; if Cloudflare is busy ("capacity") or it fails, the fast model tries once more
@@ -97,6 +103,39 @@ export function registerStudio(app, { cloud, headers, wrap, overLimit }) {
     res.end();
   })().catch(next));
 
+  // The coding agent: works in the user's project folder step by step (read -> change -> check), like a
+  // developer. The browser holds the files, so each step goes: browser -> here (choose the next action)
+  // -> browser does it -> here again. Every change is shown with an Undo.
+  app.post('/api/agent/step', wrap(async (req, res) => {
+    const goal = String(req.body?.goal || '').trim().slice(0, 3000);
+    const files = (Array.isArray(req.body?.files) ? req.body.files : []).filter((p) => typeof p === 'string' && p.length < 300).slice(0, 500);
+    const history = (Array.isArray(req.body?.history) ? req.body.history : []).slice(-40)
+      .map((m) => ({ role: m?.role === 'assistant' ? 'assistant' : 'user', content: String(m?.content || '').slice(0, 16000) }));
+    if (!goal) return res.status(400).json({ error: 'Say what to do in the project.' });
+    if (!history.length && await overLimit(req, res)) return;   // one task = one message, however many steps
+    const run = req.body?.desktop ? '\n{"tool":"run","command":"a terminal command, e.g. npm test"}  (the user approves each command)' : '';
+    const system = `You are the coding agent inside CodeConClave AI, working in the user's project folder "${String(req.body?.folder || 'project').slice(0, 60)}".
+Do the task step by step. Reply with exactly ONE JSON action per message, nothing else:
+{"tool":"read","path":"file path from the list"}   (you get the file with line numbers like "12| text")
+{"tool":"insert","path":"...","after":12,"text":"new lines to add after line 12 (after 0 = at the top)"}
+{"tool":"replace","path":"...","from":12,"to":14,"text":"new lines that take the place of lines 12 to 14"}
+{"tool":"write","path":"...","content":"the COMPLETE file"}   (new files, or rewriting a small file)${run}
+{"tool":"done","summary":"2-4 short lines: what you changed and how to try it"}
+Rules: read a file before you change it; use the line numbers from your LAST read of that file (after a change you get the new numbered file); never put line numbers inside "text"; keep changes small and working; never delete files; at most 10 changes; when the task is finished (or impossible) use done.
+Files in the folder:\n${files.join('\n') || '(empty folder)'}`;
+    let action = null;
+    for (let i = 0; i < 2 && !action; i++) {
+      try {
+        const r = await post('/engine/chat/completions', { engine: 'builder', messages: [{ role: 'system', content: system }, { role: 'user', content: `Task: ${goal}` }, ...history], max_tokens: 9000, temperature: 0.2, think: false }, 180000);
+        const d = await r.json();
+        const a = firstJson(d?.choices?.[0]?.message?.content);
+        if (a && ['read', 'insert', 'replace', 'edit', 'write', 'run', 'done'].includes(a.tool)) action = a;
+      } catch { /* try once more */ }
+    }
+    if (!action) return res.status(502).json({ error: 'The coding agent got stuck - please try again.' });
+    res.json({ action });
+  }));
+
   // The plan of a short video: scenes with on-screen text, narration and a picture description each.
   app.post('/api/video/plan', wrap(async (req, res) => {
     const topic = String(req.body?.topic || '').trim().slice(0, 600);
@@ -115,6 +154,9 @@ export function registerStudio(app, { cloud, headers, wrap, overLimit }) {
       } catch { /* try again */ }
     }
     if (!plan) return res.status(502).json({ error: 'I couldn\'t plan that video - please try again.' });
-    res.json(plan);
+    const ticket = crypto.randomUUID();
+    tickets.set(ticket, { left: plan.scenes.length, until: Date.now() + 15 * 60000 });
+    for (const [k, v] of tickets) if (v.until < Date.now()) tickets.delete(k);
+    res.json({ ...plan, ticket });
   }));
 }

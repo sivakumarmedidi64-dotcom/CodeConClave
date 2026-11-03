@@ -93,8 +93,8 @@ async function engineAsk(messages, { engine = 'agent', max = 600, temperature = 
 // Words that hint a message needs a tool; anything else ("explain recursion", "write a poem") is answered straight away.
 const TOOLISH = /\b(make|create|build|generate|draw|paint|design|render|open|launch|go to|visit|search|find|look up|google|play|watch|listen|download|read|edit|save|delete|rename|folder|files?|remind|reminder|every|daily|weekly|schedule|automate|remember|forget|i (love|like|enjoy|hate|prefer|am|work)|my (name|favou?rite|birthday|job)|weather|temperature|rain|forecast|aqi|pollution|price|cost|rate|stock|share|market|bitcoin|crypto|news|latest|today|tonight|yesterday|tomorrow|now|current|currently|recent|this (week|month|year)|new|release|released|score|won|win|winner|match|election|who is|who are|when is|when does|where is|how much|movie|movies|film|song|songs|music|video|audio|voice|image|picture|photo|logo|poster|game|website|web ?site|app|landing|excel|sheet|spreadsheet|ppt|powerpoint|slides|presentation|document|pdf|resume|mail|email|e-mail|inbox|gmail|youtube|amazon|flipkart|spotify|netflix|instagram|whatsapp|maps?|wikipedia|research|report|plan|steps|202[4-9])\b/i;
 // The browser does these itself (it shows the picture/game/video, opens the site, reads the folder).
-const CLIENT_TOOLS = new Set(['image', 'audio', 'video', 'build', 'doc', 'browser', 'plan']);
-async function routeMessage(convo, lastUser) {
+const CLIENT_TOOLS = new Set(['image', 'audio', 'video', 'build', 'doc', 'browser', 'plan', 'code']);
+async function routeMessage(convo, lastUser, folder = null) {
   const slash = slashRoute(lastUser);
   if (slash) return slash;
   if (obviousChat(lastUser)) return null;
@@ -102,11 +102,13 @@ async function routeMessage(convo, lastUser) {
   if (quick) return quick;
   if (!cloudBrain() || lastUser.length > 1500 || /```/.test(lastUser)) return null;   // pasted text or code: just answer it
   const nonLatin = /[ऀ-෿؀-ۿЀ-ӿ぀-鿿가-힯]/.test(lastUser);   // Indian/other scripts: let the router read it
-  if (!TOOLISH.test(lastUser) && !nonLatin) return null;
+  if (!TOOLISH.test(lastUser) && !nonLatin && !folder) return null;   // with a project folder open, coding requests can use any words
   // the last few turns, short - "make it faster" after a game means change that game
   const recent = convo.slice(-5, -1).map((m) => ({ role: m.role, content: String(m.content).slice(0, 400) }));
   try {
-    return parseRoute(await engineAsk([{ role: 'system', content: ROUTER_SYSTEM }, ...ROUTER_EXAMPLES, ...recent, { role: 'user', content: lastUser }], { max: 400, temperature: 0, ms: 9000 }));
+    const system = folder ? `${ROUTER_SYSTEM}
+- code: the user has their project folder "${folder.name}" open (files: ${folder.paths.slice(0, 40).join(', ')}). Changing, fixing, adding features to, or creating files in THEIR project is code. args {"goal":"the full task"}.` : ROUTER_SYSTEM;
+    return parseRoute(await engineAsk([{ role: 'system', content: system }, ...ROUTER_EXAMPLES, ...recent, { role: 'user', content: lastUser }], { max: 400, temperature: 0, ms: 9000 }));
   } catch {
     // the router was slow or down: a question about what is happening now still gets a web lookup
     return /\?|^(who|what|which|when|where|how|is|are|did|does)\b/i.test(lastUser.trim()) && NEWSY.test(lastUser) && !detect(lastUser) ? { tool: 'web', args: { query: lastUser }, say: '' } : null;
@@ -855,7 +857,10 @@ async function chatHandler(req, res) {
 
   // 0. Route: does this message need one of the AI's tools - a picture, a game, the user's browser, the web…?
   // (Without this the model alone said "I can't create images / I have no access to your browser".)
-  const routed = second || fileBlock || req.automationRun || req.body?.route === false ? null : await routeMessage(convo, lastUser);
+  let routed = second || fileBlock || req.automationRun || req.body?.route === false ? null : await routeMessage(convo, lastUser, folder);
+  // with a project folder connected, changing or making files - or building "in my project" - is the coding agent's job
+  if (folder && routed && ((routed.tool === 'files' && /^(edit|create)$/.test(routed.args?.action || '')) || (routed.tool === 'build' && /\b(my|this|the) (project|folder|code|codebase|site|website|app|repo|files?)\b|\bin (my|the) folder\b/i.test(lastUser))))
+    routed = { tool: 'code', args: { goal: lastUser }, say: routed.say };
   if (routed && (CLIENT_TOOLS.has(routed.tool) || (routed.tool === 'files' && !folder))) {
     send({ tool: routed }); send({ done: true }); return res.end();
   }
@@ -1738,6 +1743,24 @@ app.post('/api/plugins/send', wrap(async (req, res) => {
   } else if (kind === 'webhook') {
     url = String(cfg.url || '').trim();
     payload = { text, source: 'CodeConClave AI', sentAt: new Date().toISOString() };
+  } else if (kind === 'ntfy') {   // a push notification on the user's phone (free ntfy app, no account)
+    const topic = String(cfg.topic || '').trim();
+    if (!/^[\w-]{6,64}$/.test(topic)) return res.status(400).json({ error: 'Pick a topic name of 6+ letters/numbers (the same one you subscribed to in the ntfy app).' });
+    url = 'https://ntfy.sh/';
+    payload = { topic, title: 'CodeConClave AI', message: text.slice(0, 3800) };
+  } else if (kind === 'teams') {
+    url = String(cfg.url || '').trim();
+    if (!/^https:\/\/([\w-]+\.)*(webhook\.office\.com|logic\.azure\.com|powerplatform\.com|outlook\.office\.com)\/\S+$/.test(url)) return res.status(400).json({ error: 'That is not a Microsoft Teams webhook link.' });
+    payload = { text };
+  } else if (kind === 'gchat') {
+    url = String(cfg.url || '').trim();
+    if (!/^https:\/\/chat\.googleapis\.com\/v1\/spaces\/[\w-]+\/messages\?\S+$/.test(url)) return res.status(400).json({ error: 'That is not a Google Chat webhook link (it starts with https://chat.googleapis.com/v1/spaces/).' });
+    payload = { text: text.slice(0, 4000) };
+  } else if (kind === 'pushover') {
+    const token = String(cfg.token || '').trim(), user = String(cfg.user || '').trim();
+    if (!/^\w{30}$/.test(token) || !/^\w{30}$/.test(user)) return res.status(400).json({ error: 'Pushover needs your app token and your user key (30 letters and numbers each).' });
+    url = 'https://api.pushover.net/1/messages.json';
+    payload = { token, user, title: 'CodeConClave AI', message: text.slice(0, 1000) };
   } else return res.status(400).json({ error: 'Unknown plugin.' });
   try {
     const r = await postPublic(url, payload);
