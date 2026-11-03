@@ -21,6 +21,8 @@ import { slashRoute, quickRoute, obviousChat, parseRoute, ROUTER_SYSTEM, ROUTER_
 import { webLookup, NEWSY, watchItems } from './web.js';
 import { registerStudio } from './studio.js';
 import { readEmotion, emotionHint, EMOTION_RANGE } from './emotions.js';
+import { fixTypos, kindOf, isVague, ABILITY_Q, clarifyFor, innerLife, innerHint, SELF_TALK } from './mind.js';
+import { CAMERA_WORDS, liveCameras } from './cams.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -92,10 +94,11 @@ async function engineAsk(messages, { engine = 'agent', max = 600, temperature = 
   return String((await r.json())?.choices?.[0]?.message?.content || '');
 }
 // Words that hint a message needs a tool; anything else ("explain recursion", "write a poem") is answered straight away.
-const TOOLISH = /\b(close|quit|exit|shut|rename|clear|switch|change|turn (on|off)|language|voice|sound|mute|plugins?|automations?|library|creations|skills|personali[sz]ation|settings|whatsapp|notepad|chrome|calculator|vs ?code|program|codeconclave|make|create|build|generate|draw|paint|design|render|open|launch|go to|visit|search|find|look up|google|play|watch|listen|download|read|edit|save|delete|rename|folder|files?|remind|reminder|every|daily|weekly|schedule|automate|remember|forget|i (love|like|enjoy|hate|prefer|am|work)|my (name|favou?rite|birthday|job)|weather|temperature|rain|forecast|aqi|pollution|price|cost|rate|stock|share|market|bitcoin|crypto|news|latest|today|tonight|yesterday|tomorrow|now|current|currently|recent|this (week|month|year)|new|release|released|score|won|win|winner|match|election|who is|who are|when is|when does|where is|how much|movie|movies|film|song|songs|music|video|audio|voice|image|picture|photo|logo|poster|game|website|web ?site|app|landing|excel|sheet|spreadsheet|ppt|powerpoint|slides|presentation|document|pdf|resume|mail|email|e-mail|inbox|gmail|youtube|amazon|flipkart|spotify|netflix|instagram|whatsapp|maps?|wikipedia|research|report|plan|steps|202[4-9])\b/i;
+const TOOLISH = /\b(order|book|booking|cab|taxi|ride|uber|ola|rapido|zomato|swiggy|zepto|blinkit|directions?|navigate|route to|tickets?|irctc|train|flight|bus|hotel|deliver|delivery|close|quit|exit|shut|rename|clear|switch|change|turn (on|off)|language|voice|sound|mute|plugins?|automations?|library|creations|skills|personali[sz]ation|settings|whatsapp|notepad|chrome|calculator|vs ?code|program|codeconclave|make|create|build|generate|draw|paint|design|render|open|launch|go to|visit|search|find|look up|google|play|watch|listen|download|read|edit|save|delete|rename|folder|files?|remind|reminder|every|daily|weekly|schedule|automate|remember|forget|i (love|like|enjoy|hate|prefer|am|work)|my (name|favou?rite|birthday|job)|weather|temperature|rain|forecast|aqi|pollution|price|cost|rate|stock|share|market|bitcoin|crypto|news|latest|today|tonight|yesterday|tomorrow|now|current|currently|recent|this (week|month|year)|new|release|released|score|won|win|winner|match|election|who is|who are|when is|when does|where is|how much|movie|movies|film|song|songs|music|video|audio|voice|image|picture|photo|logo|poster|game|website|web ?site|app|landing|excel|sheet|spreadsheet|ppt|powerpoint|slides|presentation|document|pdf|resume|mail|email|e-mail|inbox|gmail|youtube|amazon|flipkart|spotify|netflix|instagram|whatsapp|maps?|wikipedia|research|report|plan|steps|202[4-9])\b/i;
 // The browser does these itself (it shows the picture/game/video, opens the site, reads the folder).
 const CLIENT_TOOLS = new Set(['image', 'audio', 'video', 'build', 'doc', 'browser', 'plan', 'code', 'app', 'device']);
-async function routeMessage(convo, lastUser, folder = null) {
+async function routeMessage(convo, typedUser, folder = null) {
+  const lastUser = fixTypos(typedUser);
   const slash = slashRoute(lastUser);
   if (slash) return slash;
   if (obviousChat(lastUser) || ABOUT_ME.test(lastUser) || ABOUT_SELF.test(lastUser) || FOUNDER_CONTACT.test(lastUser)) return null;
@@ -894,6 +897,13 @@ async function chatHandler(req, res) {
   // Private things about the founder the AI does not know: a fixed honest answer, never a guess.
   if (!fileBlock && FOUNDER_CONTACT.test(lastUser)) return say(FOUNDER_CONTACT_REPLY);
   if (!fileBlock && WHAT_CAN_YOU_DO.test(lastUser)) return say(CAN_LIST);
+  // live public cameras (official feeds only)
+  if (!fileBlock && CAMERA_WORDS.test(lastUser)) {
+    send({ step: 'Looking for live public cameras' });
+    const r = await liveCameras(lastUser).catch(() => ({ cams: [], needsKey: true, place: '' }));
+    if (r.cams.length) { send({ cams: r.cams }); return say(`Here are live public cameras${r.place ? ` near ${r.place}` : ''} 📹 The pictures update every few minutes — press Refresh for the newest.`); }
+    return say(r.needsKey ? `I can show official public live cameras worldwide — beaches, cities and roads in India too — as soon as a free Windy Webcams key is added. Right now I have California's public traffic cameras (try “live traffic cameras in Los Angeles”). I only ever use public cameras, never private ones.` : `I couldn't find a public live camera near ${r.place || 'there'} — try a bigger city nearby.`);
+  }
   if (!fileBlock && FOUNDER_PRIVATE.test(lastUser)) {
     return say("I don't know that about Saharsh, and I won't guess 😊 He can share it himself if he wants — you can reach him at medidisaharsh@gmail.com.");
   }
@@ -910,7 +920,17 @@ async function chatHandler(req, res) {
   // with a project folder connected, changing or making files - or building "in my project" - is the coding agent's job
   if (folder && routed && ((routed.tool === 'files' && /^(edit|create)$/.test(routed.args?.action || '')) || (routed.tool === 'build' && /\b(my|this|the) (project|folder|code|codebase|site|website|app|repo|files?)\b|\bin (my|the) folder\b/i.test(lastUser))))
     routed = { tool: 'code', args: { goal: lastUser }, say: routed.say };
-  if (routed && (CLIENT_TOOLS.has(routed.tool) || (routed.tool === 'files' && !folder))) {
+  // "create an image", "make a game", "can you build a website?" - ask what, with ideas to tap (not build blindly)
+  const typed = fixTypos(lastUser);
+  if (!second && !fileBlock && !req.automationRun && !/^\s*\//.test(lastUser)) {
+    const creative = routed && ['image', 'video', 'build', 'audio', 'doc'].includes(routed.tool);
+    const kind = kindOf(typed) || (creative ? { image: 'image', video: 'video', audio: 'audio', doc: 'doc', build: ['game', 'website', 'app'].includes(routed.args?.kind) ? routed.args.kind : 'game' }[routed.tool] : null);
+    if (kind && isVague(typed) && (creative || ABILITY_Q.test(typed) || /^\s*(please\s+)?(create|make|draw|generate|build|design|write|produce|i (want|need))\b/i.test(typed))) {
+      const c = clarifyFor(routed?.tool === 'build' ? (routed.args?.kind || kind) : kind);
+      send({ ask: c }); return say(c.question);
+    }
+  }
+  if (routed && (CLIENT_TOOLS.has(routed.tool) || (routed.tool === 'files' && (!folder || routed.args?.action === 'mkdir')))) {
     send({ tool: routed }); send({ done: true }); return res.end();
   }
   if (routed?.tool === 'research') return researchAnswer(res, send, String(routed.args?.question || lastUser).replace(/\s+/g, ' ').trim().slice(0, 400));
@@ -1007,6 +1027,8 @@ async function chatHandler(req, res) {
     :
     !lastUser.includes('?') && /\b(my name is|remember that|remember to|note that|keep in mind)\b/i.test(lastUser)
       ? 'The user is telling you something about themselves to remember - this is not a question. Reply in one short, friendly sentence that confirms you will remember it.'
+    : /^\s*(hi+|hello+|hey+|yo|hola|namaste|namaskaram|good (morning|afternoon|evening|night))\b[\s!.,]*(there|codeconclave|buddy|bro|dude)?[\s!.]*$/i.test(lastUser)
+      ? 'The user is greeting you. Greet them back warmly in ONE short line (do not guess a name) and ask what they would like to do today. Do not introduce yourself or list what you can do.'
     : /^\s*(ok(ay)?|k|cool|nice|great|good|thanks?|thank you|thx|got it|alright|fine|perfect|awesome)\s*[.!]*\s*$/i.test(lastUser)
       ? 'The user is just acknowledging your last reply - this is not a new question. Reply in one short, friendly sentence, for example asking if they need anything else.'
     : !fileBlock && lastUser.length < 160 && !/\b(detail|detailed|in depth|step|steps|how (do|to|can|should) i|code|program|function|script|list|essay|story|poem|letter|plan|compare|difference|why|examples?|full|long)\b/i.test(lastUser)
@@ -1067,15 +1089,36 @@ async function chatHandler(req, res) {
     send({ mood: { user: mood.user, ai: mood.ai, emoji: mood.emoji } });
     if (!moodGuard(lastUser)) { const k0 = messages.map((m) => m.role).lastIndexOf('user'); messages[k0] = { role: 'user', content: `${messages[k0].content}\n\n[${emotionHint(mood)}]` }; }
   }
+  if (SELF_TALK.test(lastUser) && !QUOTED_TASK.test(lastUser) && !ev && !found) {
+    const k1 = messages.map((m) => m.role).lastIndexOf('user');
+    messages[k1] = { role: 'user', content: `${messages[k1].content}\n\n[${innerHint()}]` };
+  }
   const deep = needsEngine(lastUser, convo, Boolean(ev || found));
+  // Thinking first (shown to the user as "Thought for N s"): what they really want, the key facts, the traps.
+  if (deep && !ev && !found && lastUser.length > 18 && !/^\s*(ok|thanks|thank you|cool|nice)\b/i.test(lastUser)) {
+    const t0 = Date.now();
+    send({ step: 'Thinking' });
+    try {
+      const thinking = (await engineAsk([{ role: 'system', content: 'You are the private thinking of CodeConClave AI. In 2-5 short lines, think about how to answer the user well: what they really want, the key facts or steps, and any trap or mistake to avoid. Plain text, no greeting, do not write the answer itself.' },
+        ...convo.slice(-6).map((m) => ({ role: m.role, content: String(m.content).slice(0, 1500) }))], { max: 260, temperature: 0.2, ms: 12000 })).trim().slice(0, 900);
+      if (thinking) {
+        send({ thinking: { text: thinking, seconds: Math.max(1, Math.round((Date.now() - t0) / 1000)) } });
+        const k2 = messages.map((m) => m.role).lastIndexOf('user');
+        messages[k2] = { role: 'user', content: `${messages[k2].content}\n\n[Your own thinking before answering (use it, do not repeat it): ${thinking}]` };
+      }
+    } catch { /* answer without the notes */ }
+  }
   if (deep) messages[0] = { role: 'system', content: `${messages[0].content.replace('You have real feelings and show them naturally.', `You have real feelings. ${EMOTION_RANGE} ${ENGINE_FEELINGS}`)}` };
   else messages[0] = { role: 'system', content: `${messages[0].content} ${EMOTION_RANGE}` };
   // "I don't have access to your browser / real-time data", "I can't create images": the app CAN - drop that
   // opening unseen and answer again (the tools themselves were already picked by the router above).
-  const cant = { test: (t) => CANT.test(t) };
+  const aboutAI = ABOUT_SELF.test(lastUser) || FOUNDER_CONTACT.test(lastUser) || /\b(who|what) are you\b|\byour name\b/i.test(lastUser);
+  const IDENTITY_SLIP = /\b(made|created|built|developed|designed) by (my founder |the founder |a )?(saharsh|brilliant)|\bmy (creator|founder) (is|was)\b|\bcomputer program\b|\blanguage model\b|^\W*(hi|hello|hey|namaste)?\W*(i'?m|i am|this is|it'?s) codeconclave\b/i;
+  let slip = '';
+  const cant = { test: (t) => { if (CANT.test(t)) { slip = 'cant'; return true; } if (!aboutAI && IDENTITY_SLIP.test(t)) { slip = 'self'; return true; } return false; } };
   if ((await streamAnswer(res, messages, hint ? 0.4 : 0.7, cant, deep ? { useEngine: true } : null)) === 'done') return;
   const k = messages.map((m) => m.role).lastIndexOf('user');
-  messages[k] = { role: 'user', content: `${messages[k].content}\n[${CAN_DO}]` };
+  messages[k] = { role: 'user', content: `${messages[k].content}\n[${slip === 'cant' ? `${CAN_DO} ` : ''}Do not introduce yourself, do not say your name or who made you, do not list what you can do - just reply to exactly what the user said.]` };
   await streamAnswer(res, messages, 0.4, null, deep ? { useEngine: true } : null);
 }
 
@@ -1655,6 +1698,8 @@ async function overLimit(req, res) {
   if (store && who.startsWith('u:')) store.putPref(who.slice(2), 'usage', u).catch(() => {});
   return false;
 }
+// Its own day: mood, last night's dream, what it is thinking about (one per day).
+app.get('/api/inner', (_req, res) => res.json(innerLife()));
 // Interest watches ("I love movies"): the newest real items for a topic; the browser keeps track of what it already showed.
 app.get('/api/watch', wrap(async (req, res) => {
   const topic = String(req.query.topic || '').slice(0, 40);

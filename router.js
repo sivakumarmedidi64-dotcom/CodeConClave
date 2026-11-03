@@ -17,8 +17,9 @@ export const ROUTER_SYSTEM = `You are the planner inside CodeConClave AI, an ass
 - video: make a video / short film / reel / animation about something. args {"topic":"..."}.
 - build: make a game, website, web app, landing page, calculator, tool, animation in code (it runs live in a preview). Also changes to the thing just built. args {"kind":"game|website|app","request":"full description of what to build or change"}.
 - doc: make an Excel sheet, PowerPoint slides, Word document or PDF. args {"kind":"sheet|slides|word|pdf","request":"..."}.
-- browser: open a website or search on a site in the user's own browser (YouTube, Google, Amazon, maps...). args {"url":"https://... the exact page to open, with the search words in it"}.
-- files: the user's local files/folder on their computer (list, read, summarise, edit, create a file). args {"action":"list|read|edit|create","target":"file name or empty","detail":"what to do"}.
+- browser: open a website or search on a site in the user's own browser (YouTube, Google, Amazon, Flipkart, Zomato, Swiggy, Uber, Ola, Rapido, Google Maps, IRCTC, BookMyShow...). Also ordering food, booking a cab or ride, directions, tickets: open the right page with the details filled in - the user logs in, checks and pays there themselves. args {"url":"https://... the exact page, with the search words / destination in it"}.
+  Useful pages: Swiggy https://www.swiggy.com/search?query=WORDS · Zomato https://www.zomato.com/ (add the city like /hyderabad) · Uber https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=PLACE · Ola https://book.olacabs.com/ · Rapido https://www.rapido.bike/ · Google Maps directions https://www.google.com/maps/dir/?api=1&destination=PLACE · Maps search https://www.google.com/maps/search/WORDS · YouTube https://www.youtube.com/results?search_query=WORDS · Amazon https://www.amazon.in/s?k=WORDS · Flipkart https://www.flipkart.com/search?q=WORDS · BookMyShow https://in.bookmyshow.com/ · IRCTC https://www.irctc.co.in/
+- files: the user's local files/folder on their computer (list, read, summarise, edit, create a file, create a new folder). args {"action":"list|read|edit|create|mkdir","target":"file or folder name, or empty","detail":"what to do"}.
 - automation: do something later or repeatedly (remind me, every day at 8, every Monday, when X happens). args {"when":"...","what":"..."}.
 - remember: the user tells a fact about themselves or something they like ("I love movies", "my name is Ravi", "remember that..."). args {"fact":"the fact, about 'the user'","interest":"one-word topic to watch for news, or empty"}.
 - mail: their Gmail - check inbox, read, reply, write an email. args {"action":"check|find|reply|write","target":"person or email","detail":"what to say"}.
@@ -43,6 +44,9 @@ const EXAMPLES = [
   ['change the language to telugu', { tool: 'app', args: { action: 'language', target: 'telugu' }, say: 'Switching my answers to Telugu.' }],
   ['open whatsapp', { tool: 'device', args: { action: 'open_app', target: 'whatsapp' }, say: 'Opening WhatsApp on your computer.' }],
   ['close chrome', { tool: 'device', args: { action: 'close_app', target: 'chrome' }, say: 'Closing Chrome on your computer.' }],
+  ['order chicken biryani on swiggy', { tool: 'browser', args: { url: 'https://www.swiggy.com/search?query=chicken+biryani' }, say: 'Opening Swiggy with chicken biryani - pick a place and pay there.' }],
+  ['book a cab to charminar', { tool: 'browser', args: { url: 'https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=Charminar%2C%20Hyderabad' }, say: 'Opening a ride to Charminar - check the price and confirm it there.' }],
+  ['create a folder named Malliswari', { tool: 'files', args: { action: 'mkdir', target: 'Malliswari', detail: 'a new folder' }, say: 'Creating the folder Malliswari.' }],
 ];
 export const ROUTER_EXAMPLES = EXAMPLES.flatMap(([q, a]) => [{ role: 'user', content: q }, { role: 'assistant', content: JSON.stringify(a) }]);
 
