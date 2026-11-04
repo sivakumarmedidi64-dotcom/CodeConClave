@@ -130,7 +130,8 @@ async function pgTables(pool) {
       author_id bigint,
       updated bigint not null,
       primary key (space_id, kind, id));
-    create index if not exists space_items_recent on space_items (space_id, kind, updated);`);
+    create index if not exists space_items_recent on space_items (space_id, kind, updated);
+    create index if not exists space_items_by_id on space_items (kind, id);`);
   const autoOut = (r) => r && { id: r.id, task: r.task, steps: r.steps || null, schedule: r.schedule, enabled: r.enabled,
     nextRun: r.next_run === null ? null : Number(r.next_run), lastRun: r.last_run === null ? null : Number(r.last_run), lastStatus: r.last_status };
   const one = async (text, params) => (await q(text, params)).rows[0] || null;
@@ -212,6 +213,7 @@ async function pgTables(pool) {
     async getInvite(hash) { const r = await one('select * from space_invites where token_hash = $1', [hash]); return r && { spaceId: r.space_id, role: r.role, expires: Number(r.expires) }; },
     async putItem(spaceId, kind, id, data, authorId) { await q('insert into space_items values ($1,$2,$3,$4,$5,$6) on conflict (space_id, kind, id) do update set data = excluded.data, updated = excluded.updated', [spaceId, kind, id, JSON.stringify(data), authorId || null, Date.now()]); },
     async getItem(spaceId, kind, id) { const r = await one('select * from space_items where space_id = $1 and kind = $2 and id = $3', [spaceId, kind, id]); return r && itemOut(r); },
+    async findItem(kind, id) { const r = await one('select * from space_items where kind = $1 and id = $2 limit 1', [kind, id]); return r && { ...itemOut(r), spaceId: r.space_id }; },
     async listItems(spaceId, kind, { since = 0, limit = 200 } = {}) { return (await q('select * from space_items where space_id = $1 and kind = $2 and updated > $3 order by updated desc limit $4', [spaceId, kind, since, limit])).rows.map(itemOut); },
     async deleteItem(spaceId, kind, id) { await q('delete from space_items where space_id = $1 and kind = $2 and id = $3', [spaceId, kind, id]); },
     async deleteItemsBefore(spaceId, kind, before) { return (await q('delete from space_items where space_id = $1 and kind = $2 and updated < $3', [spaceId, kind, before])).rowCount; },
@@ -310,6 +312,7 @@ function fileStore(dir) {
     async getInvite(hash) { const r = db.invites.find((x) => x.hash === hash); return r && { spaceId: r.spaceId, role: r.role, expires: r.expires }; },
     async putItem(spaceId, kind, id, data, authorId) { const x = db.items.find((y) => y.spaceId === spaceId && y.kind === kind && y.id === id); if (x) { x.data = data; x.updated = Date.now(); } else db.items.push({ spaceId, kind, id, data, authorId: authorId ? uid(authorId) : null, updated: Date.now() }); save(); },
     async getItem(spaceId, kind, id) { return itemOut(db.items.find((y) => y.spaceId === spaceId && y.kind === kind && y.id === id)); },
+    async findItem(kind, id) { const x = db.items.find((y) => y.kind === kind && y.id === id); return x && { ...itemOut(x), spaceId: x.spaceId }; },
     async listItems(spaceId, kind, { since = 0, limit = 200 } = {}) { return db.items.filter((y) => y.spaceId === spaceId && y.kind === kind && y.updated > since).sort((a, b) => b.updated - a.updated).slice(0, limit).map(itemOut); },
     async deleteItem(spaceId, kind, id) { db.items = db.items.filter((y) => !(y.spaceId === spaceId && y.kind === kind && y.id === id)); save(); },
     async deleteItemsBefore(spaceId, kind, before) { const n = db.items.length; db.items = db.items.filter((y) => !(y.spaceId === spaceId && y.kind === kind && y.updated < before)); save(); return n - db.items.length; },

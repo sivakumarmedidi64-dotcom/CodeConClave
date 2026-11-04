@@ -1390,7 +1390,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       const resp=research
         ? await fetch('/api/research',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({question:text})})
         : await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
-          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:memory.join('\n'), profile, folder:folderInfo(), rules:[await folderRules(), window.ccMyRules?window.ccMyRules():''].filter(Boolean).join('\n'), teach:(()=>{ try{ return JSON.parse(localStorage.getItem('cc_teach_v1'))===true; }catch{ return false; } })(), recall:recallSnippets(text,c.id), ...extra})});
+          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), recall:recallSnippets(text,c.id), ...(window.ccChatExtra?window.ccChatExtra():{}), ...extra})});
       if(!resp.ok && !/event-stream/.test(resp.headers.get('content-type')||'')){   // e.g. the usage limit is reached
         const d=await resp.json().catch(()=>({})); dots.remove(); wrap.appendChild(el('div','err',d.error||'Something went wrong — please try again.'));
         if(d.usage) usageNow=d.usage; renderSide(); return; }
@@ -2808,7 +2808,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const paths=[...folder.files.keys()].filter(p=>!/(^|\/)(node_modules|\.git|dist|build|\.next|__pycache__)\//.test(p)).slice(0,500);
     const find=(p)=>{ const t=String(p||'').replace(/^\.?\//,''); return folder.files.has(t)?t:paths.find(x=>x.toLowerCase()===t.toLowerCase())||paths.find(x=>x.toLowerCase().endsWith('/'+t.toLowerCase()))||t; };
     const hist=[], edits=new Map(); let summary='', err='';
-    const pol=window.ccSpaces?await window.ccSpaces.policy():null;
+    const pol=me?await fetch('/api/my-policy').then(r=>r.json()).then(d=>d.policy).catch(()=>null):null;
     const isProtected=(p)=>(pol?.protectedPaths||[]).some(x=>x&&(p===x||p.startsWith(x.replace(/^\/+/,''))||p.includes('/'+x.replace(/^\/+/,''))));
     try{
       for(let step=0; step<16; step++){
@@ -3231,7 +3231,7 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
       const c=convos.find(x=>x.id===live.chatId)||current(); if(!c) return back();
       c.messages.push({role:'user',content:'🎙 '+said}); c.updated=Date.now(); saveC(); if(currentId===c.id) renderChat();
       const outMsgs=c.messages.slice(-14).map(m=>({role:m.role,content:String(m.ctx||m.content).replace(/^🎙 /,'')}));
-      const r=await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({messages:outMsgs,memory:memory.join('\n'),profile:{...profile,language:lang},live:true})});
+      const r=await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({messages:outMsgs,memory:memory.join('\n'),profile:{...profile,language:lang},live:true,...(window.ccChatExtra?window.ccChatExtra():{})})});
       let answer='', tool=null;
       if(r.body){ const rd=r.body.getReader(), dec=new TextDecoder(); let buf='';
         while(true){ const {done,value}=await rd.read(); if(done) break; buf+=dec.decode(value,{stream:true}); let i;
@@ -3906,10 +3906,11 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
   async function loadMe(){
     try{ const d=await (await fetch('/api/auth/me',{headers:mailHeaders()})).json(); me=d.user; authInfo=d; }catch{ me=null; }
     renderProfile(); if(me) await syncDown();
-    if(new URLSearchParams(location.search).get('welcome')){ history.replaceState(null,'','/'); if(me) showGmail(true); }
+    if(window.ccApp) window.ccApp.loaded=true; window.dispatchEvent(new CustomEvent('cc-me'));
+    if(new URLSearchParams(location.search).get('welcome')){ history.replaceState(null,'',location.pathname); if(me) showGmail(true); }
     if(me){ try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{} await syncProfileAndLibrary(); }
     const why=new URLSearchParams(location.search).get('signin');
-    if(why){ history.replaceState(null,'','/'); toast(why==='password'?'That email already has an account — sign in with your password.':'Google sign-in did not work — please try again.'); }
+    if(why){ history.replaceState(null,'',location.pathname); toast(why==='password'?'That email already has an account — sign in with your password.':'Google sign-in did not work — please try again.'); }
   }
   function showAuth(isSignup){
     signup=Boolean(isSignup); $('authTitle').textContent=signup?'Create your CodeConClave account':'Sign in to CodeConClave AI';
@@ -3925,7 +3926,7 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
         body:JSON.stringify({email:$('authEmail').value.trim(),password:$('authPass').value,name:$('authName').value.trim()})});
       const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not sign in.');
       me=d.user; $('authPass').value=''; $('authModal').classList.remove('open');
-      await syncDown(); renderProfile(); toast((signup?'Account created — ':'Signed in as ')+me.email);
+      await syncDown(); renderProfile(); window.dispatchEvent(new CustomEvent('cc-me')); toast((signup?'Account created — ':'Signed in as ')+me.email);
       try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{}
       if(signup) showGmail(true); else mailBrief(false);
     }catch(e){ $('authErr').textContent=e.message; }
@@ -3934,9 +3935,13 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
   // Signing out also clears this device's copy (your account keeps everything) - safer on a shared computer.
   async function signOut(){
     await fetch('/api/auth/logout',{method:'POST'}).catch(()=>{});
-    me=null; pushed.clear(); convos=[]; memory=[]; currentId=null; briefEl=null; briefChatId=null;
+    me=null; pushed.clear(); convos=[]; memory=[]; currentId=null; briefEl=null; briefChatId=null; window.dispatchEvent(new CustomEvent('cc-me'));
     saveM(); newChat(); $('profModal').classList.remove('open'); toast('Signed out — your chats stay safe on your account.');
   }
+  // a small bridge for the Team page (/team): the same AI app, with the team's things added by team.js
+  window.ccApp={ get me(){ return me; }, loaded:false, signIn:(up)=>showAuth(up), toast, closePages, closeRail,
+    chat:()=>{ const c=current(); return c&&c.messages.length?{id:c.id,title:c.title,messages:c.messages}:null; },
+    openChat:(title,messages)=>{ closePages(); currentId=uid(); convos.unshift({id:currentId,title:String(title||'Shared chat').slice(0,80),messages,updated:Date.now()}); saveC(); renderSidebar(); renderChat(); closeRail(); } };
   loadMe().then(()=>mailBrief(false)); // then the AI briefs you on your mail (owner only)
   // Every minute: pick up anything an automation delivered (with the guitar cue).
   setInterval(async()=>{
@@ -3948,6 +3953,6 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
 
   load(); renderProfile(); reconnectFolder(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
 </script>
-<script src="/spaces.js"></script>
+<script src="/team.js"></script>
 </body>
 </html>

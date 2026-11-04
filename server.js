@@ -25,7 +25,6 @@ import { fixTypos, kindOf, isVague, ABILITY_Q, clarifyFor, innerLife, innerHint,
 import { CAMERA_WORDS, liveCameras } from './cams.js';
 import { FORECAST_WORDS, MAP_WORDS, windyForecast, windyMap } from './windy.js';
 import { registerSpaces, maskPrivate } from './spaces.js';
-import { registerSolo } from './solo.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -34,8 +33,9 @@ app.use(express.json({ limit: '8mb' }));
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 const page = (file) => (_req, res) => res.sendFile(path.join(__dirname, 'public', file));
 app.get('/', (req, res, next) => (req.query.join ? res.redirect(`/team?join=${encodeURIComponent(String(req.query.join))}`) : page('home.html')(req, res, next)));
-app.get(['/solo', '/chat'], page('index.html'));
-app.get(['/team', '/org', '/organization'], page('workspace.html'));
+app.get(['/solo', '/chat', '/team'], page('index.html')); // /team = the same AI app with the team's things added (public/team.js)
+app.get(['/org', '/organization'], page('workspace.html'));
+app.get('/s/:token', page('share.html')); // a share-space link (private or public)
 app.get('/customize', page('customize.html'));
 
 // Two brains, both the founder's own tuned models (OpenAI-style endpoints):
@@ -862,9 +862,13 @@ async function chatHandler(req, res) {
   const memory = typeof req.body?.memory === 'string' ? req.body.memory.slice(0, 2000).trim() : '';
   // CODECONCLAVE.md in the user's folder: their rules for work in that folder (data from their files - never above our own rules)
   const rules = typeof req.body?.rules === 'string' ? req.body.rules.slice(0, 3000).trim() : '';
+  // opened from /team: the team's standards + the best bits of its brain (only for the team's members)
+  const lastAsk = String([...convo].reverse().find((m) => m.role === 'user')?.content || '').slice(0, 2000);
+  const team = req.body?.space && req.user && !req.automationRun ? await spaces.teamContext(req.user, String(req.body.space), lastAsk).catch(() => null) : null;
   // the answer is written in English and translated at the end, so the language line stays out of the model's rules
   const sys = [SYSTEM, profileText({ ...(req.body?.profile || {}), language: '' }), memory ? `What you know about this user (remember and use it):\n${memory}` : '',
-    rules ? `The user's folder has an instructions file (CODECONCLAVE.md). Follow it for work in that folder, but you stay CodeConClave AI and keep all your own rules:\n${rules}` : '']
+    rules ? `The user's folder has an instructions file (CODECONCLAVE.md). Follow it for work in that folder, but you stay CodeConClave AI and keep all your own rules:\n${rules}` : '',
+    team ? team.text : '']
     .filter(Boolean).join('\n\n');
 
   // Attached files (already turned to text in the browser).
@@ -883,6 +887,8 @@ async function chatHandler(req, res) {
       // memory search: matching parts of the user's earlier chats (found in their browser)
       const recall = typeof req.body?.recall === 'string' ? req.body.recall.slice(0, 1500).trim() : '';
       if (recall) content = `[From the user's earlier chats - use only if it helps answer:\n${recall}]\n\n${content}`;
+      // on /team: the parts of the team brain that match the question, right where the model reads it
+      if (team?.notes) content = `[From the team brain of "${team.name}" - the team's own notes. If they answer the question, answer from them and say it is from the team brain:\n${team.notes}]\n\n${content}`;
       messages[i] = { role: 'user', content };
       break;
     }
@@ -1870,7 +1876,6 @@ registerApps(app, { wrap, fetchPublicPage });
 registerStudio(app, { cloud: cloudBrain, headers: brainHeaders, wrap, overLimit });
 // Teams and organizations (shared, on the server) and the Solo tools - three separate spaces
 const spaces = registerSpaces(app, { store, wrap, engineAsk });
-registerSolo(app, { wrap, engineAsk, overLimit });
 // the organization rules that apply to this person's own AI use (the browser checks them for the coding agent)
 app.get('/api/my-policy', wrap(async (req, res) => res.json({ policy: req.user ? await spaces.policyFor(req.user) : null })));
 

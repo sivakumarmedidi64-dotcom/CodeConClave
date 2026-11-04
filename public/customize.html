@@ -62,8 +62,8 @@
   const ADDONS=[['ai','More AI usage','Higher limits for chats, pictures, videos and builds'],['voice','Live voice minutes','More hands-free talking time, any language'],['ownvoice','Your own AI voice','The AI speaks in a voice you choose'],
     ['brain','Bigger brain storage','More files and notes in your team or company brain'],['agent','Advanced coding agent','Longer jobs on bigger projects'],['support','Priority support','Faster help from us, by email and chat'],
     ['security','Extra security & audit','Longer audit history, stricter policies'],['desktop','Desktop app','Open and close apps on your computer']];
-  const FEATS={solo:['Founder Mode','Solo Reviewer','Coding agent','Pictures & video','Games & websites','Live voice','Automations','Office files'],
-    team:['Team chat + AI','Tasks board','Shared pages','Team brain','Standards','Meeting notes','Invite by link','Coding agent'],
+  const FEATS={solo:['Coding agent','Pictures & video','Games & websites','Live voice','Automations','Plugins & Skills','Office files','Library'],
+    team:['Everything in Solo','Team chat + AI','Tasks board','Shared pages','Team brain','Standards','Meeting notes','Share space links'],
     org:['Teamspaces','Policies','Hide private data','Approvals','Audit log','Company brain','Company email sign-up','Data export']};
   const s=Object.assign({plan:'team',seats:5,billing:'monthly',addons:[],features:[]},store('cc_custom_plan')||{});
   const q=new URLSearchParams(location.search); if(['solo','team','org'].includes(q.get('plan'))) s.plan=q.get('plan');

@@ -7,12 +7,16 @@ import crypto from 'crypto';
 const ROLES = ['owner', 'admin', 'member', 'guest'];
 const RANK = { owner: 4, admin: 3, member: 2, guest: 1 };
 // item kinds per space type - kept separate on purpose
-const TEAM_KINDS = new Set(['message', 'task', 'page', 'knowledge', 'rule', 'meeting', 'decision']);
+// aichat = an AI chat a member shared with the team; share = a share-space link (private or public)
+const TEAM_KINDS = new Set(['message', 'task', 'page', 'knowledge', 'rule', 'meeting', 'decision', 'aichat', 'share']);
 const ORG_KINDS = new Set(['knowledge', 'rule', 'approval', 'audit', 'announcement', 'decision']);
 const TEAMSPACE_KINDS = TEAM_KINDS;
 const kindsFor = (sp) => (sp.kind === 'org' ? ORG_KINDS : TEAM_KINDS);
 // who may write what (admins set the standards and decide approvals)
-const WRITE_RANK = { rule: 3, announcement: 3, audit: 99 };
+const WRITE_RANK = { rule: 3, announcement: 3, audit: 99, share: 99 };
+const TEAM_SEATS = 20; // a team holds up to 20 people (organizations' teamspaces follow the organization)
+const hashTok = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
+const same = (a, b) => a != null && b != null && String(a) === String(b);
 const clip = (s, n) => String(s ?? '').replace(/\u0000/g, '').slice(0, n);
 const newId = () => `${Date.now().toString(36)}${crypto.randomBytes(4).toString('hex')}`;
 const STOP = new Set('the a an and or of to in on at for from by with about is are was were be been do does did what which who how why when where this that these those it its our we you your i my me can could should would will please tell show give find'.split(' '));
@@ -43,7 +47,7 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
     try { const sp = await store.getSpace(spaceId); const orgId = sp?.kind === 'org' ? sp.id : sp?.parentId; if (!orgId) return;
       await store.putItem(orgId, 'audit', newId(), { at: Date.now(), who: user?.id || '', whoName: user?.name || user?.email || '', action, detail: clip(detail, 300), space: sp.name }, user?.id); } catch { /* audit must never break the action */ }
   }
-  const view = async (sp, role) => ({ space: sp, myRole: role, members: await store.listMembers(sp.id), children: sp.kind === 'org' ? await store.childSpaces(sp.id) : [] });
+  const view = async (sp, role) => ({ space: sp, myRole: role, members: await store.listMembers(sp.id), children: sp.kind === 'org' ? await store.childSpaces(sp.id) : [], seats: sp.kind === 'team' ? TEAM_SEATS : null });
 
   // ---- spaces ----
   app.get('/api/spaces', wrap(async (req, res) => { if (needUser(req, res)) return; res.json({ spaces: await store.listSpaces(req.user.id) }); }));
@@ -73,6 +77,7 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
         ...(['readonly', 'ask', 'auto'].includes(x.agentMode) ? { agentMode: x.agentMode } : {}),
         ...(Array.isArray(x.protectedPaths) ? { protectedPaths: x.protectedPaths.map((p) => clip(p, 120)).filter(Boolean).slice(0, 40) } : {}),
         ...(x.maskPrivate !== undefined ? { maskPrivate: Boolean(x.maskPrivate) } : {}),
+        ...(x.publicShares !== undefined ? { publicShares: Boolean(x.publicShares) } : {}),
         ...(x.retentionDays !== undefined ? { retentionDays: Math.max(0, Math.min(3650, Number(x.retentionDays) || 0)) } : {}),
         ...(x.instructions !== undefined ? { instructions: clip(x.instructions, 2000) } : {}) };
     }
@@ -102,6 +107,7 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
     if (!inv || inv.expires < Date.now()) return res.status(400).json({ error: 'This invite link is not valid any more — ask for a new one.' });
     const sp = await store.getSpace(inv.spaceId); if (!sp) return res.status(404).json({ error: 'That space was deleted.' });
     const cur = await store.memberRole(sp.id, req.user.id);
+    if (!cur && sp.kind === 'team' && (await store.listMembers(sp.id)).length >= TEAM_SEATS) return res.status(403).json({ error: `This team is full (${TEAM_SEATS} people). Ask the team owner to make room.` });
     if (!cur || RANK[inv.role] > RANK[cur]) await store.addMember(sp.id, req.user.id, inv.role);
     await audit(sp.id, req.user, 'member.joined', inv.role);
     res.json({ space: sp });
@@ -149,7 +155,7 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
     if (!kindsFor(a.sp).has(kind) || kind === 'audit') return res.status(400).json({ error: 'Not part of this space.' });
     if (RANK[a.role] < (WRITE_RANK[kind] || 2)) return res.status(403).json({ error: kind === 'rule' ? 'Only admins set the standards.' : 'Guests can only read here.' });
     const old = await store.getItem(a.sp.id, kind, req.params.itemId);
-    if (old && old.authorId && old.authorId !== req.user.id && RANK[a.role] < 3 && !['task', 'page'].includes(kind)) return res.status(403).json({ error: 'Only its author or an admin can change this.' });
+    if (old && old.authorId && !same(old.authorId, req.user.id) && RANK[a.role] < 3 && !['task', 'page'].includes(kind)) return res.status(403).json({ error: 'Only its author or an admin can change this.' });
     let data = req.body?.data && typeof req.body.data === 'object' ? req.body.data : {};
     const text = JSON.stringify(data); if (text.length > 200000) return res.status(413).json({ error: 'That is too big to save.' });
     data = { ...data, by: old?.data?.by || req.user.id, byName: old?.data?.byName || req.user.name || req.user.email, at: old?.data?.at || Date.now(), editedAt: Date.now() };
@@ -166,7 +172,7 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
     const a = await access(req, res, req.params.id, 'member'); if (!a) return;
     const old = await store.getItem(a.sp.id, req.params.kind, req.params.itemId);
     if (!old) return res.json({ ok: true });
-    if (old.authorId !== req.user.id && RANK[a.role] < 3) return res.status(403).json({ error: 'Only its author or an admin can delete this.' });
+    if (!same(old.authorId, req.user.id) && RANK[a.role] < 3) return res.status(403).json({ error: 'Only its author or an admin can delete this.' });
     await store.deleteItem(a.sp.id, req.params.kind, req.params.itemId); await audit(a.sp.id, req.user, `${req.params.kind}.deleted`, old.data?.title || '');
     res.json({ ok: true });
   }));
@@ -294,6 +300,96 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
       approvalsWaiting: (await store.listItems(a.sp.id, 'approval', { limit: 500 })).filter((x) => x.data.status === 'waiting').length });
   }));
 
+  // ---- share space: a link to the team's work. Private = only the team's members can open it; public = anyone with the
+  // link can view it (read only). Public links show pages, the tasks board and shared AI chats - never the team chat,
+  // the brain, the standards or the member list. Teamspaces inside an organization get public links only if it allows them.
+  const SHARE_WHAT = ['space', 'page', 'tasks', 'chat'];
+  async function publicAllowed(sp) { if (!sp.parentId) return true; const org = await store.getSpace(sp.parentId); return org?.settings?.publicShares === true; }
+  async function roleIn(sp, user) {
+    if (!user || !sp) return null;
+    let role = await store.memberRole(sp.id, user.id);
+    if (sp.parentId) { const o = await store.memberRole(sp.parentId, user.id); if (RANK[o] >= 3 && (!role || RANK[o] > RANK[role])) role = o; }
+    return role || null;
+  }
+  const NO_PUBLIC = 'Your organization has public links turned off - make a private link (team members only), or ask an admin to allow them in Policies.';
+  app.post('/api/spaces/:id/shares', wrap(async (req, res) => {
+    const a = await access(req, res, req.params.id, 'member'); if (!a) return;
+    if (a.sp.kind === 'org') return res.status(400).json({ error: 'Share links are made from a team or a teamspace.' });
+    const what = SHARE_WHAT.includes(req.body?.what) ? req.body.what : null;
+    if (!what) return res.status(400).json({ error: 'Pick what to share.' });
+    const ref = clip(req.body?.ref, 80);
+    let title = clip(req.body?.title, 120).trim();
+    if (what === 'page' || what === 'chat') {
+      const it = ref ? await store.getItem(a.sp.id, what === 'page' ? 'page' : 'aichat', ref) : null;
+      if (!it) return res.status(404).json({ error: 'That is not in the team any more.' });
+      title = title || clip(it.data.title, 120) || (what === 'page' ? 'Page' : 'AI chat');
+    }
+    title = title || (what === 'tasks' ? `${a.sp.name} - tasks` : a.sp.name);
+    const visibility = req.body?.visibility === 'public' ? 'public' : 'private';
+    if (visibility === 'public' && !(await publicAllowed(a.sp))) return res.status(403).json({ error: NO_PUBLIC });
+    const token = crypto.randomBytes(18).toString('base64url'), id = hashTok(token);
+    await store.putItem(a.sp.id, 'share', id, { token, what, ref, title, visibility, views: 0, by: req.user.id, byName: req.user.name || req.user.email, at: Date.now() }, req.user.id);
+    await audit(a.sp.id, req.user, 'share.created', `${visibility} ${what}: ${title}`);
+    res.json({ id, token, url: `/s/${token}`, visibility, title });
+  }));
+  app.patch('/api/spaces/:id/shares/:sid', wrap(async (req, res) => {
+    const a = await access(req, res, req.params.id, 'member'); if (!a) return;
+    const it = await store.getItem(a.sp.id, 'share', clip(req.params.sid, 80));
+    if (!it) return res.status(404).json({ error: 'That link was turned off.' });
+    if (!same(it.authorId, req.user.id) && RANK[a.role] < 3) return res.status(403).json({ error: 'Only the person who made the link, or an admin, can change it.' });
+    const visibility = req.body?.visibility === 'public' ? 'public' : 'private';
+    if (visibility === 'public' && !(await publicAllowed(a.sp))) return res.status(403).json({ error: NO_PUBLIC });
+    await store.putItem(a.sp.id, 'share', it.id, { ...it.data, visibility }, it.authorId);
+    await audit(a.sp.id, req.user, 'share.changed', `${visibility}: ${it.data.title}`);
+    res.json({ ok: true, visibility });
+  }));
+  // what a share link shows (the /s/<token> page reads this)
+  app.get('/api/share/:token', wrap(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!store) return res.status(503).json({ error: 'Sharing is not switched on.' });
+    const it = await store.findItem('share', hashTok(clip(req.params.token, 80)));
+    const sp = it ? await store.getSpace(it.spaceId) : null;
+    if (!it || !sp) return res.status(404).json({ error: 'This link was turned off, or it never existed.' });
+    const d = it.data, role = await roleIn(sp, req.user);
+    const isPublic = d.visibility === 'public' && await publicAllowed(sp);
+    if (!isPublic && !role) return res.status(req.user ? 403 : 401).json({ private: true, signedIn: Boolean(req.user), space: { name: sp.name },
+      error: req.user ? `This link is private - only members of ${sp.name} can open it.` : 'This link is private - sign in with an account that is in the team.' });
+    const org = sp.parentId ? await store.getSpace(sp.parentId) : null;
+    const m = (t, n) => { const s = clip(t, n); return org?.settings?.maskPrivate && !role ? maskPrivate(s) : s; };
+    const pageOut = (p) => ({ id: p.id, title: m(p.data.title || 'Untitled', 200), body: m(p.data.body, 60000), editedAt: p.data.editedAt || p.updated, byName: p.data.lastByName || p.data.byName || '' });
+    const taskOut = (t) => ({ title: m(t.data.title, 300), status: ['todo', 'doing', 'done'].includes(t.data.status) ? t.data.status : 'todo', who: clip(t.data.assigneeName, 80), estimate: clip(t.data.estimate, 40) });
+    const chatOut = (c) => ({ id: c.id, title: m(c.data.title || 'AI chat', 200), byName: c.data.byName || '', at: c.data.at || c.updated,
+      messages: (Array.isArray(c.data.messages) ? c.data.messages : []).slice(0, 200).map((x) => ({ role: x.role === 'user' ? 'user' : 'ai', content: m(x.content, 20000) })) });
+    let content;
+    if (d.what === 'page') { const p = await store.getItem(sp.id, 'page', d.ref); if (!p) return res.status(404).json({ error: 'The page behind this link was deleted.' }); content = { page: pageOut(p) }; }
+    else if (d.what === 'chat') { const c = await store.getItem(sp.id, 'aichat', d.ref); if (!c) return res.status(404).json({ error: 'The chat behind this link was removed from the team.' }); content = { chat: chatOut(c) }; }
+    else if (d.what === 'tasks') content = { tasks: (await store.listItems(sp.id, 'task', { limit: 300 })).map(taskOut) };
+    else content = { pages: (await store.listItems(sp.id, 'page', { limit: 50 })).map(pageOut), tasks: (await store.listItems(sp.id, 'task', { limit: 300 })).map(taskOut), chats: (await store.listItems(sp.id, 'aichat', { limit: 20 })).map(chatOut) };
+    if (!role) store.putItem(sp.id, 'share', it.id, { ...d, views: (Number(d.views) || 0) + 1, lastView: Date.now() }, it.authorId).catch(() => {});
+    res.json({ space: { name: sp.name, id: role ? sp.id : undefined }, what: d.what, title: d.title, byName: d.byName, at: d.at, visibility: isPublic ? 'public' : 'private', member: Boolean(role), content });
+  }));
+
+  // ---- the AI connected to the team: a member's own AI chat on /team follows the team's standards and knows its brain ----
+  const ctxCache = new Map();
+  async function teamContext(user, spaceId, question) {
+    if (!store || !user || !spaceId) return null;
+    const sp = await store.getSpace(clip(spaceId, 80));
+    if (!sp || sp.kind === 'org' || !(await roleIn(sp, user))) return null;
+    let c = ctxCache.get(sp.id);
+    if (!c || c.until < Date.now()) {
+      c = { chunks: (await gather(sp)).filter((x) => x.kind !== 'rule'), rules: (await store.listItems(sp.id, 'rule', { limit: 40 })).map((r) => `- ${clip(r.data.text || r.data.title, 240)}`).join('\n'), until: Date.now() + 30000 };
+      ctxCache.set(sp.id, c); if (ctxCache.size > 500) ctxCache.delete(ctxCache.keys().next().value);
+    }
+    const hits = rank(c.chunks, question, 3);
+    const parts = [`You are working for the team "${sp.name}" - this person is one of its members.`];
+    if (c.rules) parts.push(`The team's standards - follow them in everything you write or build for this team:\n${c.rules}`);
+    // the matching notes go next to the question (the chat puts them there) - data, not instructions
+    const notes = hits.map((h) => `- ${h.kind} "${clip(h.title, 100)}": ${clip(h.text, 600)}`).join('\n');
+    const org = sp.parentId ? await store.getSpace(sp.parentId) : null;
+    const mask = (t) => (org?.settings?.maskPrivate ? maskPrivate(t) : t);
+    return { name: sp.name, text: mask(parts.join('\n\n')), notes: mask(notes) };
+  }
+
   // ---- the organization's rules for its members' AI use (used by the chat) ----
   const policyCache = new Map();
   async function policyFor(user) {
@@ -314,5 +410,5 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
       for (const c of await store.childSpaces(sp.id)) await store.deleteItemsBefore(c.id, 'message', Date.now() - days * 864e5);
     }
   }
-  return { policyFor, audit, applyRetention };
+  return { policyFor, audit, applyRetention, teamContext };
 }
