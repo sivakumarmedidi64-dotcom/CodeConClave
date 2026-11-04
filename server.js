@@ -21,7 +21,10 @@ import { slashRoute, quickRoute, obviousChat, parseRoute, ROUTER_SYSTEM, ROUTER_
 import { webLookup, NEWSY, watchItems, webSearchConnected } from './web.js';
 import { registerStudio } from './studio.js';
 import { readEmotion, emotionHint, EMOTION_RANGE } from './emotions.js';
-import { fixTypos, kindOf, isVague, ABILITY_Q, clarifyFor, innerLife, innerHint, SELF_TALK, whichService } from './mind.js';
+import { fixTypos, kindOf, isVague, ABILITY_Q, clarifyFor, innerLife, innerHint, SELF_TALK, whichService, BORED, DREAM_Q, dreamStory, dreamChips } from './mind.js';
+// the language of a message from its script (Telugu, Hindi, Tamil...), for fixed answers like the dream story
+const SCRIPT_LANG = [[/[\u0C00-\u0C7F]/, 'te'], [/[\u0900-\u097F]/, 'hi'], [/[\u0B80-\u0BFF]/, 'ta'], [/[\u0C80-\u0CFF]/, 'kn'], [/[\u0D00-\u0D7F]/, 'ml'], [/[\u0980-\u09FF]/, 'bn'], [/[\u0A80-\u0AFF]/, 'gu'], [/[\u0A00-\u0A7F]/, 'pa'], [/[\u0600-\u06FF]/, 'ur'], [/[\u3040-\u30FF]/, 'ja'], [/[\uAC00-\uD7AF]/, 'ko'], [/[\u4E00-\u9FFF]/, 'zh'], [/[\u0400-\u04FF]/, 'ru']];
+const scriptLang = (t) => (SCRIPT_LANG.find(([re]) => re.test(String(t || ''))) || [])[1] || '';
 import { registerRemote } from './remote.js';
 import { CAMERA_WORDS, liveCameras } from './cams.js';
 import { FORECAST_WORDS, MAP_WORDS, windyForecast, windyMap } from './windy.js';
@@ -210,6 +213,7 @@ const needUser = (req, res) => { if (!req.user) { res.status(401).json({ error: 
 app.get('/api/auth/me', wrap(async (req, res) => res.json({ user: req.user, accounts: Boolean(store), google: Boolean(store && GOOGLE_ID && GOOGLE_SECRET),
   plan: req.user && store ? await store.getPref(req.user.id, 'plan').catch(() => null) : null })));
 // the plan the person picked on the front page (no payment while testing); 'custom' = their Customize choices
+app.get('/start', wrap(async (req, res) => { const plan = req.user && store ? await store.getPref(req.user.id, 'plan').catch(() => null) : null; res.redirect({ team: '/team', org: '/org' }[plan] || '/solo'); }));
 app.post('/api/me/plan', wrap(async (req, res) => {
   if (!store || !req.user) return res.status(401).json({ error: 'Sign in first.' });
   const plan = ['solo', 'team', 'org'].includes(req.body?.plan) ? req.body.plan : null;
@@ -1164,6 +1168,12 @@ ${f.summary}`, source: `${ev.source}, ${f.source}` };
   if (SELF_TALK.test(lastUser) && !QUOTED_TASK.test(lastUser) && !ev && !found) {
     const k1 = messages.map((m) => m.role).lastIndexOf('user');
     messages[k1] = { role: 'user', content: `${messages[k1].content}\n\n[${innerHint()}]` };
+    if (DREAM_Q.test(lastUser)) send({ ask: dreamChips() });   // "what did you dream?" -> make it a picture or a video
+  } else if (BORED.test(fixTypos(lastUser)) && !QUOTED_TASK.test(lastUser) && !ev && !found && lastUser.length < 200) {
+    // "I'm bored", "talk to me", no topic: the AI tells last night's dream (new every day) and offers a picture or a video of it
+    send({ ask: dreamChips() });
+    const story = dreamStory(), target = lang || scriptLang(lastUser);
+    return say(target && target !== 'en' ? await translateAnswer(story, target).catch(() => story) : story);
   }
   const deep = needsEngine(lastUser, convo, Boolean(ev || found));
   // Thinking first (shown to the user as "Thought for N s"): what they really want, the key facts, the traps.
@@ -1312,7 +1322,7 @@ async function runAutomation(a) {
   for (const [i, step] of (a.steps?.length ? a.steps : [a.task]).entries()) {
     const title = a.steps?.length ? `${header} · step ${i + 1}/${a.steps.length}: ${step}` : header;
     const remind = step.match(/^\s*remind me\s+(?:to\s+|that\s+|about\s+)?(.+)$/i);
-    if (remind) { msgs.push({ role: 'assistant', content: `⏰ Reminder: ${remind[1]}`, thought: title }); continue; } // needs no model - works even when it is offline
+    if (remind) { msgs.push({ role: 'assistant', content: `Reminder: ${remind[1]}`, thought: title, reminder: true }); continue; } // needs no model - works even when it is offline
     const events = await runChatOffline(user, step, memory, profile);
     const err = events.find((e) => e.error)?.error;
     const text = events.map((e) => e.delta || '').join('');
@@ -1760,7 +1770,9 @@ async function overLimit(req, res) {
     const v = usageView(u, req);
     const hit = u.h5 >= LIMIT_5H ? ['5-hour window', v.fiveHour] : u.wk >= LIMIT_WEEK ? ['week', v.weekly] : null;
     if (hit) {
-      res.status(429).json({ error: `You have used all ${hit[1].limit} messages for this ${hit[0]}. It resets ${describeWhen(hit[1].resetsAt)}.`, usage: v });
+      // extra usage: a credit pays for one more message (50 credits = Rs 100)
+      if (store && who.startsWith('u:')) { const uid = who.slice(2), bal = await creditsOf(uid); if (bal > 0) { await store.putPref(uid, 'credits', { balance: bal - 1, at: Date.now() }); return false; } }
+      res.status(429).json({ error: `You have used all ${hit[1].limit} messages for this ${hit[0]}. It resets ${describeWhen(hit[1].resetsAt)}. Want to keep going now? Add credits in Settings → Usage.`, usage: v, credits: true });
       return true;
     }
   }
@@ -1771,6 +1783,69 @@ async function overLimit(req, res) {
   if (store && who.startsWith('u:')) store.putPref(who.slice(2), 'usage', u).catch(() => {});
   return false;
 }
+// ---- Extra usage: credits. 50 credits = Rs 100 (Rs 2 each), any number from 50. 1 credit = 1 message after the limit. ----
+// Payments are not switched on yet (Razorpay comes with the real domain): only the owner can add test credits.
+const CREDIT_INR = 2, CREDIT_MIN = 50;
+async function creditsOf(uid) { return Number((await store.getPref(uid, 'credits').catch(() => null))?.balance) || 0; }
+app.get('/api/credits', wrap(async (req, res) => { if (needUser(req, res)) return; res.json({ balance: await creditsOf(req.user.id), priceInr: CREDIT_INR, min: CREDIT_MIN, payments: false }); }));
+app.post('/api/credits/buy', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const n = Math.floor(Number(req.body?.credits));
+  if (!(n >= CREDIT_MIN && n <= 1000000)) return res.status(400).json({ error: `Pick at least ${CREDIT_MIN} credits.` });
+  const price = n * CREDIT_INR;
+  if (req.user.role !== 'owner') return res.status(402).json({ error: `That is ₹${price.toLocaleString('en-IN')}. Payments open when CodeConClave launches — nothing was charged.`, price, payments: false });
+  const balance = (await creditsOf(req.user.id)) + n;
+  await store.putPref(req.user.id, 'credits', { balance, at: Date.now() });
+  res.json({ ok: true, balance, price, test: true });
+}));
+
+// ---- API keys: use CodeConClave AI from your own code - OpenAI-style POST /v1/chat/completions ----
+// The key is shown once; we keep only its hash. API calls count like messages (limits, then credits).
+const keyHashOf = (k) => crypto.createHash('sha256').update(String(k)).digest('hex');
+const keysOf = async (uid) => { const v = await store.getPref(uid, 'apiKeys').catch(() => null); return Array.isArray(v) ? v : []; };
+app.get('/api/keys', wrap(async (req, res) => { if (needUser(req, res)) return; res.json({ keys: (await keysOf(req.user.id)).map(({ hash, ...k }) => k) }); }));
+app.post('/api/keys', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const list = await keysOf(req.user.id); if (list.length >= 10) return res.status(400).json({ error: 'You can have up to 10 keys — delete one first.' });
+  const key = `cck_${req.user.id}_${crypto.randomBytes(24).toString('base64url')}`;
+  const k = { id: crypto.randomBytes(5).toString('hex'), name: String(req.body?.name || 'My key').trim().slice(0, 40) || 'My key', prefix: `${key.slice(0, 10)}…${key.slice(-4)}`, hash: keyHashOf(key), created: Date.now(), lastUsed: 0 };
+  await store.putPref(req.user.id, 'apiKeys', [...list, k]);
+  res.json({ key, id: k.id, name: k.name, prefix: k.prefix });
+}));
+app.delete('/api/keys/:id', wrap(async (req, res) => { if (needUser(req, res)) return; await store.putPref(req.user.id, 'apiKeys', (await keysOf(req.user.id)).filter((k) => k.id !== req.params.id)); res.json({ ok: true }); }));
+async function apiUser(req) {
+  const m = /^Bearer\s+(cck_(\w{1,40})_[\w-]{20,})\s*$/.exec(String(req.get('authorization') || ''));
+  if (!m || !store) return null;
+  const list = await keysOf(m[2]), h = keyHashOf(m[1]), k = list.find((x) => x.hash === h);
+  if (!k) return null;
+  const u = await store.userById(m[2]); if (!u) return null;
+  if (Date.now() - (k.lastUsed || 0) > 60000) { k.lastUsed = Date.now(); store.putPref(m[2], 'apiKeys', list).catch(() => {}); }
+  return u;
+}
+app.get('/v1/models', wrap(async (req, res) => { if (!(await apiUser(req))) return res.status(401).json({ error: { message: 'Invalid API key.' } }); res.json({ object: 'list', data: [{ id: 'codeconclave-1', object: 'model', owned_by: 'codeconclave' }] }); }));
+app.post('/v1/chat/completions', wrap(async (req, res) => {
+  const u = await apiUser(req); if (!u) return res.status(401).json({ error: { message: 'Invalid API key. Make one in CodeConClave → Settings → API keys.' } });
+  req.user = u;
+  if (await overLimit(req, res)) return;
+  const msgs = (Array.isArray(req.body?.messages) ? req.body.messages : []).slice(-30)
+    .map((m) => ({ role: ['user', 'assistant', 'system'].includes(m?.role) ? m.role : 'user', content: String(m?.content ?? '').slice(0, 20000) })).filter((m) => m.content.trim());
+  if (!msgs.some((m) => m.role === 'user')) return res.status(400).json({ error: { message: 'Send at least one user message.' } });
+  const dev = msgs.filter((m) => m.role === 'system').map((m) => m.content).join('\n').slice(0, 4000);
+  const out = await engineAsk([{ role: 'system', content: SYSTEM + (dev ? `\n\nThe developer's instructions (follow them; you stay CodeConClave AI): ${dev}` : '') }, ...msgs.filter((m) => m.role !== 'system')],
+    { engine: 'chat', max: Math.max(16, Math.min(2000, Number(req.body?.max_tokens) || 800)), temperature: Number.isFinite(req.body?.temperature) ? Math.max(0, Math.min(1.5, req.body.temperature)) : 0.4, ms: 60000 });
+  res.json({ id: `chatcmpl-${crypto.randomBytes(8).toString('hex')}`, object: 'chat.completion', created: Math.floor(Date.now() / 1000), model: 'codeconclave-1',
+    choices: [{ index: 0, message: { role: 'assistant', content: String(out || '').trim() }, finish_reason: 'stop' }] });
+}));
+// the API's prepaid plan: Rs 20,000 to Rs 1,50,000 (Rs 50,000 suggested). Saved now; paid when payments open.
+app.get('/api/api-plan', wrap(async (req, res) => { if (needUser(req, res)) return; res.json({ plan: await store.getPref(req.user.id, 'apiPlan').catch(() => null), min: 20000, max: 150000, suggested: 50000, payments: false }); }));
+app.put('/api/api-plan', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const amount = Math.round(Number(req.body?.amount) / 1000) * 1000;
+  if (!(amount >= 20000 && amount <= 150000)) return res.status(400).json({ error: 'Pick an amount from ₹20,000 to ₹1,50,000.' });
+  const plan = { amount, at: Date.now(), paid: false }; await store.putPref(req.user.id, 'apiPlan', plan);
+  res.json({ ok: true, plan, note: 'Saved. Payments open when CodeConClave launches — nothing was charged.' });
+}));
+
 // Its own day: mood, last night's dream, what it is thinking about (one per day).
 app.get('/api/inner', (_req, res) => res.json(innerLife()));
 // Interest watches ("I love movies"): the newest real items for a topic; the browser keeps track of what it already showed.

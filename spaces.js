@@ -8,13 +8,13 @@ const ROLES = ['owner', 'admin', 'member', 'guest'];
 const RANK = { owner: 4, admin: 3, member: 2, guest: 1 };
 // item kinds per space type - kept separate on purpose
 // aichat = an AI chat a member shared with the team; share = a share-space link (private or public)
-const TEAM_KINDS = new Set(['message', 'task', 'page', 'knowledge', 'rule', 'meeting', 'decision', 'aichat', 'share']);
-const ORG_KINDS = new Set(['knowledge', 'rule', 'approval', 'audit', 'announcement', 'decision']);
+const TEAM_KINDS = new Set(['message', 'task', 'page', 'knowledge', 'rule', 'meeting', 'decision', 'aichat', 'share', 'bill']);
+const ORG_KINDS = new Set(['knowledge', 'rule', 'approval', 'audit', 'announcement', 'decision', 'bill']);
 const TEAMSPACE_KINDS = TEAM_KINDS;
 const kindsFor = (sp) => (sp.kind === 'org' ? ORG_KINDS : TEAM_KINDS);
 // who may write what (admins set the standards and decide approvals)
-const WRITE_RANK = { rule: 3, announcement: 3, audit: 99, share: 99 };
-const TEAM_SEATS = 20; // a team holds up to 20 people (organizations' teamspaces follow the organization)
+const WRITE_RANK = { rule: 3, announcement: 3, audit: 99, share: 99, bill: 3 };   // bills: owner + admins only
+const TEAM_SEATS = 20, ORG_SEATS = 100; // a team holds up to 20 people, an organization 100 - more through Customize (teamspaces follow their organization)
 const hashTok = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
 const same = (a, b) => a != null && b != null && String(a) === String(b);
 const clip = (s, n) => String(s ?? '').replace(/\u0000/g, '').slice(0, n);
@@ -47,7 +47,13 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
     try { const sp = await store.getSpace(spaceId); const orgId = sp?.kind === 'org' ? sp.id : sp?.parentId; if (!orgId) return;
       await store.putItem(orgId, 'audit', newId(), { at: Date.now(), who: user?.id || '', whoName: user?.name || user?.email || '', action, detail: clip(detail, 300), space: sp.name }, user?.id); } catch { /* audit must never break the action */ }
   }
-  const view = async (sp, role) => ({ space: sp, myRole: role, members: await store.listMembers(sp.id), children: sp.kind === 'org' ? await store.childSpaces(sp.id) : [], seats: sp.kind === 'team' ? TEAM_SEATS : null });
+  // seats: the plan's size, or the bigger number the owner picked on the Customize page
+  async function seatsFor(sp) {
+    if (sp.kind !== 'team' && sp.kind !== 'org') return null;
+    const base = sp.kind === 'team' ? TEAM_SEATS : ORG_SEATS, c = await store.getPref(sp.ownerId, 'customPlan').catch(() => null);
+    return c && c.plan === sp.kind && Number(c.seats) > base ? Math.min(100000, Math.floor(Number(c.seats))) : base;
+  }
+  const view = async (sp, role) => ({ space: sp, myRole: role, members: await store.listMembers(sp.id), children: sp.kind === 'org' ? await store.childSpaces(sp.id) : [], seats: await seatsFor(sp) });
 
   // ---- spaces ----
   app.get('/api/spaces', wrap(async (req, res) => { if (needUser(req, res)) return; res.json({ spaces: await store.listSpaces(req.user.id) }); }));
@@ -107,7 +113,8 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
     if (!inv || inv.expires < Date.now()) return res.status(400).json({ error: 'This invite link is not valid any more — ask for a new one.' });
     const sp = await store.getSpace(inv.spaceId); if (!sp) return res.status(404).json({ error: 'That space was deleted.' });
     const cur = await store.memberRole(sp.id, req.user.id);
-    if (!cur && sp.kind === 'team' && (await store.listMembers(sp.id)).length >= TEAM_SEATS) return res.status(403).json({ error: `This team is full (${TEAM_SEATS} people). Ask the team owner to make room.` });
+    const seats = await seatsFor(sp);
+    if (!cur && seats && (await store.listMembers(sp.id)).length >= seats) return res.status(403).json({ error: `This ${sp.kind === 'org' ? 'organization' : 'team'} is full (${seats} people). Ask the owner to make room — or to pick more seats on the Customize page.` });
     if (!cur || RANK[inv.role] > RANK[cur]) await store.addMember(sp.id, req.user.id, inv.role);
     await audit(sp.id, req.user, 'member.joined', inv.role);
     res.json({ space: sp });
@@ -145,7 +152,7 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
 
   // ---- items: messages, tasks, pages, knowledge, rules, meetings, decisions, approvals, announcements ----
   app.get('/api/spaces/:id/items/:kind', wrap(async (req, res) => {
-    const a = await access(req, res, req.params.id, req.params.kind === 'audit' ? 'admin' : 'guest'); if (!a) return;
+    const a = await access(req, res, req.params.id, ['audit', 'bill'].includes(req.params.kind) ? 'admin' : 'guest'); if (!a) return;
     if (!kindsFor(a.sp).has(req.params.kind)) return res.status(400).json({ error: 'Not part of this space.' });
     res.json({ items: await store.listItems(a.sp.id, req.params.kind, { since: Number(req.query.since) || 0, limit: Math.min(500, Number(req.query.limit) || 200) }) });
   }));

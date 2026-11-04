@@ -570,6 +570,11 @@
   .dditem{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:#e6e6e6;font:inherit;font-size:14.5px;padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left}
   .dditem:hover{background:#333}.dditem .ico{width:17px;height:17px;color:#b3b3b3}.dditem i{font-style:normal;font-size:11px;color:#b3b3b3;background:#3a3a3a;border-radius:6px;padding:1px 6px;margin-left:4px}
   .ddcheck{margin-left:auto;color:#e6e6e6}
+  .meplan{color:#8c8c8c;font-size:12.5px;margin-left:6px;white-space:nowrap}.meplan:before{content:'·';margin-right:6px}
+  .incobtn.on{background:#2c2c2c;color:#e6e6e6}
+  .incobar{display:flex;align-items:center;gap:8px;max-width:760px;margin:10px auto 0;padding:9px 12px;border:1px solid #333;border-radius:12px;background:#202020;color:#cfcfcf;font-size:13.5px}.incobar .mskip{margin-left:auto;padding:4px 10px}
+  .incohome{text-align:center;margin:18vh auto 0;max-width:460px;color:#cfcfcf}.incohome .ico{width:44px;height:44px;color:#8c8c8c}.incohome h2{margin:10px 0 6px;font-size:24px}.incohome p{color:#8c8c8c;line-height:1.6}
+  .sk-big .ico{width:20px;height:20px}
   .ddmenu{min-width:250px}.dditem{white-space:nowrap}
   .createbtn{display:flex;align-items:center;gap:6px;height:38px;padding:0 14px;border:1px solid #363636;background:none;color:#e6e6e6;border-radius:10px;font:inherit;font-size:14.5px;cursor:pointer}
   .createbtn:hover{background:#242424}.createbtn .ico{width:16px;height:16px}
@@ -903,7 +908,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       <div class="files" id="files"></div>
       <div class="usepop" id="usePop" role="dialog" aria-label="Plan usage limits"><div class="uphead"><b>Plan usage limits</b></div><div id="usePopBody"></div></div>
       <div class="bar">
-        <button class="plus" id="plus" title="Add files">＋</button>
+        <button class="plus" id="plus" title="Add files"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
         <button class="resbtn" id="researchBtn" title="Deep research: searches Wikipedia, news and tech sites and answers with sources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/></svg><span>Research</span></button>
         <div class="menu" id="menu">
           <button id="addFiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> Add files or photos</button>
@@ -955,19 +960,24 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   let recording=null; // {steps:[]} while you record a skill
 
   function load(){ try{convos=JSON.parse(localStorage.getItem(CKEY)||'[]')||[]}catch{convos=[]} try{memory=JSON.parse(localStorage.getItem(MKEY)||'[]')||[]}catch{memory=[]} }
-  function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.slice(0,100)))}catch{} scheduleSync(); scheduleMemFolder(); }
+  function saveC(){ try{localStorage.setItem(CKEY,JSON.stringify(convos.filter(c=>!c.incognito).slice(0,100)))}catch{} scheduleSync(); scheduleMemFolder(); }
+  // incognito (Solo only): this chat is never saved, never synced and never remembered; leaving it throws it away
+  const SOLO=!/^\/(team|org|organization)(\/|$)/.test(location.pathname);
+  function dropIncognito(keep){ convos=convos.filter(c=>!c.incognito||c.id===keep); }
+  function startIncognito(){ if(!SOLO) return; closePages(); dropIncognito(); currentId='inc'+uid(); convos.unshift({id:currentId,title:'Incognito chat',messages:[],updated:Date.now(),incognito:true}); renderSidebar(); renderChat(); paintInco(); input.focus(); closeRail(); }
+  function paintInco(){ const b=$('incoBtn'); if(b) b.classList.toggle('on',Boolean(current()?.incognito)); }
   function saveM(){ try{localStorage.setItem(MKEY,JSON.stringify(memory.slice(0,30)))}catch{} renderProfile(); pushMemory(); }
   const current=()=>convos.find(c=>c.id===currentId);
   const uid=()=>'c'+Date.now()+Math.random().toString(36).slice(2,6);
 
-  function newChat(){ closePages(); currentId=uid(); convos.unshift({id:currentId,title:'New chat',messages:[],updated:Date.now()}); saveC(); renderSidebar(); renderChat(); input.focus(); closeRail(); }
-  function selectChat(id){ closePages(); currentId=id; renderSidebar(); renderChat(); closeRail(); }
+  function newChat(){ closePages(); dropIncognito(); currentId=uid(); convos.unshift({id:currentId,title:'New chat',messages:[],updated:Date.now()}); saveC(); renderSidebar(); renderChat(); input.focus(); closeRail(); }
+  function selectChat(id){ closePages(); dropIncognito(id); currentId=id; renderSidebar(); renderChat(); closeRail(); }
   function deleteChat(id,e){ e.stopPropagation(); convos=convos.filter(c=>c.id!==id); pushed.delete(id);
     if(me) fetch('/api/chats/'+encodeURIComponent(id),{method:'DELETE'}).catch(()=>{}); if(currentId===id){currentId=convos[0]?.id||null; if(!currentId)newChat();} saveC(); renderSidebar(); renderChat(); }
 
   function renderSidebar(){
     convosEl.innerHTML=''; const q=$('chatSearch').value.trim().toLowerCase();
-    convos.filter(c=>!q || (c.title||'').toLowerCase().includes(q)).forEach(c=>{ const row=document.createElement('div'); row.className='cnv'+(c.id===currentId?' active':''); row.onclick=()=>selectChat(c.id);
+    convos.filter(c=>!c.incognito && (!q || (c.title||'').toLowerCase().includes(q))).forEach(c=>{ const row=document.createElement('div'); row.className='cnv'+(c.id===currentId?' active':''); row.onclick=()=>selectChat(c.id);
       const t=document.createElement('div'); t.className='cnv__t'; t.textContent=c.title||'New chat';
       const x=document.createElement('button'); x.className='cnv__x'; x.textContent='×'; x.title='Delete'; x.onclick=(e)=>deleteChat(c.id,e);
       row.append(t,x); convosEl.appendChild(row); });
@@ -1077,7 +1087,9 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     return b;
   }
   function renderChat(){
-    chat.innerHTML=''; const c=current(); const withBrief=briefEl && currentId===briefChatId;
+    chat.innerHTML=''; const c=current(); const withBrief=briefEl && currentId===briefChatId; paintInco();
+    if(c?.incognito){ const bar=el('div','incobar'); bar.innerHTML=uiIco('ghost'); bar.append(' Incognito chat — not saved and not remembered. It disappears when you leave.'); const x=el('button','mskip tm-sm','Leave'); x.onclick=()=>newChat(); bar.appendChild(x); chat.appendChild(bar);
+      if(!c.messages.length){ const h=el('div','incohome'); h.innerHTML=uiIco('ghost'); h.appendChild(el('h2',null,'You’re incognito')); h.appendChild(el('p',null,'This chat won’t be saved to your account or this device, and I won’t remember anything from it.')); chat.appendChild(h); return; } }
     if((!c||c.messages.length===0) && !withBrief){ chat.appendChild(homeScreen()); return; }
     const wrap=document.createElement('div'); wrap.className='wrap'; if(withBrief) wrap.appendChild(briefEl);
     (c?.messages||[]).forEach((m,i)=>wrap.appendChild(m.role==='user'?userBubble(m):decorate(bubble('ai',m.content),m,i))); chat.appendChild(wrap);
@@ -1332,6 +1344,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
 
   // ---- memory ----
+  function memoryOn(){ try{ return localStorage.getItem('cc_memory_on')!=='off'; }catch{ return true; } }
   function captureMemory(text){
     let m, added=false;
     if((m=text.match(/\bmy name is ([A-Z][a-zA-Z'’\-]{1,30})/i))){ const f=`User's name is ${m[1]}.`; if(!memory.includes(f)){memory.push(f);added=true;} }
@@ -1348,7 +1361,10 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(me) return me.name||me.email;
     return f ? f.replace(/^User's name is /,'').replace(/\.$/,'') : (ownerKey()?'Saharsh':'Guest');
   }
-  function renderProfile(){ const n=userName(), guest=!me&&n==='Guest'; $('meName').textContent=guest?'Sign in':n; $('meAvatar').textContent=guest?'?':n.charAt(0).toUpperCase(); }
+  const PLAN_NAMES={solo:'Solo',team:'Team',org:'Organization',custom:'Custom'};
+  function renderProfile(){ const n=userName(), guest=!me&&n==='Guest'; $('meName').textContent=guest?'Sign in':n; $('meAvatar').textContent=guest?'?':n.charAt(0).toUpperCase();
+    let p=$('mePlan'); if(!p){ p=el('span','meplan'); p.id='mePlan'; $('meName').after(p); }
+    p.textContent=me?PLAN_NAMES[authInfo.plan]||(SOLO?'Solo':/^\/team/.test(location.pathname)?'Team':'Organization'):''; p.hidden=!me; }
   function showMemory(){
     try{ paintLock(); }catch{}
     const n=userName(); $('profName').textContent=n; $('profAvatar').textContent=n.charAt(0).toUpperCase();
@@ -1390,14 +1406,14 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const text=input.value.trim().replace(/^\/(remind|remember)\s+/i,(m,w)=>w.toLowerCase()+' '); if(!text && pending.length===0) return;
     const wm=!pending.length && text.match(/^\/watch\s+(.{2,40})$/i);
     if(wm){ let c0=current(); if(!c0){ newChat(); c0=current(); } input.value=''; c0.messages.push({role:'user',content:text}); addWatch(wm[1]);
-      addMsg(c0,{role:'assistant',content:'Done 🔔 I’m watching “'+wm[1].trim()+'” for you. When something new comes out, you’ll hear my guitar sound and see it in 🔔 Updates. You can see or stop watches in Automations.'},true); return; }
+      addMsg(c0,{role:'assistant',content:'Done — I’m watching “'+wm[1].trim()+'” for you. When something new comes out, you’ll hear my guitar sound and see it in 🔔 Updates. You can see or stop watches in Automations.'},true); return; }
     let c=current(); if(!c){ newChat(); c=current(); }
     const files=pending.slice(); pending=[]; renderFiles(); addToLibrary(files.filter(f=>!f.noLib));
     const shown = text + (files.length?('\n'+files.map(f=>'📄 '+f.name).join('\n')):'');
     input.value=''; input.style.height='auto'; sendBtn.classList.remove('ready');
     c.messages.push({role:'user',content:shown,...(files.some(f=>f.thumb)?{images:files.filter(f=>f.thumb).map(f=>f.thumb).slice(0,4)}:{})});
     if(c.title==='New chat'||!c.title) c.title=(text||files[0]?.name||'Chat').slice(0,40);
-    c.updated=Date.now(); const memAdded=captureMemory(text); saveC(); renderSidebar(); renderChat();
+    c.updated=Date.now(); const memAdded=c.incognito||!memoryOn()?false:captureMemory(text); saveC(); renderSidebar(); renderChat();
 
     // The AI asked "send it like this, or change something?" — "yes / send it" is the owner's
     // approval; "say I'm busy Friday" rewrites the draft. Anything else goes to the AI as normal.
@@ -1453,7 +1469,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       const resp=research
         ? await fetch('/api/research',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({question:text})})
         : await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
-          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), recall:recallSnippets(text,c.id), ...(window.ccChatExtra?window.ccChatExtra():{}), ...extra})});
+          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:c.incognito?'':memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), recall:c.incognito?'':recallSnippets(text,c.id), ...(window.ccChatExtra?window.ccChatExtra():{}), ...extra})});
       if(!resp.ok && !/event-stream/.test(resp.headers.get('content-type')||'')){   // e.g. the usage limit is reached
         const d=await resp.json().catch(()=>({})); dots.remove(); wrap.appendChild(el('div','err',d.error||'Something went wrong — please try again.'));
         if(d.usage) usageNow=d.usage; renderSide(); return; }
@@ -1546,7 +1562,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); installPrompt=e; $('installBtn').hidden=false; });
   addEventListener('appinstalled',()=>{ installPrompt=null; $('installBtn').hidden=true; toast('Installed — open CodeConClave from your Start menu or desktop.'); });
   $('installBtn').onclick=async()=>{ if(!installPrompt) return; installPrompt.prompt(); await installPrompt.userChoice.catch(()=>{}); installPrompt=null; $('installBtn').hidden=true; };
-  $('meBtn').onclick=()=>(!me && authInfo.accounts && !memory.length && !ownerKey()) ? showAuth(false) : showMemory();
+  $('meBtn').onclick=()=>(!me && authInfo.accounts && !memory.length && !ownerKey()) ? showAuth(false) : (window.ccSettings ? window.ccSettings.open() : showMemory());
   $('acctBtn').onclick=()=>me?signOut():showAuth(false);
   $('authClose').onclick=()=>$('authModal').classList.remove('open');
   $('authSwitch').onclick=()=>showAuth(!signup);
@@ -2088,7 +2104,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   // the app's own thin line icons (function, so it works anywhere in this file)
   function uiIco(n){ const P={thought:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01"/><path d="M12 12h.01"/><path d="M15.5 12h.01"/>',folder:'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
     file:'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>',play:'<path d="M7 4v16l13-8z"/>',down:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',check:'<path d="M20 6 9 17l-5-5"/>',plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
-    spark:'<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>',phone:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',link:'<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'};
+    spark:'<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>',ghost:'<path d="M5 21V10a7 7 0 0 1 14 0v11l-2.5-1.8L14 21l-2-1.5-2 1.5-2.5-1.8z"/><path d="M9.5 10.5h.01"/><path d="M14.5 10.5h.01"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',phone:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',link:'<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'};
     return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(P[n]||'')+'</svg>'; }
   const svgIco=(d)=>`<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const SEND_PLUGS={
@@ -3079,6 +3095,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const act=String(a.action||''), raw=String(a.target||'').trim(), tgt=raw.toLowerCase().replace(/\b(app|application|the|my)\b/g,'').trim();
     if(!DESK){ const hit=APP_LINKS[tgt]||Object.entries(APP_LINKS).find(([k])=>tgt.includes(k))?.[1];
       if(act!=='close_app' && hit) return addMsg(c,{role:'assistant',content:'Tap to open '+hit[0]+' — your browser may ask once to allow it.',appLink:{name:hit[0],url:hit[1]},ctx:'[I offered to open '+hit[0]+' on the user’s device.]'},true);
+      const dk=act!=='close_app'&&(OPEN_APP[tgt]?tgt:Object.keys(OPEN_APP).find(k=>tgt.includes(k)));
+      if(dk) return addMsg(c,{role:'assistant',content:'Tap to open '+(raw||dk)+' on this computer. It opens through the CodeConClave desktop app (install it once: '+DESK_URL+') — your computer asks you before anything opens.',appLink:{name:raw||dk,url:'codeconclave://open?app='+encodeURIComponent(dk)},ctx:'[I offered to open '+dk+' on the user’s computer through the desktop app.]'},true);
       return addMsg(c,{role:'assistant',content:(act==='close_app'?'Closing apps':'Opening '+(raw||'that app'))+' needs the CodeConClave desktop app — a web page isn’t allowed to start programs like CMD or Notepad. With the desktop app I do it right away (you press OK once). In the browser I can open apps that have a link (WhatsApp, Spotify, Settings, Teams, Zoom…) and any website.'+(DESK_URL?' Desktop app: '+DESK_URL:'')},true); }
     const safe=(x)=>x.replace(/["'`$;|&<>]/g,'').slice(0,80);
     let cmd='';
@@ -3223,11 +3241,11 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
   async function postUpdate(w,items){
     const topic=w.type==='github'?w.repo:w.type==='feed'?w.label:w.topic;
-    let c=convos.find(x=>x.id==='updates'); if(!c){ c={id:'updates',title:'🔔 Updates',messages:[],updated:Date.now()}; }
+    let c=convos.find(x=>x.id==='updates'); if(!c){ c={id:'updates',title:'Updates',messages:[],updated:Date.now()}; } if(/^🔔 /.test(c.title)) c.title='Updates';
     convos=[c,...convos.filter(x=>x!==c)];
-    c.messages.push({role:'assistant',at:Date.now(),content:'🔔 Something new about '+topic+':',updates:items,ctx:'[Update about '+topic+' for the user: '+items.map(x=>x.title).join('; ')+']'});
+    c.messages.push({role:'assistant',at:Date.now(),content:'Something new about '+topic+':',updates:items,ctx:'[Update about '+topic+' for the user: '+items.map(x=>x.title).join('; ')+']'});
     c.updated=Date.now(); saveC(); renderSidebar(); if(currentId==='updates') renderChat();
-    notify(); toast('🔔 New about '+topic+' — see Updates in your tasks');
+    notify(); toast('New about '+topic+' — see Updates in your tasks');
     try{ if(window.Notification && Notification.permission==='granted' && !looking()){ const n=new Notification('CodeConClave AI · '+topic,{body:items[0].title,icon:'/icon-192.png',tag:'cc-'+w.id}); n.onclick=()=>{ window.focus(); selectChat('updates'); n.close(); }; } }catch{}
     // "then CodeConClave will…": do the user's task with what just came in
     if(w.task){ try{ const out=await askOnce(w.task+'\n\nHere is what just came in:\n'+items.map(x=>'- '+x.title+(x.text?' ('+x.text+')':'')).join('\n'));
@@ -3534,7 +3552,7 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
     if(words.length<1) return '';
     const refers=/\b(remember|earlier|before|last time|previous(ly)?|we (talked|discussed|spoke)|i (told|said|mentioned)|again|that idea|my (project|plan|idea|business|app|startup))\b/i.test(text);
     const hits=[];
-    for(const c of convos){ if(c.id===curId||c.id==='automations') continue;
+    for(const c of convos){ if(c.id===curId||c.id==='automations'||c.incognito) continue;
       for(const m of c.messages){ const t=String(m.content||''); if(t.length<20) continue; const low=t.toLowerCase();
         const score=words.filter(w=>low.includes(w)).length; if(score>=(refers?2:4)) hits.push({score,t,title:c.title}); } }
     if(!hits.length) return '';
@@ -3557,7 +3575,7 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
       await put(memDir,'memory.md','# What CodeConClave AI remembers about you\n\n'+(memory.length?memory.map(m=>'- '+m).join('\n'):'(nothing yet)')+'\n');
       await put(memDir,'profile.md','# Your profile\n\n'+Object.entries(profile||{}).filter(([,v])=>v).map(([k,v])=>'**'+k+':** '+v).join('\n\n')+'\n');
       const chats=await memDir.getDirectoryHandle('chats',{create:true});
-      for(const c of convos.slice(0,100)){ if(!c.messages?.length) continue;
+      for(const c of convos.filter(x=>!x.incognito).slice(0,100)){ if(!c.messages?.length) continue;
         const day=new Date(c.updated||Date.now()).toISOString().slice(0,10);
         await put(chats,day+' '+mdName(c.title)+' ('+String(c.id).slice(-6)+').md','# '+(c.title||'Chat')+'\n\n'+c.messages.map(m=>(m.role==='user'?'**You:** ':'**CodeConClave AI:** ')+String(m.content||'')).join('\n\n')+'\n'); }
       memSaved=Date.now(); paintMemFold();
@@ -3688,6 +3706,10 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
   $('panelBtn').onclick=()=>setPanel(!document.body.classList.contains('panel'));
   $('sideClose').onclick=()=>setPanel(false);
   $('panelToggle').onchange=()=>setPanel($('panelToggle').checked);
+  setInterval(()=>{ const u=usageNow, f=u?.fiveHour; if(!f||!f.resetsAt||u.unlimited||Date.now()<f.resetsAt) return;
+    const k='cc_limit_back_'+f.resetsAt; let seen=false; try{ seen=Boolean(localStorage.getItem(k)); localStorage.setItem(k,'1'); }catch{}
+    if(!seen&&f.used>0){ let on=true; try{ on=localStorage.getItem('cc_limit_sound')!=='off'; }catch{} if(on) notify(); toast('Your 5-hour limit is back — keep going!'); try{ if(document.hidden&&Notification.permission==='granted') new Notification('CodeConClave AI',{body:'Your 5-hour limit is back — keep going!',icon:'/icon-192.png'}); }catch{} }
+    refreshUsage(); },30000);
   async function refreshUsage(){ try{ const r=await fetch('/api/usage'); if(r.ok){ usageNow=await r.json(); renderSide(); paintUsage(); } }catch{} }
   async function refreshStatus(){
     try{ const d=await (await fetch('/api/status')).json(); aiState=d.state; aiBrain=d.brain; ctxMax=d.contextTokens||4096; }catch{ aiState='offline'; aiBrain=null; }
@@ -4138,7 +4160,7 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
   let syncT=null, memT=null;
   function scheduleSync(){ if(!me) return; clearTimeout(syncT); syncT=setTimeout(pushChanges,800); }
   async function pushChanges(){
-    for(const c of convos){ if(!me) return; if(!c.messages.length) continue; const j=JSON.stringify(c); if(pushed.get(c.id)===j) continue;
+    for(const c of convos){ if(!me) return; if(!c.messages.length||c.incognito) continue; const j=JSON.stringify(c); if(pushed.get(c.id)===j) continue;
       try{ const r=await fetch('/api/chats/'+encodeURIComponent(c.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:c.title,messages:c.messages,updated:c.updated||Date.now()})});
         if(r.ok) pushed.set(c.id,j); else if(r.status===401){ me=null; renderProfile(); return; } }catch{ return; } }
   }
@@ -4204,6 +4226,20 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
       let c=convos.find(x=>x.id==='remote'); if(!c){ c={id:'remote',title:'From your phone',messages:[],updated:Date.now()}; convos.unshift(c); }
       return runIn(c,text,6); },
     chat:()=>{ const c=current(); return c&&c.messages.length?{id:c.id,title:c.title,messages:c.messages}:null; },
+    startIncognito, notify:()=>{ if(soundOn()) notify(); }, plan:()=>authInfo.plan||null, solo:SOLO, usage:()=>usageNow, refreshUsage,
+    prefs:{
+      profile:()=>({...profile}), saveProfile:async(p)=>{ profile={...profile,...p}; try{ localStorage.setItem(PKEY,JSON.stringify(profile)); }catch{} renderProfile(); if(!me) return 'device';
+        try{ const r=await fetch('/api/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})}); return r.ok?'account':'device'; }catch{ return 'device'; } },
+      memory:()=>memory.slice(), forget:(i)=>{ memory.splice(i,1); saveM(); }, clearMemory:()=>{ memory=[]; saveM(); },
+      sound:()=>soundOn(), setSound:(v)=>{ try{ localStorage.setItem(SKEY,v?'on':'off'); }catch{} if(v) playCue(); },
+      panel:()=>document.body.classList.contains('panel'), setPanel:(v)=>setPanel(v),
+      voice:()=>voicePref(), setVoice:(v)=>{ $('voicePick').value=v; $('voicePick').onchange?.(); },
+      owner:()=>isOwner(), lock:()=>lockOn(), setLock:(v)=>{ $('lockToggle').checked=v; $('lockToggle').onchange?.(); },
+      memFolder:()=>$('memFoldBtn').click(), memFolderInfo:()=>$('memFoldInfo')?.textContent||'',
+      signOut:()=>signOut(), exportChats:()=>{ const blob=new Blob([JSON.stringify({exported:new Date().toISOString(),memory,chats:convos.filter(c=>!c.incognito)},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='codeconclave-chats.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); },
+      clearDevice:()=>{ convos=[]; try{ localStorage.removeItem(CKEY); }catch{} newChat(); },
+      deskUrl:DESK_URL },
+    pages:{ skills:()=>showSkills(), plugins:()=>showPlugins(), automations:()=>showSched(), library:()=>showLibrary(), creations:()=>showCreations(), remote:()=>window.ccRemote?.open() },
     openChat:(title,messages)=>{ closePages(); currentId=uid(); convos.unshift({id:currentId,title:String(title||'Shared chat').slice(0,80),messages,updated:Date.now()}); saveC(); renderSidebar(); renderChat(); closeRail(); } };
   loadMe().then(()=>mailBrief(false)); // then the AI briefs you on your mail (owner only)
   // Every minute: pick up anything an automation delivered (with the guitar cue).
@@ -4214,9 +4250,11 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
     if(count()>before){ notify(); toast('An automation just ran — see Automations'); }
   },60000);
 
-  load(); renderProfile(); reconnectFolder(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
+  if(SOLO){ const ib=el('button','railbtn incobtn'); ib.id='incoBtn'; ib.title='Incognito chat — not saved, not remembered'; ib.innerHTML=uiIco('ghost'); ib.onclick=()=>current()?.incognito?newChat():startIncognito(); const pb=$('panelBtn'); if(pb){ pb.before(ib); ib.style.marginLeft='auto'; pb.style.marginLeft='4px'; } }
+  load(); convos.forEach(c=>{ if(/^🔔 /.test(c.title||'')) c.title=c.title.slice(3); }); renderProfile(); reconnectFolder(); currentId=convos[0]?.id||null; if(!currentId)newChat(); else{renderSidebar();renderChat();}
 </script>
 <script src="/team.js"></script>
 <script src="/remote-host.js"></script>
+<script src="/settings.js"></script>
 </body>
 </html>

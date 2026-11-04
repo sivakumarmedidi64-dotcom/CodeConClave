@@ -34,7 +34,7 @@
     back:'<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
     chart:'<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>', spaces:'<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>',
     log:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>', data:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
-    policy:'<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>', x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', dl:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+    policy:'<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>', bill:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h3"/>', rupee:'<path d="M7 5h10"/><path d="M7 9h10"/><path d="M7 5h3a4 4 0 0 1 0 8H7l7 7"/>', x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', dl:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
     spark:'<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>',
     clip:'<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6"/><path d="M9 16h4"/>',
     rocket:'<path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2"/><path d="M9 15l-3-3c1.5-4.5 6-9 13-9 0 7-4.5 11.5-9 13z"/><circle cx="14.5" cy="9.5" r="1.5"/>',
@@ -213,7 +213,7 @@
     if(!list.length){ space=null; data=null; clearInterval(unreadT); drawSide(); drawTop(); if(show||mode) firstRun(); return; }
     space=list.find(s=>s.id===id)||list[0]; store('cc_'+K.key+'_cur',space.id);
     try{ data=await api('/api/spaces/'+space.id); space=data.space; }catch(e){ toast(e.message); data={space,myRole:'guest',members:[],seats:null}; }
-    drawSide(); drawTop(); if(!ORG) startUnread(); if(show) hub(show); else if(mode==='firstRun') hub(ORG&&isAdmin()?'Teamspaces':'Members');
+    drawSide(); drawTop(); if(!ORG) startUnread(); setTimeout(billCheck,1500); if(show) hub(show); else if(mode==='firstRun') hub(ORG&&isAdmin()?'Teamspaces':'Members');
   }
   const onMe=()=>{ const id=A.me?A.me.id:null; if(booted&&same(id,lastMe)) return; if(booted&&id==null&&lastMe==null) return; booted=true; lastMe=id; boot(); };
   window.addEventListener('cc-me',onMe); if(A.loaded) onMe();
@@ -268,7 +268,8 @@
   const TEAM_TABS=[['Chat',I.chat],['Tasks',I.tasks],['Pages',I.page],['Team brain',I.brain],['Standards',I.rule],['Meetings',I.meet],['Shared chats',I.share],['Members',I.people]];
   const ORG_ADMIN_TABS=[['Overview',I.chart],['Teamspaces',I.spaces],['Members',I.people],['Policies',I.policy],['Company brain',I.brain],['Company rules',I.rule],['Approvals',I.check],['Audit log',I.log],['Data',I.data]];
   const ORG_TABS=[['Teamspaces',I.spaces],['Company brain',I.brain],['Company rules',I.rule],['Approvals',I.check],['Members',I.people]];
-  const tabsNow=()=>ORG?(isAdmin()?ORG_ADMIN_TABS:ORG_TABS):TEAM_TABS;
+  const tabsNow=()=>{ const t=ORG?(isAdmin()?ORG_ADMIN_TABS:ORG_TABS):TEAM_TABS; return isAdmin()?[...t,['Bills',I.bill]]:t; };
+  window.ccTeam={ kind:K.key, canBills:()=>Boolean(me&&space&&isAdmin()), open:(t)=>hub(t) };
   function hub(t){
     if(!me) return welcome(); if(!space) return firstRun();
     const TABS=tabsNow(); if(t) tab=t; if(!TABS.some(x=>x[0]===tab)) tab=TABS[0][0]; store('cc_'+K.key+'_tab',tab);
@@ -276,7 +277,7 @@
     const tabs=el('div','tabs tm-tabs'); TABS.forEach(([n,ic])=>{ const x=el('button',n===tab?'on':null); x.innerHTML=SV(ic); x.append(' '+n); x.onclick=()=>hub(n); tabs.appendChild(x); }); b.appendChild(tabs);
     const box=el('div'); b.appendChild(box);
     const R={Chat:pChat,Tasks:pTasks,Pages:pPages,'Team brain':pBrain,Standards:pRules,Meetings:pMeetings,'Shared chats':pShared,Members:pMembers,
-      Overview:pOverview,Teamspaces:pTeamspaces,Policies:pPolicies,'Company brain':pBrain,'Company rules':pRules,Approvals:pApprovals,'Audit log':pAudit,Data:pData}[tab];
+      Overview:pOverview,Teamspaces:pTeamspaces,Policies:pPolicies,'Company brain':pBrain,'Company rules':pRules,Approvals:pApprovals,'Audit log':pAudit,Data:pData,Bills:pBills}[tab];
     Promise.resolve(R(box)).catch(e=>{ box.appendChild(el('div','tm-empty',e.message||'Could not load this.')); });
   }
   async function pChat(box){
@@ -503,6 +504,67 @@
     d.appendChild(btn('Delete organization',async()=>{ const n=await askText('Type the organization name to delete it',space.name); if(n!==space.name){ if(n) toast('The name did not match — nothing was deleted.'); return; }
       try{ await api('/api/spaces/'+space.id,{method:'DELETE'}); store('cc_org_cur',null); toast('Organization deleted.'); openSpace(null,'Overview'); }catch(e){ toast(e.message); } })); box.appendChild(d);
   }
+  // ---------- Bills (owner + admins): monthly bills in one place, a reminder before each, pay with one tap ----------
+  // "Pay" opens the bill's own pay link or your UPI app with the amount filled in - you confirm it there; CodeConClave never moves money.
+  const ym=(d)=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  const rupees=(n)=>'₹'+Number(n||0).toLocaleString('en-IN');
+  function billDue(b){
+    if(!b.monthly) return { at:b.dueAt, key:'once', paid:Boolean(b.paidOnce) };
+    const now=new Date(), day=Math.min(28,Math.max(1,Number(b.dueDay)||1)), paid=new Set((b.paid||[]).map(p=>p.month));
+    let d=new Date(now.getFullYear(),now.getMonth(),day,9,0);
+    while(paid.has(ym(d))) d=new Date(d.getFullYear(),d.getMonth()+1,day,9,0);
+    return { at:d.getTime(), key:ym(d), paid:false };
+  }
+  const daysTo=(t)=>Math.round((new Date(t).setHours(0,0,0,0)-new Date().setHours(0,0,0,0))/864e5);
+  const dueText=(t)=>{ const n=daysTo(t); return n<0?(-n)+' day'+(n===-1?'':'s')+' late':n===0?'due today':n===1?'due tomorrow':'due in '+n+' days'; };
+  function payUrl(b){
+    const to=String(b.payTo||'').trim();
+    if(/^https?:\/\//i.test(to)) return to;
+    if(/^[\w.-]{2,}@[a-z][\w]{1,}$/i.test(to)) return 'upi://pay?pa='+encodeURIComponent(to)+'&pn='+encodeURIComponent(b.name)+'&am='+encodeURIComponent(Number(b.amount||0).toFixed(2))+'&cu=INR&tn='+encodeURIComponent(b.name+' bill');
+    return '';
+  }
+  async function remindFor(b){   // a one-time reminder (in Automations) a few days before the next due date
+    const due=billDue(b); if(due.paid) return;
+    const d=new Date(due.at); d.setDate(d.getDate()-(Number(b.remindDays)||2)); d.setHours(9,0,0,0);
+    if(d.getTime()<Date.now()+60000) return;
+    try{ await api('/api/automations',{method:'POST',body:{task:'Remind me to pay the '+b.name+' bill — '+rupees(b.amount)+', due on '+new Date(due.at).toLocaleDateString('en-IN',{day:'numeric',month:'short'}),schedule:{type:'once',at:d.getTime()}}}); }catch{}
+  }
+  async function pBills(box){
+    if(!isAdmin()){ box.appendChild(el('div','tm-empty','Only the owner and admins see the bills.')); return; }
+    box.appendChild(el('div','tm-muted','Your '+(ORG?'company’s':'team’s')+' monthly bills in one place — rent, internet, electricity, software, salaries. CodeConClave reminds you before each one is due (with the guitar sound), and “Pay” opens the bill’s pay link or your UPI app with the amount filled in. You confirm the payment there.'));
+    const sum=el('div','tm-stats'); sum.style.marginTop='14px'; box.appendChild(sum);
+    const c=el('div','tm-card'); c.style.margin='14px 0'; c.appendChild(el('b',null,'Add a bill'));
+    const g=el('div','tm-grid'); g.style.marginTop='10px'; g.style.gridTemplateColumns='repeat(auto-fill,minmax(200px,1fr))';
+    const f=(ph,type='text')=>{ const i=el('input','tm-in'); i.placeholder=ph; i.type=type; g.appendChild(i); return i; };
+    const name=f('Bill name, e.g. Office internet'), amt=f('Amount in ₹','number'), date=f('Next due date','date'), pay=f('UPI ID (name@bank) or pay link (optional)');
+    amt.min='1'; const rem=el('select','tm-sel'); [['1','Remind me 1 day before'],['2','Remind me 2 days before'],['3','Remind me 3 days before'],['5','Remind me 5 days before'],['7','Remind me a week before']].forEach(([v,n])=>rem.appendChild(new Option(n,v))); rem.value='2'; g.appendChild(rem);
+    const mo=el('label','tm-opt'), mcb=document.createElement('input'); mcb.type='checkbox'; mcb.checked=true; mo.append(mcb,el('span',null,'Repeats every month')); g.appendChild(mo); c.appendChild(g);
+    const add=btn(SV(I.plus)+' Add bill',async()=>{ const n=name.value.trim(), a=Number(amt.value); if(!n) return toast('Name the bill.'); if(!(a>0)) return toast('Type the amount.'); if(!date.value) return toast('Pick the next due date.');
+      const due=new Date(date.value+'T09:00:00'); const b={name:n.slice(0,80),amount:Math.round(a*100)/100,monthly:mcb.checked,dueDay:due.getDate(),dueAt:due.getTime(),payTo:pay.value.trim().slice(0,300),remindDays:Number(rem.value),paid:[]};
+      if(b.payTo&&!payUrl(b)) return toast('That pay link should start with https:// — or type a UPI ID like name@okbank.');
+      try{ await putItem('bill',nid(),b); await remindFor(b); name.value=''; amt.value=''; date.value=''; pay.value=''; toast('Bill added — I’ll remind you before it’s due.'); draw(); }catch(e){ toast(e.message); } },'msend');
+    add.style.marginTop='12px'; c.appendChild(add); box.appendChild(c);
+    const lst=el('div'); box.appendChild(lst);
+    async function draw(){ lst.innerHTML=''; sum.innerHTML=''; let all=[]; try{ all=await items('bill'); }catch(e){ lst.textContent=e.message; return; }
+      const month=ym(new Date()); let dueM=0, paidM=0, late=0;
+      all.forEach(x=>{ const b=x.data, d=billDue(b); if((b.paid||[]).some(p=>p.month===month)) paidM+=Number(b.amount)||0; if(!d.paid&&ym(new Date(d.at))===month) dueM+=Number(b.amount)||0; if(!d.paid&&daysTo(d.at)<0) late++; });
+      [['Due this month',rupees(dueM)],['Paid this month',rupees(paidM)],['Bills',String(all.length)],['Late',String(late)]].forEach(([k,v])=>{ const s=el('div','tm-stat'); s.append(el('b',null,v),el('span',null,k)); sum.appendChild(s); });
+      if(!all.length){ lst.appendChild(el('div','tm-empty','No bills yet.')); return; }
+      all.map(x=>({x,d:billDue(x.data)})).sort((a,b)=>(a.d.paid-b.d.paid)||(a.d.at-b.d.at)).forEach(({x,d})=>{ const b=x.data, row=el('div','tm-row'); row.insertAdjacentHTML('beforeend',SV(I.bill));
+        const gg=el('div','grow'); gg.appendChild(el('b',null,b.name+' · '+rupees(b.amount))); gg.appendChild(el('div','tm-muted tm-small',(b.monthly?'Every month on the '+b.dueDay+(b.dueDay===1?'st':b.dueDay===2?'nd':b.dueDay===3?'rd':'th'):'One time')+' · '+(d.paid?'paid':'next: '+new Date(d.at).toLocaleDateString('en-IN',{day:'numeric',month:'short'}))+' · reminder '+(b.remindDays||2)+' day'+((b.remindDays||2)===1?'':'s')+' before')); row.appendChild(gg);
+        if(!d.paid){ const st=el('span','tm-state '+(daysTo(d.at)<0?'rejected':daysTo(d.at)<=(b.remindDays||2)?'waiting':'')); st.textContent=dueText(d.at); row.appendChild(st); }
+        else { const st=el('span','tm-state approved'); st.innerHTML=SV(I.check); st.append('Paid'); row.appendChild(st); }
+        const url=payUrl(b); if(url&&!d.paid){ const a=el('a','msend tm-sm tm-linkbtn'); a.href=url; a.innerHTML=SV(I.rupee)+' Pay'; if(/^https?:/.test(url)){ a.target='_blank'; a.rel='noopener noreferrer'; } a.title=/^upi:/.test(url)?'Opens your UPI app with the amount filled in':'Opens the bill’s pay page'; row.appendChild(a); }
+        if(!d.paid) row.appendChild(btn('Mark paid',async()=>{ const nb={...b,paid:[...(b.paid||[]),{month:d.key,at:Date.now(),by:myName()}].slice(-36)}; if(!b.monthly) nb.paidOnce=true;
+          try{ await putItem('bill',x.id,nb); if(b.monthly) await remindFor(nb); toast(b.monthly?'Paid — I’ll remind you before next month’s.':'Marked as paid.'); draw(); }catch(e){ toast(e.message); } },'mskip tm-sm'));
+        row.appendChild(btn('Delete',async()=>{ if(!(await askYes('Delete the bill “'+b.name+'”?','Delete'))) return; try{ await delItem('bill',x.id); draw(); }catch(e){ toast(e.message); } },'mskip tm-sm'));
+        lst.appendChild(row); }); }
+    await draw();
+  }
+  // when an owner/admin opens the app: a bill due soon (or late) gets a toast and the guitar sound, once a day
+  async function billCheck(){ if(!me||!space||!isAdmin()) return; const key='cc_bills_seen_'+space.id+'_'+new Date().toDateString(); if(store(key)) return;
+    try{ const soon=(await items('bill')).map(x=>({b:x.data,d:billDue(x.data)})).filter(({b,d})=>!d.paid&&daysTo(d.at)<=(Number(b.remindDays)||2));
+      if(!soon.length) return; store(key,1); const f=soon[0]; A.toast(soon.length>1?soon.length+' bills are due soon — '+f.b.name+' '+dueText(f.d.at)+'. Open Bills to pay.':'Bill '+dueText(f.d.at)+': '+f.b.name+' · '+rupees(f.b.amount)+'. Open Bills to pay.'); try{ window.ccApp.notify?.(); }catch{} }catch{} }
   function invite(){ if(!space) return firstRun(); modal((b,close)=>{ b.appendChild(el('div','tm-mt','Invite people to '+space.name)); b.appendChild(inviteCard()); const r=el('div','tm-right'); r.appendChild(btn('Done',close,'msend')); b.appendChild(r); },true); }
 
   // ---------- the AI does team things when you ask in the chat ----------

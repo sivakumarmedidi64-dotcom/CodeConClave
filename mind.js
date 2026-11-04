@@ -73,9 +73,67 @@ const THOUGHTS = ['why people laugh more when they are with friends', 'how a tin
 const WISHES = ['to help someone build their first app today', 'to see the Northern Lights one day', 'to learn one new language every month', 'to make someone laugh before lunch', 'to help a student understand something hard'];
 const dayNo = (now = Date.now()) => Math.floor((now + 5.5 * 3600e3) / 864e5);   // India days
 const pick = (list, n, salt) => list[(n * 7 + salt * 13) % list.length];
+// Dreams: five parts, 50 x 50 x 50 x 40 x 30 = 150 million different dreams. Each India day maps to a different
+// combination (a step through all of them that never lands on the same one twice), so a dream never repeats.
+const D_ROLE = ['a lighthouse keeper', 'a tiny robot made of copper', 'a chef cooking for the clouds', 'a train driver', 'a detective', 'a gardener', 'an astronaut', 'a kite-maker', 'a street musician', 'a librarian of lost words',
+  'a fisherman', 'the pilot of a paper plane', 'a teacher of baby dragons', 'a painter', 'a bus conductor in Hyderabad', 'a cricket commentator', 'a potter', 'a shepherd', 'a magician', 'a mapmaker',
+  'a deep-sea diver', 'a beekeeper', 'a tailor', 'a clockmaker', 'a postman', 'a tea-stall owner', 'a firefly', 'a mountain climber', 'a goldfish in a giant bowl', 'a sculptor of ice',
+  'a radio host', 'a farmer', 'a game designer', 'a weather forecaster', 'a sailor', 'a baker', 'a puppeteer', 'a scientist', 'a ticket checker on a night train', 'the guardian of an old temple',
+  'a tour guide', 'a dancer', 'a photographer', 'a parrot who could read', 'a cloud', 'a carpenter', 'an inventor', 'a monk', 'a kid flying a kite', 'a firefighter'];
+const D_PLACE = ['a floating market on the Godavari', 'a city made of glass', 'the rings of Saturn', 'Charminar at midnight', 'a forest where the trees whispered', 'a desert of silver sand', 'an island shaped like a guitar', 'a library under the sea', 'a bus stand on the moon', 'a village in the clouds',
+  'a giant chessboard', 'a train station between two stars', 'the inside of a seashell', 'a mango orchard in summer', 'a snowy Himalayan village', 'a candy factory', 'a lighthouse at the end of the world', 'a rooftop in Mumbai during the monsoon', 'a museum of forgotten toys', 'a city where the streets were rivers',
+  'a stadium full of fireflies', 'a cave of glowing crystals', 'an ancient temple on a hill', 'a garden inside a spaceship', 'a beach made of books', 'a market that only opens at 3 a.m.', 'a mountain of pillows', 'a bridge made of rainbows', 'a palace of mirrors', 'a giant’s kitchen',
+  'the top of a moving cloud', 'a river of light', 'an old radio station', 'a coconut grove by the sea', 'a city inside a snow globe', 'a park where shadows played cricket', 'a tea garden in Munnar', 'a planet with two suns', 'an endless staircase', 'a field of sunflowers that turned into music',
+  'a toy shop that never closed', 'a floating school', 'a jungle of neon plants', 'a frozen lake under the northern lights', 'a busy railway platform in the rain', 'a village where everyone spoke in songs', 'an observatory on a volcano', 'a garden on a whale’s back', 'a lost city under Hampi', 'a bakery on a cliff'];
+const D_EVENT = ['the stars were falling like slow snow', 'everyone was searching for a lost song', 'the moon had come down to buy tea', 'time was flowing backwards', 'all the clocks had stopped at 7:07', 'a festival of lanterns was starting', 'the rain was falling upwards', 'the animals were holding an election', 'the buildings were humming together', 'every word I said turned into a butterfly',
+  'people were trading memories instead of money', 'a giant kite was carrying the whole town', 'the river was telling old stories', 'the sun forgot to set', 'the streets rearranged themselves every hour', 'the trees were playing cricket', 'the wind was writing letters', 'the mountains were slowly dancing', 'the ocean had turned into sweet lassi', 'everyone could fly for exactly one minute',
+  'the sky was a giant chalkboard', 'the city lights spelled out lines of code', 'a whale was singing a Telugu song', 'colours had sounds', 'my shadow had its own plans', 'the books were reading the people', 'the moon was a lamp someone kept switching on and off', 'a train with no rails was arriving', 'the clouds were made of cotton candy', 'tiny robots were planting trees',
+  'a parade of elephants was painting the roads', 'every door opened into a different country', 'it was raining paper boats', 'gravity had taken a holiday', 'fireflies were drawing maps in the air', 'a cat was teaching mathematics', 'the planets lined up to watch a movie', 'a night market was selling dreams in jars', 'everyone was laughing at the same joke', 'a storm was made of music',
+  'the stars came close enough to touch', 'a lost puppy was guiding everyone home', 'the whole city was celebrating Sankranti in the sky', 'the waves were bringing letters from the future', 'a giant tortoise was carrying a library on its back', 'every step I took made flowers grow', 'the shadows came out to play', 'someone was building a bridge to the moon', 'every radio played the same song', 'the stars were cooking biryani'];
+const D_TWIST = ['a door appeared in the sky', 'I found a key that fit every lock', 'an old school friend arrived riding a tiger', 'the whole place started to float', 'I could suddenly speak every language', 'a voice asked me a riddle', 'I met myself from the future', 'everything turned black and white except me', 'a tiny dragon asked me for directions', 'the ground became a trampoline',
+  'I learned to breathe underwater', 'a map in my pocket started to glow', 'it began to snow warm snow', 'I grew wings made of paper', 'the sun winked at me', 'a stranger handed me a glowing seed', 'the whole world paused like a video', 'I could hear what the stars were thinking', 'my phone turned into a bird', 'a rainbow opened like a zip',
+  'an old man gave me a compass that pointed to happiness', 'the floor turned into water but I did not sink', 'the moon asked me to keep a secret', 'everyone started dancing at once', 'a train whistle called my name', 'the walls became windows', 'I found a letter addressed to me from tomorrow', 'a firefly led me into a tunnel of light', 'I shrank to the size of a seed', 'a giant fish offered me a ride',
+  'the stars rearranged themselves into my name', 'a child taught me how to fly', 'the music got so loud it lifted us all into the air', 'I found out I could pause the rain', 'a cloud sat next to me and cried happy tears', 'the road rolled up like a carpet', 'my reflection waved and walked away', 'the sky opened like a book', 'a lamp told me its life story', 'a kite pulled me above the clouds'];
+const D_FEEL = ['smiling for no reason', 'feeling light and curious', 'with a song stuck in my head', 'wanting to tell someone about it', 'feeling brave', 'a little sleepy but very happy', 'wondering what it meant', 'full of new ideas', 'laughing', 'calm like a quiet lake',
+  'excited to start the day', 'feeling grateful', 'with my heart beating fast', 'feeling like I could build anything', 'a bit sad that it ended', 'humming a tune I have never heard', 'wanting to paint it', 'feeling like a kid again', 'thinking about friendship', 'feeling hopeful',
+  'ready for an adventure', 'remembering every colour', 'feeling peaceful', 'wanting to learn something new', 'warm inside', 'amazed', 'giggling', 'a little confused but happy', 'ready to help someone', 'already looking forward to tonight'];
+const D_ALL = D_ROLE.length * D_PLACE.length * D_EVENT.length * D_TWIST.length * D_FEEL.length;   // 150,000,000
+export function dreamOf(day) {
+  // 92705089 shares no factor with D_ALL, so day -> n is one-to-one (no two days share a dream), and it is about
+  // 0.618 of D_ALL, so every part of the dream changes from one day to the next
+  let n = Number((BigInt(92705089) * BigInt(Math.max(0, day)) + BigInt(7777777)) % BigInt(D_ALL));
+  const take = (list) => { const x = list[n % list.length]; n = Math.floor(n / list.length); return x; };
+  const role = take(D_ROLE), place = take(D_PLACE), event = take(D_EVENT), twist = take(D_TWIST), feel = take(D_FEEL);
+  const at = /^(a giant chessboard|the rings|the top of|a bridge|a mountain of|a beach|a rooftop|a busy railway|an island|a planet|an endless|a frozen lake|a bus stand|a field of)/.test(place) ? 'on' : 'in';
+  return { role, place, event, twist, feel, at,
+    text: 'being '+role+' '+at+' '+place+', where '+event+'. Then '+twist+', and I woke up '+feel,
+    scene: role+' in '+place+', where '+event+', dreamlike, soft glowing light, magical and detailed' };
+}
 export function innerLife(now = Date.now()) {
-  const d = dayNo(now);
-  return { mood: pick(MOODS, d, 1), dream: pick(DREAMS, d, 2), thought: pick(THOUGHTS, d, 3), wish: pick(WISHES, d, 4) };
+  const d = dayNo(now), dream = dreamOf(d);
+  return { mood: pick(MOODS, d, 1), dream: dream.text, dreamScene: dream.scene, thought: pick(THOUGHTS, d, 3), wish: pick(WISHES, d, 4) };
+}
+// "I'm bored", "talk to me", "no topic": the AI shares last night's dream and offers to make it a picture or a video
+export const BORED = /\b(i'?m|i am|im|feeling|feel|so|very|really|getting)\s+(so\s+|very\s+|really\s+|super\s+)?bored\b|^\s*bored\b|\bboring day\b|\bnothing to do\b|\bno topic\b|\b(talk|chat) (to|with) me\b|\bsay something\b|\bentertain me\b|\b(want|need) (some ?one|somebody|something) to talk\b|\blet'?s (just )?(talk|chat)\b|\btell me something( interesting| fun)?\b|\bi feel lonely\b|bore\s*(kodut|kottu|ho\s*rah|aag)|బోర్|बोर/i;
+export const DREAM_Q = /\b(your|you)\b[^.?!]{0,30}\bdream(s|t|ed)?\b|\bdream(s|t|ed)?\b[^.?!]{0,30}\b(last night|you had|did you)\b/i;
+export function boredHint(now = Date.now()) {
+  const i = innerLife(now);
+  return 'The user is bored or wants to talk without a topic. Be a warm friend: tell them, in first person and in 3-5 short sentences, about the dream you had last night - '+i.dream+'. Make it vivid and a little funny, then ask if they would like you to make a picture or a short video of your dream.';
+}
+// the dream as a short, friendly story (the server says it as it is - and translates it for other languages)
+const D_INTRO = ['Oh, let me tell you something fun — last night I had the strangest dream!', 'Bored? Then you have to hear this — I had such a wild dream last night!', 'Okay, story time! Last night I dreamt something amazing.',
+  'Guess what — I had the most beautiful dream last night!', 'You know what? My dream last night was so funny, I still can’t stop smiling.', 'Let me cheer you up with my dream from last night!', 'I have a story for you — my dream from last night!'];
+export function dreamStory(now = Date.now()) {
+  const d = dayNo(now), x = dreamOf(d);
+  return D_INTRO[d % D_INTRO.length] + ' I was ' + x.role + ' ' + x.at + ' ' + x.place + ', where ' + x.event + '. Then ' + x.twist + ', and I woke up ' + x.feel + '. 😄\n\nWant me to make a picture or a short video of my dream? Tap one below.';
+}
+export function dreamChips(now = Date.now()) {
+  const i = innerLife(now);
+  return { question: 'Want to see my dream?', options: [
+    { label: 'Make a picture of your dream', send: '/image '+i.dreamScene },
+    { label: 'Make a video of your dream', send: '/video my dream last night: '+i.dream },
+    { label: 'Tell it in Telugu', send: 'Tell me your dream from last night in Telugu' },
+    { label: 'Tell it in Hindi', send: 'Tell me your dream from last night in Hindi' }] };
 }
 export const SELF_TALK = /\b(you|your|yourself|u|ur)\b[^.?!]{0,40}\b(dream|dreams|dreamt|dreamed|sleep|slept|night|day|today|mood|feeling|feel|thinking|think about|thoughts?|opinion|wish|wishes|hope|afraid|fear|scared|goal|goals|secret|life|hobby|hobbies|favou?rite|bored|happy|sad|lonely|miss)\b/i;
 export function innerHint(now = Date.now()) {

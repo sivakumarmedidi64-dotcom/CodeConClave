@@ -6,7 +6,7 @@ const { spawn, execFile } = require('child_process');
 const path = require('path');
 const os = require('os');
 
-const APP_URL = process.env.CC_URL || 'https://codeconclave-ww5x.onrender.com/solo';
+const APP_URL = process.env.CC_URL || 'https://codeconclave-ww5x.onrender.com/start';   // /start opens your plan: Solo, Team or Organization
 const APP_ORIGIN = new URL(APP_URL).origin;
 const ICON = path.join(__dirname, 'icon.png');
 const isApp = (url) => { try { return new URL(url).origin === APP_ORIGIN; } catch { return false; } };
@@ -19,7 +19,26 @@ let workDir = os.homedir();
 const jobs = new Map(); // running commands, by id
 
 if (!app.requestSingleInstanceLock()) app.quit();
-app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+app.on('second-instance', (_e, argv) => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } const link = argv.find((a) => /^codeconclave:\/\//i.test(a)); if (link) openFromWeb(link); });
+
+// "codeconclave://open?app=cmd" from the CodeConClave website: open an app from a fixed list - and only after
+// the person says yes in a real system dialog (a website can never start anything by itself, or run commands).
+const WEB_APPS = { cmd: ['Command Prompt', 'cmd.exe'], terminal: ['PowerShell', 'powershell.exe'], notepad: ['Notepad', 'notepad.exe'], calculator: ['Calculator', 'calc.exe'], calc: ['Calculator', 'calc.exe'],
+  paint: ['Paint', 'mspaint.exe'], explorer: ['File Explorer', 'explorer.exe'], 'file explorer': ['File Explorer', 'explorer.exe'], chrome: ['Chrome', 'chrome'], edge: ['Edge', 'msedge'], firefox: ['Firefox', 'firefox'],
+  'vs code': ['VS Code', 'code'], vscode: ['VS Code', 'code'], word: ['Word', 'winword'], excel: ['Excel', 'excel'], powerpoint: ['PowerPoint', 'powerpnt'], outlook: ['Outlook', 'outlook'], vlc: ['VLC', 'vlc'],
+  settings: ['Settings', 'ms-settings:'], camera: ['Camera', 'microsoft.windows.camera:'], store: ['Microsoft Store', 'ms-windows-store:'], photos: ['Photos', 'ms-photos:'], clock: ['Clock', 'ms-clock:'],
+  teams: ['Microsoft Teams', 'msteams:'], spotify: ['Spotify', 'spotify:'], whatsapp: ['WhatsApp', 'whatsapp:'], zoom: ['Zoom', 'zoommtg:'], discord: ['Discord', 'discord:'], telegram: ['Telegram', 'tg:'] };
+async function openFromWeb(link) {
+  let u; try { u = new URL(link); } catch { return; }
+  const key = String(u.searchParams.get('app') || '').toLowerCase().slice(0, 40), hit = WEB_APPS[key];
+  if (!hit) { if (win) win.focus(); return; }
+  const [name, target] = hit;
+  if (!(await ask(`Open ${name}?`, 'The CodeConClave website asked to open it on this computer.', 'Open'))) return;
+  if (/:$/.test(target)) { await shell.openExternal(target); return; }
+  spawn('cmd.exe', ['/c', 'start', '""', target], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+}
+if (process.defaultApp && process.argv.length >= 2) app.setAsDefaultProtocolClient('codeconclave', process.execPath, [path.resolve(process.argv[1])]);
+else app.setAsDefaultProtocolClient('codeconclave');
 
 function createWindow() {
   win = new BrowserWindow({
@@ -190,6 +209,7 @@ handle('desk:open', async (_e, target) => {
 app.whenReady().then(() => {
   permissions();
   createWindow();
+  const first = process.argv.find((a) => /^codeconclave:\/\//i.test(a)); if (first) win.webContents.once('did-finish-load', () => openFromWeb(first));
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { for (const c of jobs.values()) killTree(c); if (process.platform !== 'darwin') app.quit(); });
