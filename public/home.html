@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CodeConClave — Your Autonomous Intelligence Workspace</title>
+<meta name="description" content="CodeConClave AI — one AI for you, your team and your whole company. Live data, pictures, videos, games and websites, a coding agent, live voice in any language, automations." />
+<link rel="icon" href="/icon-192.png" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="#141414" />
+<script src="/kit.js"></script>
+<style>
+  .nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:22px;padding:14px max(20px,calc((100vw - 1180px)/2));background:rgba(20,20,20,.82);backdrop-filter:blur(10px);border-bottom:1px solid #222}
+  .nav .links{display:flex;gap:20px;flex:1}.nav .links a{color:var(--dim);text-decoration:none;font-size:14.5px}.nav .links a:hover{color:var(--fg)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  .hero{text-align:center;padding:72px 0 40px;position:relative}
+  .hero::before{content:'';position:absolute;inset:-40px 0 auto;height:420px;background:radial-gradient(60% 60% at 50% 30%,rgba(242,194,0,.14),transparent 70%),radial-gradient(40% 50% at 70% 40%,rgba(61,155,255,.12),transparent 70%);pointer-events:none;z-index:-1}
+  .hero img{height:86px;margin:0 auto 18px;display:block}
+  .hero h1{font-size:clamp(34px,6vw,62px);line-height:1.05;margin:0 0 14px;letter-spacing:-.02em}
+  .hero h1 span{background:linear-gradient(90deg,#f2c200,#ffde66);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:#b5b5b5;font-size:clamp(16px,2.2vw,19px);max-width:720px;margin:0 auto 26px;line-height:1.55}
+  .hero .k-row{justify-content:center}
+  .badge{display:inline-flex;gap:8px;align-items:center;border:1px solid #333;border-radius:999px;padding:6px 14px;color:#cfcfcf;font-size:13px;margin-bottom:18px;background:#1a1a1a}
+  .badge i{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block}
+  h2.sec{font-size:clamp(26px,4vw,36px);text-align:center;margin:60px 0 8px;letter-spacing:-.01em}
+  .secsub{text-align:center;color:var(--dim);margin:0 0 30px}
+  .plans{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .plan{display:flex;flex-direction:column;background:linear-gradient(180deg,#232323,#1d1d1d);border:1px solid #2f2f2f;border-radius:22px;padding:24px 22px;position:relative;transition:border-color .2s,transform .2s}
+  .plan:hover{border-color:#454545;transform:translateY(-3px)}
+  .plan .pico{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+  .plan .pico .k-ico{width:24px;height:24px}
+  .plan h3{margin:0 0 4px;font-size:22px}.plan .for{color:var(--dim);font-size:14px;margin-bottom:16px;min-height:40px;line-height:1.45}
+  .plan ul{list-style:none;padding:0;margin:0 0 22px;flex:1}.plan li{display:flex;gap:9px;align-items:flex-start;font-size:14px;line-height:1.45;margin:9px 0;color:#d6d6d6}
+  .plan li .k-ico{width:16px;height:16px;color:var(--green);margin-top:2px}
+  .plan .k-btn{width:100%}
+  .plan.custom{background:linear-gradient(160deg,#2b2410,#1d1d1d 55%);border-color:#4a3d12}
+  .tag{position:absolute;top:16px;right:16px;font-size:11.5px;font-weight:600;border-radius:999px;padding:3px 10px;background:#2c2c2c;color:#ddd}
+  .tag.y{background:var(--yel);color:#111}
+  .free{color:var(--dim);font-size:12.5px;text-align:center;margin-top:10px}
+  .can{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .can .k-card{display:flex;gap:14px;align-items:flex-start}.can .cic{width:40px;height:40px;border-radius:12px;background:#2a2a2a;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:20px}
+  .can b{display:block;margin-bottom:4px}.can span{color:var(--dim);font-size:14px;line-height:1.45}
+  footer{border-top:1px solid #222;margin-top:70px;padding:30px 20px;color:var(--dim);font-size:13.5px;text-align:center;line-height:1.8}
+  @media(max-width:1020px){ .plans{grid-template-columns:repeat(2,1fr)} .can{grid-template-columns:repeat(2,1fr)} }
+  @media(max-width:640px){ .plans,.can{grid-template-columns:1fr} .nav .links{display:none} .hero{padding-top:44px} }
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/?home=1"><img class="k-logo" src="/logo.png" alt="CodeConClave" /></a>
+    <div class="links"><a href="#plans">Solo</a><a href="#plans">Team</a><a href="#plans">Organization</a><a href="/customize">Customize</a><a href="#can">What it can do</a></div>
+    <div class="k-row" id="navRight"></div>
+  </nav>
+  <main class="wrap">
+    <section class="hero">
+      <div class="badge"><i></i> Free while we test · made in India</div>
+      <img src="/logo.png" alt="CodeConClave" />
+      <h1>Your Autonomous<br /><span>Intelligence Workspace</span></h1>
+      <p>One AI for you, your team and your whole company. It thinks, builds, researches, talks in any language and gets real work done — not just chats.</p>
+      <div class="k-row"><a class="k-btn yel" href="#plans">Choose your plan</a><a class="k-btn" href="/solo">Try the AI now</a></div>
+    </section>
+
+    <h2 class="sec" id="plans">Pick how you work</h2>
+    <p class="secsub">Three separate spaces, each made for you. Same smart AI behind all of them.</p>
+    <div class="plans" id="plans4"></div>
+    <div class="free">No payment needed right now — every plan is free while we are testing.</div>
+
+    <h2 class="sec" id="can">What CodeConClave can do</h2>
+    <p class="secsub">Real tools that really work — in every plan.</p>
+    <div class="can" id="canGrid"></div>
+  </main>
+  <footer>
+    <img src="/logo.png" alt="" style="height:28px;margin-bottom:8px" /><br />
+    CodeConClave — Your Autonomous Intelligence Workspace<br />
+    Support &amp; collaboration: <a href="mailto:medidisaharsh@gmail.com">medidisaharsh@gmail.com</a> · © 2026 CodeConClave
+  </footer>
+<script>
+  const {$,el,ico,ICONS,btn,api,store,toast,loadMe,signIn,askText,PLAN_PATH}=cc;
+  const PLANS=[
+    {id:'solo',name:'Solo',color:'#3d9bff',icon:ICONS.solo,for:'For one person building, learning and creating alone.',cta:'Start with Solo',
+      feats:['The full AI: answers, live data, research','Pictures, videos, audio, games and websites','Founder Mode: idea → full plan → build','Solo Reviewer: Ship / Fix first / Block','Coding agent in your own folder, with Undo','Live voice in any language']},
+    {id:'team',name:'Team',color:'#5fd38d',icon:ICONS.team,for:'For startups and small teams working together.',cta:'Start with Team',
+      feats:['Team chat with @CodeConClave inside','Tasks board — AI plans, standups, release notes','Shared pages with comments and history','Team brain: ask anything, answers with sources','Team standards every AI answer follows','Meeting notes → summary + tasks']},
+    {id:'org',name:'Organization',color:'#f2c200',icon:ICONS.org,for:'For companies that need control, safety and many teams.',cta:'Start with Organization',
+      feats:['Teamspaces for every department','Members, roles and company email sign-up','AI policies: tools on/off, protected files','Hide private data (phone, Aadhaar, PAN)','Approvals, audit log and CSV export','Company brain across all teams']},
+    {id:'custom',name:'Customize',color:'#f2c200',icon:ICONS.sliders,for:'Build your own plan — team size, monthly or yearly, and just the add-ons you need.',cta:'Customize my plan',tag:'New',custom:true,
+      feats:['Pick Solo, Team or Organization','Choose your team size','Monthly or yearly','Add more AI, voice, storage or support','Only the features you want','Talk to us for big companies']},
+  ];
+  const grid=$('plans4');
+  PLANS.forEach(p=>{ const c=el('div','plan'+(p.custom?' custom':'')); if(p.tag) c.appendChild(el('span','tag'+(p.custom?' y':''),p.tag));
+    const ic=el('div','pico'); ic.style.background=p.color+'22'; ic.style.color=p.color; ic.innerHTML=ico(p.icon); c.appendChild(ic);
+    c.appendChild(el('h3',null,p.name)); c.appendChild(el('div','for',p.for));
+    const ul=el('ul'); p.feats.forEach(f=>{ const li=el('li'); li.innerHTML=ico(ICONS.check); li.append(f); ul.appendChild(li); }); c.appendChild(ul);
+    c.appendChild(btn(p.cta+' '+ico(ICONS.arrow),()=>p.custom?(location.href='/customize'):start(p.id),p.id==='team'?'yel':p.custom?'':'pri'));
+    grid.appendChild(c); });
+  const CAN=[['🌦️','Live data','Weather, forecasts, prices, cricket, movies, space and 100+ real sources.'],['🎨','Pictures & videos','Pictures in seconds, short narrated videos, audio files.'],['🎮','Games & websites','2D and 3D games and full websites that run right in the preview.'],
+    ['🧑‍💻','Coding agent','Works in your folder like a developer — reads, edits, creates, with Undo.'],['🎙️','Live voice','Talk hands-free in any language, interrupt any time.'],['⏰','Automations','Schedules and triggers — mail, movies, news, GitHub, calendar.']];
+  CAN.forEach(([e,t,d])=>{ const c=el('div','k-card'); const i=el('div','cic',e); const x=el('div'); x.appendChild(el('b',null,t)); x.appendChild(el('span',null,d)); c.append(i,x); $('canGrid').appendChild(c); });
+
+  // choose a plan: sign in (free, no payment yet) -> set it up -> go to that space
+  async function start(plan){
+    if(!cc.me){ const u=await signIn('signup','Create your free account to start with '+({solo:'Solo',team:'Team',org:'Organization'})[plan]+'. No payment needed.'); if(!u) return; }
+    const custom=store('cc_custom_plan');
+    try{
+      if(plan==='team'||plan==='org'){
+        const mine=(await api('/api/spaces')).spaces.filter(s=>plan==='team'?s.kind==='team':s.kind==='org');
+        if(!mine.length){ const name=await askText(plan==='team'?'Name your team':'Your company name',plan==='team'?'e.g. Product team':'e.g. Sweet Spot Pvt Ltd'); if(!name) return;
+          await api('/api/spaces',{method:'POST',body:{kind:plan,name}}); }
+      }
+      await api('/api/me/plan',{method:'POST',body:{plan,custom:custom&&custom.plan===plan?custom:null}});
+    }catch(e){ return toast(e.message); }
+    location.href=PLAN_PATH[plan];
+  }
+  async function boot(){
+    const d=await loadMe(); const q=new URLSearchParams(location.search);
+    if(q.get('join')) return location.replace('/team?join='+encodeURIComponent(q.get('join')));
+    if(q.get('start')&&PLAN_PATH[q.get('start')]) return start(q.get('start'));
+    if(cc.me && d.plan && !q.has('home')) return location.replace(PLAN_PATH[d.plan]||'/solo');
+    const r=$('navRight'); r.innerHTML='';
+    if(cc.me){ r.append(btn('Open my space '+ico(ICONS.arrow),()=>location.href=PLAN_PATH[d.plan]||'/solo','pri sm'),btn('Sign out',cc.signOut,'sm')); }
+    else r.append(btn('Sign in',async()=>{ const u=await signIn('signin'); if(u){ const x=await loadMe(); location.href=PLAN_PATH[x.plan]||'#plans'; } },'sm'),btn('Get started',()=>document.getElementById('plans').scrollIntoView({behavior:'smooth'}),'pri sm'));
+    if(q.get('signin')==='failed') toast('Sign-in did not work — please try again.');
+  }
+  boot();
+</script>
+</body>
+</html>

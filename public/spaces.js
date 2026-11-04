@@ -68,7 +68,7 @@
   makePage('teamPage','Team','your team, working together with CodeConClave');
   makePage('orgPage','Organization','your company — teamspaces, rules and control');
   const lbl=el('div','raillbl','Spaces'); const anchor=document.querySelector('.raillbl');
-  const links=[['soloBtn','Solo',ICON.solo,showSolo],['teamBtn','Team',ICON.team,showTeam],['orgBtn','Organization',ICON.org,showOrg]].map(([id,name,ic,fn])=>{ const b=el('button','sidelink'); b.id=id; b.innerHTML=svgIco(ic)+' '+name; b.onclick=fn; return b; });
+  const links=[['soloBtn','Solo tools',ICON.solo,showSolo],['teamBtn','Team ↗',ICON.team,()=>{ location.href='/team'; }],['orgBtn','Organization ↗',ICON.org,()=>{ location.href='/org'; }]].map(([id,name,ic,fn])=>{ const b=el('button','sidelink'); b.id=id; b.innerHTML=svgIco(ic)+' '+name; b.onclick=fn; return b; });
   anchor.before(lbl,...links);
   Object.assign(PAGE_LINK,{soloPage:'soloBtn',teamPage:'teamBtn',orgPage:'orgBtn'});
   function tabs(pageId,list,cur,onPick){ const t=$(pageId+'Tabs'); t.innerHTML=''; list.forEach(x=>{ const b=el('button',x===cur?'on':null,x); b.onclick=()=>onPick(x); t.appendChild(b); }); }
@@ -398,6 +398,7 @@
     try{ const d=await api('/api/join',{method:'POST',body:{token:tok}}); history.replaceState(null,'','/'); if(d.space.kind==='org'){ orgId=d.space.id; store('cc_org_cur',orgId); showOrg(); } else { teamId=d.space.id; store('cc_team_cur',teamId); showTeam(); } toast('Welcome to '+d.space.name+' 🎉'); }
     catch(e){ toast(e.message); }
   }
-  setTimeout(handleJoin,2500);
+  // invite links belong to the Team / Organization pages now
+  if(new URLSearchParams(location.search).get('join')) location.replace('/team'+location.search);
   window.ccSpaces={showSolo,showTeam,showOrg,policy:()=>api('/api/my-policy').then(d=>d.policy).catch(()=>null)};
 })();

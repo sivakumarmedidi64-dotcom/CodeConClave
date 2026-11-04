@@ -6,7 +6,7 @@ const { spawn, execFile } = require('child_process');
 const path = require('path');
 const os = require('os');
 
-const APP_URL = process.env.CC_URL || 'https://codeconclave-ww5x.onrender.com';
+const APP_URL = process.env.CC_URL || 'https://codeconclave-ww5x.onrender.com/solo';
 const APP_ORIGIN = new URL(APP_URL).origin;
 const ICON = path.join(__dirname, 'icon.png');
 const isApp = (url) => { try { return new URL(url).origin === APP_ORIGIN; } catch { return false; } };

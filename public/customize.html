@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Customize your plan — CodeConClave</title>
+<meta name="description" content="Build your own CodeConClave plan: Solo, Team or Organization, team size, monthly or yearly, and only the add-ons you need." />
+<link rel="icon" href="/icon-192.png" />
+<script src="/kit.js"></script>
+<style>
+  .nav{display:flex;align-items:center;gap:16px;padding:14px max(20px,calc((100vw - 1180px)/2));border-bottom:1px solid #222}
+  .wrap{max-width:1180px;margin:0 auto;padding:30px 20px 60px}
+  h1{font-size:clamp(28px,4.5vw,42px);margin:0 0 6px;letter-spacing:-.01em}
+  .lay{display:grid;grid-template-columns:1fr 360px;gap:24px;margin-top:26px;align-items:start}
+  .step{background:#1c1c1c;border:1px solid #2b2b2b;border-radius:20px;padding:20px 22px;margin-bottom:16px}
+  .step h3{margin:0 0 4px;font-size:17px;display:flex;align-items:center;gap:10px}.step h3 i{font-style:normal;width:26px;height:26px;border-radius:50%;background:#2c2c2c;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  .step .k-muted{font-size:14px;margin-bottom:14px}
+  .choices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .choice{border:1.5px solid #333;background:#202020;border-radius:16px;padding:14px;cursor:pointer;text-align:left;color:var(--fg);font:inherit;transition:border-color .15s,background .15s}
+  .choice:hover{border-color:#4a4a4a}.choice.on{border-color:var(--yel);background:#272210}
+  .choice b{display:flex;align-items:center;gap:8px;font-size:15.5px;margin-bottom:4px}.choice span{color:var(--dim);font-size:13px;line-height:1.4}
+  .seats{display:flex;align-items:center;gap:16px}.seats input[type=range]{flex:1;accent-color:#f2c200}
+  .seatnum{min-width:90px;text-align:center;font-size:24px;font-weight:700}
+  .toggle{display:inline-flex;background:#151515;border:1px solid #333;border-radius:14px;padding:4px}
+  .toggle button{border:none;background:none;color:var(--dim);font:inherit;font-size:14.5px;padding:9px 18px;border-radius:10px;cursor:pointer}.toggle button.on{background:#2c2c2c;color:var(--fg)}
+  .addons{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .addon{display:flex;gap:12px;align-items:flex-start;border:1.5px solid #333;background:#202020;border-radius:14px;padding:12px 14px;cursor:pointer}
+  .addon.on{border-color:var(--blue);background:#15233a}.addon input{margin-top:3px;width:17px;height:17px;accent-color:#3d9bff}
+  .addon b{display:block;font-size:14.5px}.addon span{color:var(--dim);font-size:13px;line-height:1.4}
+  .feats{display:flex;flex-wrap:wrap;gap:8px}
+  .fchip{border:1px solid #3a3a3a;background:#202020;color:#d6d6d6;border-radius:999px;padding:7px 13px;font:inherit;font-size:13.5px;cursor:pointer}.fchip.on{background:#f2c20022;border-color:var(--yel);color:#ffe27a}
+  .sum{position:sticky;top:20px;background:linear-gradient(180deg,#232323,#1b1b1b);border:1px solid #333;border-radius:22px;padding:22px}
+  .sum h3{margin:0 0 14px;font-size:18px}.srow{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #2a2a2a;font-size:14.5px}.srow span{color:var(--dim)}
+  .price{margin:16px 0;padding:14px;border-radius:14px;background:#151515;border:1px dashed #3a3a3a;text-align:center}
+  .price b{display:block;font-size:20px}.price span{color:var(--dim);font-size:13px}
+  .sum .k-btn{width:100%;margin-top:8px}
+  @media(max-width:900px){ .lay{grid-template-columns:1fr} .sum{position:static} }
+  @media(max-width:600px){ .choices,.addons{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+  <nav class="nav"><a href="/?home=1"><img class="k-logo" src="/logo.png" alt="CodeConClave" /></a><span class="k-grow"></span><a class="k-btn sm" href="/?home=1#plans">See all plans</a></nav>
+  <main class="wrap">
+    <h1>Customize your plan</h1>
+    <div class="k-muted">Choose exactly what you need. You can change it any time.</div>
+    <div class="lay">
+      <div>
+        <div class="step"><h3><i>1</i> Who is it for?</h3><div class="k-muted">Each plan is its own space with its own tools.</div><div class="choices" id="who"></div></div>
+        <div class="step" id="sizeStep"><h3><i>2</i> How many people?</h3><div class="k-muted">Everyone who will use it — you can add more later.</div>
+          <div class="seats"><input type="range" id="seats" min="2" max="500" value="5" /><div class="seatnum" id="seatNum">5</div></div></div>
+        <div class="step"><h3><i id="billN">3</i> Monthly or yearly?</h3><div class="k-muted">Yearly is cheaper once prices are set.</div>
+          <div class="toggle" id="bill"><button data-v="monthly" class="on">Monthly</button><button data-v="yearly">Yearly</button></div></div>
+        <div class="step"><h3><i id="addN">4</i> Add-ons</h3><div class="k-muted">Only pay for extras you really need.</div><div class="addons" id="addons"></div></div>
+        <div class="step"><h3><i id="featN">5</i> Must-have features</h3><div class="k-muted">Tap the ones you can’t work without — this helps us set the right plan for you.</div><div class="feats" id="feats"></div></div>
+      </div>
+      <aside class="sum" id="sum"></aside>
+    </div>
+  </main>
+<script>
+  const {$,el,ico,ICONS,btn,api,store,toast,loadMe}=cc;
+  const WHO=[['solo','Solo',ICONS.solo,'Just me'],['team','Team',ICONS.team,'A startup or small team'],['org','Organization',ICONS.org,'A company with many teams']];
+  const ADDONS=[['ai','More AI usage','Higher limits for chats, pictures, videos and builds'],['voice','Live voice minutes','More hands-free talking time, any language'],['ownvoice','Your own AI voice','The AI speaks in a voice you choose'],
+    ['brain','Bigger brain storage','More files and notes in your team or company brain'],['agent','Advanced coding agent','Longer jobs on bigger projects'],['support','Priority support','Faster help from us, by email and chat'],
+    ['security','Extra security & audit','Longer audit history, stricter policies'],['desktop','Desktop app','Open and close apps on your computer']];
+  const FEATS={solo:['Founder Mode','Solo Reviewer','Coding agent','Pictures & video','Games & websites','Live voice','Automations','Office files'],
+    team:['Team chat + AI','Tasks board','Shared pages','Team brain','Standards','Meeting notes','Invite by link','Coding agent'],
+    org:['Teamspaces','Policies','Hide private data','Approvals','Audit log','Company brain','Company email sign-up','Data export']};
+  const s=Object.assign({plan:'team',seats:5,billing:'monthly',addons:[],features:[]},store('cc_custom_plan')||{});
+  const q=new URLSearchParams(location.search); if(['solo','team','org'].includes(q.get('plan'))) s.plan=q.get('plan');
+  function draw(){
+    const who=$('who'); who.innerHTML=''; WHO.forEach(([id,n,ic,d])=>{ const b=el('button','choice'+(s.plan===id?' on':'')); b.innerHTML='<b>'+ico(ic)+' '+n+'</b>'; b.appendChild(el('span',null,d)); b.onclick=()=>{ s.plan=id; s.features=[]; if(id==='solo') s.seats=1; else if(s.seats<2) s.seats=id==='org'?25:5; draw(); }; who.appendChild(b); });
+    $('sizeStep').style.display=s.plan==='solo'?'none':''; const r=$('seats'); r.max=s.plan==='org'?2000:200; r.value=s.seats; $('seatNum').textContent=s.seats;
+    ['billN','addN','featN'].forEach((id,i)=>$(id).textContent=String((s.plan==='solo'?2:3)+i));
+    $('bill').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===s.billing));
+    const ad=$('addons'); ad.innerHTML=''; ADDONS.filter(([id])=>s.plan!=='solo'||!['brain','security'].includes(id)).forEach(([id,n,d])=>{ const on=s.addons.includes(id); const l=el('label','addon'+(on?' on':'')); const c=document.createElement('input'); c.type='checkbox'; c.checked=on;
+      c.onchange=()=>{ s.addons=c.checked?[...s.addons,id]:s.addons.filter(x=>x!==id); draw(); }; const t=el('div'); t.appendChild(el('b',null,n)); t.appendChild(el('span',null,d)); l.append(c,t); ad.appendChild(l); });
+    const fe=$('feats'); fe.innerHTML=''; FEATS[s.plan].forEach(f=>{ const b=el('button','fchip'+(s.features.includes(f)?' on':''),f); b.onclick=()=>{ s.features=s.features.includes(f)?s.features.filter(x=>x!==f):[...s.features,f]; draw(); }; fe.appendChild(b); });
+    store('cc_custom_plan',s); summary();
+  }
+  $('seats').oninput=(e)=>{ s.seats=Number(e.target.value); $('seatNum').textContent=s.seats; store('cc_custom_plan',s); summary(); };
+  $('bill').querySelectorAll('button').forEach(b=>b.onclick=()=>{ s.billing=b.dataset.v; draw(); });
+  function summary(){
+    const S=$('sum'); S.innerHTML=''; S.appendChild(el('h3',null,'Your plan'));
+    const row=(k,v)=>{ const r=el('div','srow'); r.append(el('span',null,k),el('b',null,v)); S.appendChild(r); };
+    row('Plan',({solo:'Solo',team:'Team',org:'Organization'})[s.plan]); if(s.plan!=='solo') row('People',String(s.seats)); row('Billing',s.billing==='yearly'?'Yearly':'Monthly');
+    row('Add-ons',s.addons.length?s.addons.map(a=>ADDONS.find(x=>x[0]===a)[1]).join(', '):'None'); row('Must-haves',s.features.length?String(s.features.length)+' picked':'None yet');
+    const p=el('div','price'); p.appendChild(el('b',null,'Free while we test')); p.appendChild(el('span',null,'Your price will show here as soon as plans are priced — no payment now.')); S.appendChild(p);
+    S.appendChild(btn('Continue with this plan '+ico(ICONS.arrow),()=>{ store('cc_custom_plan',s); location.href='/?start='+s.plan; },'yel'));
+    const body=encodeURIComponent('Hi CodeConClave team,\n\nI would like this plan:\n- Plan: '+s.plan+(s.plan!=='solo'?'\n- People: '+s.seats:'')+'\n- Billing: '+s.billing+'\n- Add-ons: '+(s.addons.join(', ')||'none')+'\n- Must-haves: '+(s.features.join(', ')||'none')+'\n\nMy company / name: \n');
+    const t=Object.assign(el('a','k-btn',null),{href:'mailto:medidisaharsh@gmail.com?subject='+encodeURIComponent('Custom CodeConClave plan')+'&body='+body}); t.textContent='Talk to us'; S.appendChild(t);
+    S.appendChild(el('div','k-muted k-small','Big company or special needs? “Talk to us” opens an email to our team with your choices.')).style.marginTop='10px';
+  }
+  loadMe(); draw();
+</script>
+</body>
+</html>

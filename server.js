@@ -30,7 +30,13 @@ import { registerSolo } from './solo.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: '8mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+// Pages: / = the front page (pick Solo, Team or Organization), /solo = the AI app, /team and /org = their own workspaces
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+const page = (file) => (_req, res) => res.sendFile(path.join(__dirname, 'public', file));
+app.get('/', (req, res, next) => (req.query.join ? res.redirect(`/team?join=${encodeURIComponent(String(req.query.join))}`) : page('home.html')(req, res, next)));
+app.get(['/solo', '/chat'], page('index.html'));
+app.get(['/team', '/org', '/organization'], page('workspace.html'));
+app.get('/customize', page('customize.html'));
 
 // Two brains, both the founder's own tuned models (OpenAI-style endpoints):
 //  - cloud:  codeconclave-scout on Cloudflare's GPUs (BRAIN_URL + BRAIN_KEY) - always on, even with the laptop closed;
@@ -197,7 +203,17 @@ function tooMany(req) {
 const needStore = (res) => { if (!store) { res.status(503).json({ error: 'Accounts are not available right now.' }); return true; } return false; };
 const needUser = (req, res) => { if (!req.user) { res.status(401).json({ error: 'Sign in first.' }); return true; } return false; };
 
-app.get('/api/auth/me', (req, res) => res.json({ user: req.user, accounts: Boolean(store), google: Boolean(store && GOOGLE_ID && GOOGLE_SECRET) }));
+app.get('/api/auth/me', wrap(async (req, res) => res.json({ user: req.user, accounts: Boolean(store), google: Boolean(store && GOOGLE_ID && GOOGLE_SECRET),
+  plan: req.user && store ? await store.getPref(req.user.id, 'plan').catch(() => null) : null })));
+// the plan the person picked on the front page (no payment while testing); 'custom' = their Customize choices
+app.post('/api/me/plan', wrap(async (req, res) => {
+  if (!store || !req.user) return res.status(401).json({ error: 'Sign in first.' });
+  const plan = ['solo', 'team', 'org'].includes(req.body?.plan) ? req.body.plan : null;
+  if (!plan) return res.status(400).json({ error: 'Pick Solo, Team or Organization.' });
+  await store.putPref(req.user.id, 'plan', plan);
+  if (req.body?.custom && typeof req.body.custom === 'object') await store.putPref(req.user.id, 'customPlan', JSON.parse(JSON.stringify(req.body.custom).slice(0, 4000)));
+  res.json({ ok: true, plan });
+}));
 
 app.post('/api/auth/signup', wrap(async (req, res) => {
   if (needStore(res)) return;

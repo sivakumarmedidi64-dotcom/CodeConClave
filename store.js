@@ -224,7 +224,8 @@ function fileStore(dir) {
   const file = path.join(dir, 'db.json');
   let db = { nextId: 1, users: [], sessions: [], chats: [], memories: {}, secrets: [], automations: [], prefs: {}, spaces: [], members: [], invites: [], items: [] };
   try { db = { ...db, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { /* first run */ }
-  const save = () => { fs.writeFileSync(file + '.tmp', JSON.stringify(db)); fs.renameSync(file + '.tmp', file); };
+  // Windows can refuse the rename while another program (antivirus, search indexer) holds the file - then write it directly
+  const save = () => { const text = JSON.stringify(db); fs.writeFileSync(file + '.tmp', text); try { fs.renameSync(file + '.tmp', file); } catch { fs.writeFileSync(file, text); } };
   const uid = (id) => String(id);
   return {
     kind: 'local files',

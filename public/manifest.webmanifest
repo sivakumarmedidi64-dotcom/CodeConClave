@@ -2,7 +2,7 @@
   "name": "CodeConClave AI",
   "short_name": "CodeConClave",
   "description": "CodeConClave — Your Autonomous Intelligence Workspace.",
-  "start_url": "/",
+  "start_url": "/solo",
   "scope": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",
