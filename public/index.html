@@ -515,6 +515,7 @@
   .liveov.open{display:flex}
   .livetop{width:100%;max-width:720px;display:flex;justify-content:space-between;align-items:center;color:#5b6675;font-size:14px}
   .livebrand{color:#1b2430;font-weight:600}.livelang{color:#1a73d9;font-weight:600}
+  .livesel{background:#fff;color:#1b2430;border:1px solid #d5dbe3;border-radius:999px;padding:5px 10px;font:inherit;font-size:13px;max-width:170px;cursor:pointer}.livesel:disabled{opacity:.6;cursor:default}
   .liveorb{--lvl:0;margin:5vh 0 16px;width:min(300px,62vw);height:min(300px,62vw);border-radius:50%;position:relative;transition:transform .12s ease-out;filter:drop-shadow(0 18px 40px rgba(30,120,220,.28))}
   .liveorb canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:50%}
   .liveorb i{display:none}
@@ -2376,6 +2377,27 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(/^(?:create|make|generate|give me|get me|send me)\s+(?:a|the|my|one)?\s*(?:new\s+)?(?:share\s+|sharing\s+)?link(?:\s+for me)?$/.test(s)) return async(c)=>addMsg(c,{role:'assistant',content:'Sure — which link?',ask:{question:'Which link?',options:[{label:'Share link for this chat',send:'make a share link for this chat'},...(window.ccRemote?[{label:'Link my phone (Remote)',send:'connect my phone'}]:[])]}},true);
     return null;
   }
+  // run a message in chat c as if it was typed there; then wait until the chat stops changing (pictures,
+  // builds and folders can finish a little later) and return what the AI added
+  async function runIn(c,text,settle=6){
+    for(let i=0;i<240&&busy;i++) await new Promise(r=>setTimeout(r,500));
+    if(!convos.includes(c)) convos.unshift(c);
+    closePages(); currentId=c.id; saveC(); renderSidebar(); renderChat();
+    const before=c.messages.length; input.value=String(text||''); await send();
+    let last='', still=0;
+    for(let i=0;i<360&&still<settle;i++){ await new Promise(r=>setTimeout(r,500)); const now=JSON.stringify(c.messages.slice(before)); if(!busy&&now===last) still++; else still=0; last=now; }
+    return c.messages.slice(before).filter(m=>m.role==='assistant');
+  }
+  // in Live: things to DO (not just talk about) go through the full app, like typing them
+  function liveActs(t){ if(/^\s*\//.test(t)) return false; try{ return Boolean(inAppAction(t)||plugIntent(t)||appIntent(t)||moreIntent(t)||docIntent(t)||deskIntent(t)||PLAN_RE.test(t)); }catch{ return false; } }
+  function liveSummary(msgs){
+    const m=msgs.find(x=>String(x.content||'').trim())||msgs[0];
+    if(!m) return 'Done.';
+    let t=String(m.content||'').replace(/\s*📊\s*Source:[^\n]*/g,'').replace(/[*#_\x60>|]/g,'').replace(/https?:\/\/\S+/g,'').trim();
+    if(!t) t=m.media?'Done — it’s in the chat.':'Done.';
+    if(m.appCard||m.plugCard) t+=' I put it in the chat — check it and press the button.';
+    return t.length>320?t.slice(0,320).replace(/\s+\S*$/,'')+'… the rest is in the chat.':t;
+  }
   // a read-only link to this chat that anyone can open (no team needed); one link per chat
   async function shareThisChat(c){
     if(!me){ addMsg(c,{role:'assistant',content:'Sign in first (bottom-left) — then I’ll make the link. Links are kept on your account so you can turn them off.'},true); return; }
@@ -3303,11 +3325,12 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
     const ac=new (window.AudioContext||window.webkitAudioContext)(); try{ await ac.resume(); }catch{}
     const an=ac.createAnalyser(); an.fftSize=1024; ac.createMediaStreamSource(stream).connect(an);
     let c=current(); if(!c){ newChat(); c=current(); }
-    live={stream,ac,an,data:new Float32Array(an.fftSize),state:'listening',muted:false,rec:null,chunks:[],heardMs:0,quietAt:0,loudAt:0,recAt:0,noise:0.008,chatId:c.id,lang:''};
-    liveState('Listening… just talk, in any language'); setOrb('listen'); beginRec();
+    live={stream,ac,an,data:new Float32Array(an.fftSize),state:'listening',muted:false,rec:null,sr:null,chunks:[],heardMs:0,quietAt:0,loudAt:0,recAt:0,noise:0.008,chatId:c.id,lang:''};
+    live.fast=liveFastOk(); liveLangPicker();
+    liveState(live.fast?'Listening…':'Listening… just talk, in any language'); setOrb('listen'); beginRec();
     live.timer=setInterval(liveTick,50);
     // "Hi! How can I help you today?" - in your language, before you say anything
-    const g=LIVE_HI[String(profile.language||'en').slice(0,2)]||LIVE_HI.en, nm=String(me?.name||'').trim().split(/\s+/)[0]||'';
+    const lp=liveLangPref(), g=LIVE_HI[lp!=='auto'?lp:String(profile.language||'en').slice(0,2)]||LIVE_HI.en, nm=String(me?.name||'').trim().split(/\s+/)[0]||'';
     const hi=g.replace('{n}',nm?' '+nm:''); liveLog('ai',hi);
     dropRec(); live.state='speaking'; liveState('Speaking… talk anytime to interrupt'); setOrb('speak');
     liveSpeak(hi).finally(()=>{ if(live&&live.state==='speaking'){ live.state='listening'; liveState('Listening… just talk, in any language'); setOrb('listen'); beginRec(); } });
@@ -3320,16 +3343,45 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
     it:'Ciao{n}! Come posso aiutarti oggi?',sw:'Habari{n}! Nikusaidie nini leo?'};
   function stopLive(){
     if(!live) return; const L=live; live=null;
-    clearInterval(L.timer); try{ L.rec&&L.rec.state!=='inactive'&&L.rec.stop(); }catch{} L.stream.getTracks().forEach(t=>t.stop()); try{ L.ac.close(); }catch{}
+    clearInterval(L.timer); try{ L.rec&&L.rec.state!=='inactive'&&L.rec.stop(); }catch{} try{ L.sr&&L.sr.abort(); }catch{} L.stream.getTracks().forEach(t=>t.stop()); try{ L.ac.close(); }catch{}
     stopSpeaking(); orbStop(); $('liveOv')?.classList.remove('open'); renderChat();
   }
+  // ---- fast listening: the browser's own speech recognition (instant, words appear as you talk) ----
+  // Our own model (Whisper) stays as the backup and for "Any language": it hears every language by itself.
+  const LIVE_SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
+  const LIVE_BCP={en:'en-IN',te:'te-IN',hi:'hi-IN',ta:'ta-IN',kn:'kn-IN',ml:'ml-IN',mr:'mr-IN',bn:'bn-IN',gu:'gu-IN',pa:'pa-IN',ur:'ur-IN',es:'es-ES',fr:'fr-FR',de:'de-DE',pt:'pt-BR',ar:'ar-SA',ru:'ru-RU',zh:'zh-CN',ja:'ja-JP',ko:'ko-KR',id:'id-ID',tr:'tr-TR',it:'it-IT'};
+  const LIVE_NAMES=[['auto','Any language (slower)'],['en','English'],['te','తెలుగు'],['hi','हिन्दी'],['ta','தமிழ்'],['kn','ಕನ್ನಡ'],['ml','മലയാളം'],['mr','मराठी'],['bn','বাংলা'],['gu','ગુજરાતી'],['pa','ਪੰਜਾਬੀ'],['ur','اردو'],['es','Español'],['fr','Français'],['de','Deutsch'],['pt','Português'],['ar','العربية'],['ru','Русский'],['zh','中文'],['ja','日本語'],['ko','한국어'],['id','Bahasa'],['tr','Türkçe'],['it','Italiano']];
+  function liveLangPref(){ let v=null; try{ v=localStorage.getItem('cc_live_lang'); }catch{} if(v&&(v==='auto'||LIVE_BCP[v])) return v; const p=String(profile.language||'').slice(0,2); return LIVE_BCP[p]?p:'en'; }
+  // fast needs the browser's recognizer; not in the desktop app (it has none) and not with voice lock (that checks the recording)
+  function liveFastOk(){ return Boolean(LIVE_SR) && !DESK && liveLangPref()!=='auto' && !(isOwner()&&lockOn()); }
+  function liveLangPicker(){
+    const top=document.querySelector('#liveOv .livetop'); if(!top) return; let sel=$('liveLangSel');
+    if(!sel){ sel=el('select','livesel'); sel.id='liveLangSel'; sel.title='The language you will speak';
+      LIVE_NAMES.filter(([k])=>k==='auto'||LIVE_SR).forEach(([k,n])=>sel.appendChild(new Option(n,k)));
+      sel.onchange=()=>{ try{ localStorage.setItem('cc_live_lang',sel.value); }catch{} if(!live) return; dropRec(); live.fast=liveFastOk(); if(live.state==='listening'){ liveState(live.fast?'Listening…':'Listening… just talk, in any language'); beginRec(); } };
+      top.appendChild(sel); }
+    sel.value=LIVE_SR?liveLangPref():'auto'; sel.disabled=!LIVE_SR||Boolean(DESK);
+  }
+  function startSR(){
+    if(!live||live.sr||live.muted||live.state!=='listening') return;
+    const s=new LIVE_SR(); s.lang=LIVE_BCP[liveLangPref()]||'en-IN'; s.interimResults=true; s.continuous=false; s.maxAlternatives=1;
+    let said='';
+    s.onresult=(e)=>{ let tmp=''; for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) said+=t+' '; else tmp+=t; } const show=(said+tmp).trim(); if(show) liveState('“'+show.slice(-90)+'”'); };
+    s.onerror=(e)=>{ if(!live||live.sr!==s) return;
+      if(!['no-speech','aborted'].includes(e.error)){ live.sr=null; live.fast=false; liveState('Listening… just talk'); beginRec(); } };   // refused or broken: our own listening takes over
+    s.onend=()=>{ if(!live||live.sr!==s) return; live.sr=null; const t=said.trim();
+      if(t.length>=2&&live.state==='listening') liveHandle(t,liveLangPref()==='auto'?(profile.language||''):liveLangPref());
+      else if(live.state==='listening'&&live.fast) setTimeout(beginRec,120); };
+    live.sr=s; try{ s.start(); }catch{ live.sr=null; setTimeout(beginRec,400); }
+  }
   function beginRec(){
+    if(live&&live.fast){ startSR(); return; }
     if(!live||live.muted||(live.rec&&live.rec.state==='recording')) return;
     const type=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/mp4'].find(t=>MediaRecorder.isTypeSupported?.(t))||'';
     const r=new MediaRecorder(live.stream,type?{mimeType:type}:{}); const chunks=[]; r.ondataavailable=(e)=>{ if(e.data.size) chunks.push(e.data); };
     r._chunks=chunks; live.rec=r; live.heardMs=0; live.quietAt=0; live.recAt=performance.now(); r.start(200);
   }
-  function dropRec(){ if(!live?.rec) return; const r=live.rec; live.rec=null; r.onstop=null; try{ r.state!=='inactive'&&r.stop(); }catch{} }
+  function dropRec(){ if(live?.sr){ const s=live.sr; live.sr=null; s.onend=null; s.onresult=null; s.onerror=null; try{ s.abort(); }catch{} } if(!live?.rec) return; const r=live.rec; live.rec=null; r.onstop=null; try{ r.state!=='inactive'&&r.stop(); }catch{} }
   function liveTick(){
     if(!live) return;
     const {an,data}=live; an.getFloatTimeDomainData(data); let sum=0; for(let i=0;i<data.length;i++) sum+=data[i]*data[i];
@@ -3359,10 +3411,21 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
       if(!tr.ok){ const why=tr.status===423?'Voice lock is on, but your laptop voice server is off — turn voice lock off in your profile (bottom-left), or start the voice server.':tr.status===429?'That was a lot of talking — give me a minute, then talk again.':(d.error||'I didn’t catch that — say it again?');
         if(tr.status===423||tr.status===429||tr.status>=500) liveLog('ai',why); return back(why); }
       const said=String(d.text||'').trim(); if(said.length<2) return back('Listening…');
-      const lang=LANG_LIVE.has(d.language)?d.language:(profile.language||'');
+      return await liveHandle(said,LANG_LIVE.has(d.language)?d.language:(profile.language||''));
+    }catch{ back('I had a hiccup — try again.'); }
+  }
+  async function liveHandle(said,lang){
+    if(!live) return;
+    live.state='thinking'; liveState('Thinking…'); setOrb('think');
+    const back=(msg)=>{ if(!live) return; live.state='listening'; liveState(msg||'Listening…'); setOrb('listen'); beginRec(); };
+    try{
       live.lang=lang; $('liveLang').textContent=lang&&lang!=='en'?(document.querySelector('#pfLang option[value="'+lang+'"]')?.textContent||lang):'';
       liveLog('me',said);
       const c=convos.find(x=>x.id===live.chatId)||current(); if(!c) return back();
+      // voice to action: "open automations", "make an invite link", "my github issues", "make an excel sheet…" - done like typing it
+      if(liveActs(said)){ liveState('Working on it…');
+        const got=await runIn(c,said,3); if(!live) return;
+        const sayIt=liveSummary(got); liveLog('ai',sayIt); live.state='speaking'; liveState('Speaking… talk anytime to interrupt'); setOrb('speak'); await liveSpeak(sayIt); return back(); }
       c.messages.push({role:'user',content:'🎙 '+said}); c.updated=Date.now(); saveC(); if(currentId===c.id) renderChat();
       const outMsgs=c.messages.slice(-14).map(m=>({role:m.role,content:String(m.ctx||m.content).replace(/^🎙 /,'')}));
       const r=await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({messages:outMsgs,memory:memory.join('\n'),profile:{...profile,language:lang},live:true,...(window.ccChatExtra?window.ccChatExtra():{})})});
@@ -4079,13 +4142,8 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
     folder:()=>folder?{name:folder.name,ready:Boolean(folder.files&&folder.live)}:null, openFolder:()=>folder&&folder.root&&!folder.files?wakeFolder():openFolder(),
     // Remote: do what the phone asked, in the "From your phone" chat, and give back what the AI said
     run:async(text)=>{
-      for(let i=0;i<240&&busy;i++) await new Promise(r=>setTimeout(r,500));
       let c=convos.find(x=>x.id==='remote'); if(!c){ c={id:'remote',title:'From your phone',messages:[],updated:Date.now()}; convos.unshift(c); }
-      closePages(); currentId=c.id; saveC(); renderSidebar(); renderChat();
-      const before=c.messages.length; input.value=String(text||''); await send();
-      let last='', still=0;   // pictures, builds and folders can finish a little later: wait until the chat stops changing
-      for(let i=0;i<360&&still<6;i++){ await new Promise(r=>setTimeout(r,500)); const now=JSON.stringify(c.messages.slice(before)); if(!busy&&now===last) still++; else still=0; last=now; }
-      return c.messages.slice(before).filter(m=>m.role==='assistant'); },
+      return runIn(c,text,6); },
     chat:()=>{ const c=current(); return c&&c.messages.length?{id:c.id,title:c.title,messages:c.messages}:null; },
     openChat:(title,messages)=>{ closePages(); currentId=uid(); convos.unshift({id:currentId,title:String(title||'Shared chat').slice(0,80),messages,updated:Date.now()}); saveC(); renderSidebar(); renderChat(); closeRail(); } };
   loadMe().then(()=>mailBrief(false)); // then the AI briefs you on your mail (owner only)
