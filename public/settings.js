@@ -77,7 +77,7 @@
   const NAV=[
     ['account','Account',I.user,'name email sign out plan'],['billing','Billing',I.card,'plan payment bills customize'],['usage','Usage',I.gauge,'limit credits 5-hour weekly buy'],null,
     ['appearance','Appearance',I.palette,'text size panel'],['you','Your CodeConClave',I.bot,'nickname language about instructions personalization'],['caps','Capabilities',I.caps,'memory live remote plugins skills'],
-    ['voice','Voice',I.mic,'voice live language lock'],['notif','Notifications',I.note,'sound guitar notifications'],['privacy','Privacy',I.shield,'incognito export delete memory folder'],null,
+    ['voice','Voice',I.mic,'voice live language lock'],['notif','Notifications',I.note,'sound guitar notifications'],['privacy','Privacy',I.shield,'incognito export delete memory folder'],['rules','Rules',I.shield,'rules honest safety ask before'],null,
     ['customize','Customize',I.sliders,'skills plugins automations library creations'],['keys','API keys',I.key,'api developer key prepaid'],null,['desktop','Desktop app',I.laptop,'windows download install open apps']];
   let ov=null, cur='account';
   function open(section){
@@ -103,7 +103,7 @@
   function draw(main){
     main.innerHTML='';
     const bk=button(SV(I.back)+' Settings',()=>main.parentElement.classList.remove('showmain'),'st-backbtn'); main.appendChild(bk);
-    const S={account,billing,usage,appearance,you,caps,voice,notif,privacy,customize,keys,desktop}[cur]||account;
+    const S={account,billing,usage,appearance,you,caps,voice,notif,privacy,rules,customize,keys,desktop}[cur]||account;
     Promise.resolve(S(main)).catch(e=>main.appendChild(el('div','st-note',e.message)));
   }
   const go=(id,box)=>{ cur=id; document.querySelectorAll('.st-nav .it').forEach(b=>b.classList.toggle('on',b.dataset.kw.startsWith((NAV.find(n=>n&&n[0]===id)||[])[1]?.toLowerCase()||'#'))); draw(box); };
@@ -195,6 +195,16 @@
     row(box,'Memory folder on this device',P.memFolderInfo()||'Keep your memory, profile and chats as files on your phone or laptop.',button('Choose a folder',()=>P.memFolder()));
     row(box,'Export my chats','Download all your chats and memory as one file.',button('Export',()=>P.exportChats()));
     row(box,'Clear chats on this device','Removes the chats saved in this browser (your account keeps its copy).',button('Clear',()=>{ if(!confirm('Clear the chats saved in this browser?')) return; P.clearDevice(); toast('Cleared on this device.'); },'red'));
+  }
+  function rules(box){
+    H(box,'Rules CodeConClave always follows','These are built in — on every message, for everyone. Your team’s or company’s rules are added on top.');
+    [['Honest','It never makes up facts, names, numbers, prices or dates. When it is not sure, it says so and offers to look it up — and live data always shows its source.'],
+     ['Asks first','Before it builds something, it asks what you want. Before anything that sends a message, spends money, books, or deletes, it asks for a clear yes.'],
+     ['Never pretends','It tells you exactly what it did and what it didn’t do. It never says “sent”, “paid” or “booked” unless the app really did it.'],
+     ['Money stays with you','It never moves money. Payments happen in your own UPI or bank app, after you confirm there.'],
+     ['Your data is yours','Incognito chats are never saved. You can export or delete your chats any time, and API keys are kept only as a scrambled fingerprint.'],
+     ['Safe and kind','No sexual content, no help with hurting anyone, no insults. It stays CodeConClave AI and never pretends to be another AI.'],
+     ['Your rules too','It follows your custom instructions, your team’s standards and your organization’s policies — but never against these rules.']].forEach(([t,d])=>row(box,t,d));
   }
   function customize(box){
     H(box,'Customize','Make CodeConClave yours.');

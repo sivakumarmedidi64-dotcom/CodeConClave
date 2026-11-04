@@ -32,6 +32,8 @@ function firstJson(s) {
 
 // A video counts as ONE message: its plan hands out a ticket that covers the scene pictures.
 const tickets = new Map();   // ticket -> { left, until }
+// a short-lived ticket so the pictures of one deck or video count as one request (not one per picture)
+export function imageTicket(n) { const t = crypto.randomUUID(); tickets.set(t, { left: Math.max(0, Math.min(8, n)), until: Date.now() + 15 * 60000 }); return t; }
 
 export function registerStudio(app, { cloud, headers, wrap, overLimit }) {
   const brain = () => cloud();
@@ -162,6 +164,19 @@ Files in the folder:\n${files.join('\n') || '(empty folder)'}${String(req.body?.
       } catch { /* try again */ }
     }
     if (!plan) return res.status(502).json({ error: 'I couldn\'t plan that video - please try again.' });
+    // another language (Telugu, Hindi...): the pictures stay as planned, the title, captions and narration are translated
+    const lang = /^[a-z]{2}$/.test(String(req.body?.lang || '')) ? String(req.body.lang) : 'en';
+    if (lang !== 'en') {
+      try {
+        const texts = [plan.title, ...plan.scenes.flatMap((s) => [s.caption || '.', s.narration || '.'])];
+        const r = await post('/translate', { target: lang, texts }, 60000); const d = await r.json().catch(() => ({})); const tr = d?.translations;
+        if (Array.isArray(tr) && tr.length === texts.length) {
+          plan.title = String(tr[0] || plan.title).slice(0, 120);
+          plan.scenes.forEach((s, i) => { s.caption = String(tr[1 + i * 2] || s.caption).slice(0, 120); s.narration = String(tr[2 + i * 2] || s.narration).slice(0, 400); });
+          plan.lang = lang;
+        }
+      } catch { /* the English plan, then */ }
+    }
     const ticket = crypto.randomUUID();
     tickets.set(ticket, { left: plan.scenes.length, until: Date.now() + 15 * 60000 });
     for (const [k, v] of tickets) if (v.until < Date.now()) tickets.delete(k);

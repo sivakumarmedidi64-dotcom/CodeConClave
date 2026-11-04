@@ -570,6 +570,7 @@
   .dditem{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:#e6e6e6;font:inherit;font-size:14.5px;padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left}
   .dditem:hover{background:#333}.dditem .ico{width:17px;height:17px;color:#b3b3b3}.dditem i{font-style:normal;font-size:11px;color:#b3b3b3;background:#3a3a3a;border-radius:6px;padding:1px 6px;margin-left:4px}
   .ddcheck{margin-left:auto;color:#e6e6e6}
+  .plugico .favi{width:26px;height:26px;border-radius:7px;display:block;background:#fff;padding:3px;object-fit:contain}.plugico.small .favi{width:20px;height:20px;padding:2px}
   .meplan{color:#8c8c8c;font-size:12.5px;margin-left:6px;white-space:nowrap}.meplan:before{content:'·';margin-right:6px}
   .incobtn.on{background:#2c2c2c;color:#e6e6e6}
   .incobar{display:flex;align-items:center;gap:8px;max-width:760px;margin:10px auto 0;padding:9px 12px;border:1px solid #333;border-radius:12px;background:#202020;color:#cfcfcf;font-size:13.5px}.incobar .mskip{margin-left:auto;padding:4px 10px}
@@ -1346,6 +1347,9 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
 
   // ---- memory ----
+  let locCache=null;
+  function myLocation(){ if(locCache&&Date.now()-locCache.at<600000) return Promise.resolve(locCache.loc); if(!navigator.geolocation) return Promise.resolve(null);
+    return new Promise(ok=>{ const t=setTimeout(()=>ok(null),9000); navigator.geolocation.getCurrentPosition((p)=>{ clearTimeout(t); const loc={lat:+p.coords.latitude.toFixed(3),lon:+p.coords.longitude.toFixed(3)}; locCache={loc,at:Date.now()}; ok(loc); },()=>{ clearTimeout(t); ok(null); },{timeout:8000,maximumAge:600000}); }); }
   function memoryOn(){ try{ return localStorage.getItem('cc_memory_on')!=='off'; }catch{ return true; } }
   function captureMemory(text){
     let m, added=false;
@@ -1433,6 +1437,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     }
 
     if(recording && text && !text.startsWith('/')){ recording.steps.push(text); renderRecBar(); }
+    // the AI asked what to build: this answer goes straight into the build
+    if(c.buildPending && text && !text.startsWith('/') && !files.length && Date.now()-c.buildPending.at<30*60000){ const bp=c.buildPending; delete c.buildPending; saveC(); return runTool(c,{tool:'build',args:{kind:bp.kind,request:bp.request+' — details: '+text}},'/'+bp.kind+' '+bp.request); }
     // "send this to slack" / "post on discord: …" — a card you check and send yourself; the AI never posts on its own
     const pk=!files.length && plugIntent(text);
     if(pk){ c.messages.push(plugReply(c,pk,text)); c.updated=Date.now(); saveC(); renderChat(); renderSide(); return; }
@@ -1453,6 +1459,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     const ak=!files.length && !researchOn && (appIntent(text)||moreIntent(text));
     if(ak){ await runAppIntent(c,ak); return; }
     const research=researchOn && text && !files.length;
+    const loc=/\b(near me|nearby|around me|my area|my location|near here|close to me)\b/i.test(text)?await myLocation():null;
     busy=true; sendBtn.disabled=true;
     const wrap=chat.querySelector('.wrap')||(()=>{const w=document.createElement('div');w.className='wrap';chat.appendChild(w);return w;})();
     const aiEl=bubble('ai',''), dots=el('span','dots'); dots.innerHTML='<i></i><i></i><i></i>'; aiEl._steps.before(dots);
@@ -1471,7 +1478,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       const resp=research
         ? await fetch('/api/research',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),body:JSON.stringify({question:text})})
         : await fetch('/api/chat',{method:'POST',headers:mailHeaders({'Content-Type':'application/json'}),
-          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:c.incognito?'':memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), recall:c.incognito?'':recallSnippets(text,c.id), ...(window.ccChatExtra?window.ccChatExtra():{}), ...extra})});
+          body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:c.incognito?'':memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), recall:c.incognito?'':recallSnippets(text,c.id), ...(loc?{loc}:{}), ...(window.ccChatExtra?window.ccChatExtra():{}), ...extra})});
       if(!resp.ok && !/event-stream/.test(resp.headers.get('content-type')||'')){   // e.g. the usage limit is reached
         const d=await resp.json().catch(()=>({})); dots.remove(); wrap.appendChild(el('div','err',d.error||'Something went wrong — please try again.'));
         if(d.usage) usageNow=d.usage; renderSide(); return; }
@@ -1625,7 +1632,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     $('plugSearch').placeholder='Search '+PLUGINS.length+' plugins'; ['All',...new Set(PLUGINS.map(p=>p.cat))].forEach(t=>{ const b=el('button',t===plugTab?'on':'',t); b.onclick=()=>{ plugTab=t; renderPlugins(); }; tabs.appendChild(b); });
     const q=$('plugSearch').value.toLowerCase(), grid=$('plugGrid'); grid.innerHTML='';
     PLUGINS.filter(x=>(plugTab==='All'||x.cat===plugTab) && (x.name+' '+x.desc).toLowerCase().includes(q)).forEach(x=>{
-      const c=el('div','plug'), ic=el('span','plugico'); ic.innerHTML=x.icon();
+      const c=el('div','plug'), ic=el('span','plugico'); ic.innerHTML=plugIconHtml(x);
       const t=el('div','pt'); t.appendChild(el('b',null,x.name));
       t.appendChild(el('div',null,x.id==='gmail'&&plugState?.gmail?'Connected as '+plugState.gmail.account+'.':x.desc));
       const on=!x.link&&plugOn(x.id), st=el('span','st'+(on?' ok':'')); st.innerHTML=x.link?uiIco('open'):uiIco(on?'check':'plus'); if(x.link) st.title='Opens the site'; st.title=on?'Connected':'Connect';
@@ -2301,9 +2308,16 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   { const have=new Set(PLUGINS.map(p=>p.name.toLowerCase()));
     (window.CC_LINKS||[]).forEach(([name,cat,url,search],i)=>{ const k=name.toLowerCase(); if(have.has(k)) return; have.add(k); let host=''; try{ host=new URL(url).hostname.replace(/^www\./,''); }catch{}
       PLUGINS.push({id:'lk'+i,name,cat,icon:()=>I(LINK_ICO[cat]||LINK_ICO.Everyday),desc:(search?'Search or open ':'Opens ')+host+' — right from here.',link:{url,search}}); }); }
+  const PLUG_DOMAIN={gmail:'mail.google.com',github:'github.com',notion:'notion.so',calendar:'calendar.google.com',todoist:'todoist.com',linear:'linear.app',jira:'atlassian.com',asana:'asana.com',trello:'trello.com',clickup:'clickup.com',airtable:'airtable.com',
+    sheets:'sheets.google.com',youtube:'youtube.com',monday:'monday.com',hubspot:'hubspot.com',stripe:'stripe.com',shopify:'shopify.com',wordpress:'wordpress.com',gitlab:'gitlab.com',vercel:'vercel.com',netlify:'netlify.com',sentry:'sentry.io',zendesk:'zendesk.com',
+    freshdesk:'freshdesk.com',intercom:'intercom.com',mailchimp:'mailchimp.com',calendly:'calendly.com',pipedrive:'pipedrive.com',toggl:'toggl.com',wakatime:'wakatime.com',confluence:'atlassian.com',bluesky:'bsky.app',mastodon:'joinmastodon.org',hackernews:'news.ycombinator.com',
+    ntfy:'ntfy.sh',teams:'teams.microsoft.com',gchat:'chat.google.com',pushover:'pushover.net',slack:'slack.com',discord:'discord.com',telegram:'telegram.org',webhook:'zapier.com',razorpay:'razorpay.com',render:'render.com',cloudflare:'cloudflare.com',supabase:'supabase.com',
+    huggingface:'huggingface.co',kaggle:'kaggle.com',uptimerobot:'uptimerobot.com',dockerhub:'hub.docker.com',npm:'npmjs.com',pypi:'pypi.org',devto:'dev.to',producthunt:'producthunt.com',twilio:'twilio.com',whatsapp:'whatsapp.com',resend:'resend.com'};
+  function plugDomain(x){ if(x.link){ try{ return new URL(x.link.url).hostname.replace(/^www\./,''); }catch{ return ''; } } return PLUG_DOMAIN[x.id]||''; }
+  function plugIconHtml(x){ const d=plugDomain(x); if(!d) return x.icon(); return '<img class="favi" src="/api/icon?d='+encodeURIComponent(d)+'" alt="" loading="lazy" onerror="this.nextElementSibling.style.display=\'\';this.remove()"><span class="favfb" style="display:none">'+x.icon()+'</span>'; }
   function openLinkPlugin(p){
     const m=el('div','modal open'), b=el('div','modalbox'); m.appendChild(b); const close=()=>m.remove(); m.onclick=(e)=>{ if(e.target===m) close(); };
-    const h=el('div','bhead'); const ic=el('span','plugico small'); ic.innerHTML=p.icon(); h.appendChild(ic); h.appendChild(el('span',null,p.name)); const x=el('button','bx','×'); x.onclick=close; h.appendChild(x); b.appendChild(h);
+    const h=el('div','bhead'); const ic=el('span','plugico small'); ic.innerHTML=plugIconHtml(p); h.appendChild(ic); h.appendChild(el('span',null,p.name)); const x=el('button','bx','×'); x.onclick=close; h.appendChild(x); b.appendChild(h);
     b.appendChild(el('div','btext',p.desc+' It opens the real site in a new tab — nothing is connected to your account.'));
     const go=(u)=>{ const w=window.open(u,'_blank'); try{ if(w) w.opener=null; }catch{} close(); };
     let q=null; if(p.link.search){ q=el('input','pagesearch'); q.type='search'; q.placeholder='Search '+p.name+'…'; q.style.margin='12px 0 4px'; q.onkeydown=(e)=>{ if(e.key==='Enter'&&q.value.trim()) go(p.link.search.replace('{q}',encodeURIComponent(q.value.trim()))); }; b.appendChild(q); setTimeout(()=>q.focus(),30); }
@@ -2756,11 +2770,15 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(kind==='slides'){ const P=await loadLib('slides'); const p=new P(); p.layout='LAYOUT_WIDE';
       const t=p.addSlide(); t.background={color:'1A1A1A'}; t.addText(d.title,{x:0.6,y:2.2,w:12,h:1.2,fontSize:40,bold:true,color:'F2C200'}); if(d.subtitle) t.addText(d.subtitle,{x:0.6,y:3.5,w:12,h:0.8,fontSize:20,color:'E6E6E6'});
       t.addText('Made with CodeConClave AI',{x:0.6,y:6.6,w:6,h:0.4,fontSize:12,color:'8C8C8C'});
-      d.slides.forEach(sl=>{ const x=p.addSlide(); x.background={color:'1A1A1A'}; x.addText(sl.title,{x:0.6,y:0.4,w:12,h:0.9,fontSize:30,bold:true,color:'F2C200'});
-        x.addText(sl.bullets.map(b=>({text:b,options:{bullet:true,breakLine:true}})),{x:0.8,y:1.5,w:11.6,h:5,fontSize:20,color:'E6E6E6',valign:'top',paraSpaceAfter:10}); });
+      d.slides.forEach((sl,i)=>{ const x=p.addSlide(); x.background={color:'1A1A1A'}; const pic=d.images?.[i];
+        x.addShape(p.ShapeType.rect,{x:0,y:0,w:0.18,h:7.5,fill:{color:'F2C200'},line:{color:'F2C200'}});
+        x.addText(sl.title,{x:0.6,y:0.35,w:pic?6.6:12,h:1,fontSize:pic?28:30,bold:true,color:'F2C200',fit:'shrink'});
+        if(sl.bullets.length) x.addText(sl.bullets.map(b=>({text:b,options:{bullet:true,breakLine:true}})),{x:0.7,y:1.5,w:pic?6.4:11.6,h:5.2,fontSize:pic?18:20,color:'E6E6E6',valign:'top',paraSpaceAfter:10,fit:'shrink'});
+        if(pic) x.addImage({data:String(pic).replace(/^data:/,''),x:7.35,y:1.1,w:5.4,h:5.4,rounding:true});
+        x.addText(String(i+2),{x:12.3,y:6.95,w:0.6,h:0.35,fontSize:11,color:'8C8C8C',align:'right'}); });
       return {name,blob:await p.write({outputType:'blob'})}; }
     if(kind==='doc'){ const D=await loadLib('doc'); const kids=[new D.Paragraph({text:d.title,heading:D.HeadingLevel.TITLE})];
-      d.sections.forEach(sec=>{ kids.push(new D.Paragraph({text:sec.heading,heading:D.HeadingLevel.HEADING_1})); sec.paragraphs.forEach(t=>kids.push(new D.Paragraph({children:[new D.TextRun(t)],spacing:{after:160}}))); });
+      d.sections.forEach(sec=>{ kids.push(new D.Paragraph({text:sec.heading,heading:D.HeadingLevel.HEADING_1,spacing:{before:240,after:120}})); sec.paragraphs.forEach(t=>kids.push(/^• /.test(t)?new D.Paragraph({children:[new D.TextRun(t.slice(2))],bullet:{level:0},spacing:{after:80}}):new D.Paragraph({children:[new D.TextRun(t)],spacing:{after:160}}))); });
       return {name,blob:await D.Packer.toBlob(new D.Document({creator:'CodeConClave AI',title:d.title,sections:[{children:kids}]}))}; }
     const J=(await loadLib('pdf')).jsPDF, pdf=new J({unit:'pt',format:'a4'}), W=pdf.internal.pageSize.getWidth()-96; let y=64;
     const line=(txt,size,bold,gap)=>{ pdf.setFont('helvetica',bold?'bold':'normal'); pdf.setFontSize(size); pdf.splitTextToSize(txt,W).forEach(l=>{ if(y>780){ pdf.addPage(); y=64; } pdf.text(l,48,y); y+=size*1.35; }); y+=gap; };
@@ -2789,7 +2807,11 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     card.appendChild(pv);
     const act=el('div','mailact'), dl=el('button','msend','Download .'+DOC_EXT[d.kind]), st=el('span','mstatus'); act.append(dl,st); card.appendChild(act);
     dl.onclick=async()=>{ dl.disabled=true; st.textContent='Making the file…';
-      try{ const f=await buildDoc(d); const a=document.createElement('a'); a.href=URL.createObjectURL(f.blob); a.download=f.name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+      try{ if(d.kind==='slides'&&!d.images&&d.slides.some(s=>s.image)){ d.images=[]; let made=0; const want=d.slides.map((s,i)=>[i,s.image]).filter(x=>x[1]).slice(0,6);
+          st.textContent='Drawing pictures for the slides (0/'+want.length+')…';
+          await poolMap(want,3,async([i,prompt])=>{ try{ const q=await fetch('/api/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt+', high quality, no text, no letters',shape:'square',quality:'fast',ticket:d.ticket})}); const r=await q.json().catch(()=>({})); if(q.ok&&r.image) d.images[i]=r.image; }catch{} made++; st.textContent='Drawing pictures for the slides ('+made+'/'+want.length+')…'; });
+          st.textContent='Making the file…'; }
+        const f=await buildDoc(d); const a=document.createElement('a'); a.href=URL.createObjectURL(f.blob); a.download=f.name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
         st.textContent='✅ '+f.name; try{ addFilesToLibrary([new File([f.blob],f.name,{type:f.blob.type})]); }catch{} }
       catch(e){ st.textContent=e.message; } dl.disabled=false; };
     return card;
@@ -2842,7 +2864,9 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(t.tool==='image') return makeImage(c,a.prompt||text,t.say);
     if(t.tool==='audio') return makeAudio(c,a.text||text);
     if(t.tool==='video') return makeVideo(c,a.topic||text);
-    if(t.tool==='build') return makeBuild(c,a.request||text,a.kind,text);
+    if(t.tool==='build'){ const req=a.request||text, prev=lastArtifact(c), fresh=/\b(make|create|build|code|generate|design|write|develop)\s+(me\s+)?(a|an|another|new|one more)\b/i.test(text);
+      if(!/^\s*\//.test(text) && !(prev&&!fresh) && String(req).trim().split(/\s+/).length<14) return askBuild(c,req,a.kind);
+      return makeBuild(c,req,a.kind,text); }
     if(t.tool==='doc') return makeDoc(c,DOC_FROM_ROUTER[a.kind]||'doc',a.request||text);
     if(t.tool==='browser') return openSite(c,a.url,t.say);
     if(t.tool==='files' && (a.action==='mkdir' || (/\bfolder\b/i.test(text) && /\b(create|make|new)\b/i.test(text) && FOLDER_NAME(text)))) return makeFolder(c,a.action==='mkdir'&&a.target?a.target:FOLDER_NAME(text),text);
@@ -2910,19 +2934,22 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     if(!topic) return addMsg(c,{role:'assistant',content:'Tell me what the video should be about.'},true);
     busy=true; sendBtn.disabled=true; const w=working('Writing the script');
     try{
-      const r=await fetch('/api/video/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic})}); const plan=await r.json().catch(()=>({}));
+      const VL={telugu:'te',hindi:'hi',tamil:'ta',kannada:'kn',malayalam:'ml',marathi:'mr',bengali:'bn',bangla:'bn',gujarati:'gu',punjabi:'pa',urdu:'ur',spanish:'es',french:'fr',german:'de',japanese:'ja',chinese:'zh',korean:'ko',arabic:'ar'};
+      const said=topic.match(/\b(?:in|into)\s+(telugu|hindi|tamil|kannada|malayalam|marathi|bengali|bangla|gujarati|punjabi|urdu|spanish|french|german|japanese|chinese|korean|arabic)\b/i)||topic.match(/\b(telugu|hindi|tamil|kannada|malayalam|marathi|bengali|gujarati|punjabi|urdu)\s+(?:lo|me|mein|video|voice|narration)\b/i);
+      const vlang=said?VL[said[1].toLowerCase()]:(langOf(topic)!=='en'?langOf(topic):'');
+      const r=await fetch('/api/video/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,lang:vlang})}); const plan=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(plan.error||'I couldn’t plan that video.');
       const drawing=w.step('Drawing '+plan.scenes.length+' scenes'); let made=0;
       const imgs=await poolMap(plan.scenes,3,async(s)=>{ const q=await fetch('/api/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:s.image+', cinematic lighting, highly detailed, no text, no letters',shape:'wide',ticket:plan.ticket})});
         const d=await q.json().catch(()=>({})); if(!q.ok||!d.image) throw new Error(d.error||'A scene could not be drawn — please try again.'); made++; drawing.lastChild.nodeValue=' Drawing scenes ('+made+'/'+plan.scenes.length+')…'; return d.image; });
       w.step('Recording the voice');
       let voice=null;
-      try{ const v=await fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:plan.scenes.map(s=>s.narration).join(' ').slice(0,1400),lang:'en',voice:voicePref()})}); const d=await v.json(); if(v.ok&&d.audio) voice=d.audio; }catch{}
+      try{ const v=await fetch('/api/voice/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:plan.scenes.map(s=>s.narration).join(' ').slice(0,1400),lang:plan.lang||'en',voice:voicePref()})}); const d=await v.json(); if(v.ok&&d.audio) voice=d.audio; }catch{}
       const making=w.step('Putting the video together — keep this tab open');
       const out=await renderVideo(plan,imgs,voice,(p)=>{ making.lastChild.nodeValue=' Putting the video together — keep this tab open ('+Math.round(p*100)+'%)…'; });
       const id='vid'+uid(); await mediaPut(id,out.blob);
       const thumb=await thumbOf(imgs[0],480), st=w.steps(); w.end();
-      addMsg(c,{role:'assistant',content:'Here’s your video: “'+plan.title+'” ('+Math.round(out.seconds)+' seconds) 🎬'+(voice?'':' — no narration this time, the voice wasn’t available.'),steps:st,
+      addMsg(c,{role:'assistant',content:'Here’s your video: “'+plan.title+'” ('+Math.round(out.seconds)+' seconds) 🎬'+(voice?'':plan.lang&&plan.lang!=='en'?' — with '+(document.querySelector('#pfLang option[value="'+plan.lang+'"]')?.textContent||plan.lang)+' captions. A voice for this language turns on when the Bhashini key is added.':' — no narration this time, the voice wasn’t available.'),steps:st,
         media:{kind:'video',id,thumb,prompt:topic,name:safeName(plan.title)+'.'+out.ext},ctx:'[I made a '+Math.round(out.seconds)+'-second video for the user: "'+plan.title+'". Scenes: '+plan.scenes.map(s=>s.caption).join('; ')+']'});
     }catch(e){ w.end(); addMsg(c,{role:'assistant',content:e.message||'The video could not be made.'},true); }
     busy=false; sendBtn.disabled=false; refreshUsage();
@@ -2988,7 +3015,17 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   // ---- Games, websites and apps: built by the AI, running live in the preview panel ----
   let artShown=null, artTab='preview';
   function lastArtifact(c){ for(let i=c.messages.length-1;i>=0;i--){ if(c.messages[i].artifact) return c.messages[i].artifact; } return null; }
+  // before building, ask what it is for (the answer goes straight into the build) - "You decide" builds right away
+  function askBuild(c,req,kind){
+    kind=['game','website','app'].includes(kind)?kind:'website';
+    const Q={website:['Who is it for — your shop, yourself, a company?','Which parts — menu, prices, gallery, about, contact, WhatsApp order?','Which style — simple, modern, colourful, dark? Any colours?'],
+      game:['2D or 3D?','What does the player do — run, race, shoot, solve puzzles, explore?','Any theme — space, jungle, city, cricket? Easy or hard?'],
+      app:['What should it do for you?','Who will use it — you, your team, customers?','Which screens or buttons must it have?']}[kind];
+    c.buildPending={kind,request:req,at:Date.now()};
+    addMsg(c,{role:'assistant',content:'Before I build it, tell me a little more so it’s exactly what you want:\n\n1. '+Q[0]+'\n2. '+Q[1]+'\n3. '+Q[2]+'\n\nAnswer in your own words — or tap below and I’ll choose the details.',ask:{question:'',options:[{label:'You decide — build it now',send:'/'+kind+' '+req}]}},true);
+  }
   async function makeBuild(c,request,kind,said){
+    delete c.buildPending;
     request=String(request||'').trim().slice(0,3000);
     if(!request) return addMsg(c,{role:'assistant',content:'Tell me what to build, like “a snake game” or “a website for my bakery”.'},true);
     const prev=lastArtifact(c), fresh=/\b(make|create|build|code|generate|design|write|develop)\s+(me\s+)?(a|an|another|new|one more)\b/i.test(said||request);
@@ -3345,6 +3382,13 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   $('lockToggle').onchange=()=>{ try{ localStorage.setItem(LOCKKEY,$('lockToggle').checked?'1':'0'); }catch{} toast($('lockToggle').checked?'Voice lock is on: I only listen to your voice and your sister’s (needs your laptop’s voice server).':'Voice lock is off.'); };
   setTimeout(paintLock,1500);
   function stopSpeaking(){ if(speaking){ try{ speaking.pause?.(); }catch{} speaking=null; } try{ speechSynthesis.cancel(); }catch{} }
+  async function deviceVoice(lang){
+    const find=()=>{ const vs=speechSynthesis.getVoices(); return vs.find(x=>x.lang?.toLowerCase().startsWith(lang)&&/online|natural|google/i.test(x.name))||vs.find(x=>x.lang?.toLowerCase().startsWith(lang)); };
+    let v=find(); if(v||speechSynthesis.getVoices().length) return v||null;
+    await new Promise(ok=>{ const t=setTimeout(ok,1500); speechSynthesis.addEventListener('voiceschanged',()=>{ clearTimeout(t); ok(); },{once:true}); });
+    return find()||null;
+  }
+  const NO_VOICE=(lang)=>'This device has no '+(document.querySelector('#pfLang option[value="'+lang+'"]')?.textContent||lang)+' voice. On a computer, open CodeConClave in Microsoft Edge (it has Indian-language voices) — or use your Android phone.';
   async function speak(text,btn){
     if(speaking||speechSynthesis.speaking){ stopSpeaking(); btn?.classList.remove('on'); return; }
     const clean=String(text||'').replace(/\s*📊\s*Source:[^\n]*/g,'').replace(/```[\s\S]*?```/g,' code shown on screen. ').trim().slice(0,1500); if(!clean) return;
@@ -3368,8 +3412,8 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     }
     if(playedAny){ done(); return; }
     speaking=null;
-    const u=new SpeechSynthesisUtterance(clean); u.lang=lang; const v=speechSynthesis.getVoices().find(x=>x.lang?.toLowerCase().startsWith(lang)); if(v) u.voice=v;
-    else if(lang!=='en'){ toast('Your device has no '+lang+' voice — showing the text only.'); done(); return; }
+    const u=new SpeechSynthesisUtterance(clean); u.lang=lang; const v=await deviceVoice(lang); if(v) u.voice=v;
+    else if(lang!=='en'){ toast(NO_VOICE(lang)); done(); return; }
     u.onend=done; u.onerror=done; speechSynthesis.speak(u);
   }
 
@@ -3585,7 +3629,8 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
     }
     if(played) return;
     // languages without a cloud voice: this device's own voice, if it has one
-    await new Promise(ok=>{ try{ const u=new SpeechSynthesisUtterance(clean); u.lang=lang; const v=speechSynthesis.getVoices().find(x=>x.lang?.toLowerCase().startsWith(lang)); if(v) u.voice=v; else if(lang!=='en'){ liveState('Your device has no voice for this language — read my answer above'); return setTimeout(ok,2500); }
+    const dv=await deviceVoice(lang);
+    await new Promise(ok=>{ try{ const u=new SpeechSynthesisUtterance(clean); u.lang=lang; const v=dv; if(v) u.voice=v; else if(lang!=='en'){ liveState(NO_VOICE(lang)); return setTimeout(ok,3500); }
       u.onend=ok; u.onerror=ok; speechSynthesis.speak(u); const w=setInterval(()=>{ if(!live||live.state!=='speaking'){ speechSynthesis.cancel(); clearInterval(w); ok(); } if(!speechSynthesis.speaking){ clearInterval(w); ok(); } },200); }catch{ ok(); } });
   }
   { const b=el('button','mic livego'); b.id='liveBtn'; b.title='Talk live (hands-free, any language)'; b.setAttribute('aria-label','Talk live'); b.innerHTML=svgIco(LIVE_ICO.wave); b.onclick=startLive; $('micBtn').before(b); }

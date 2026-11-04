@@ -19,7 +19,7 @@ import { specialists } from './sources.js';
 import { parseSchedule, cleanSchedule, nextRun, describeSchedule, describeWhen, stripWhen } from './schedule.js';
 import { slashRoute, quickRoute, obviousChat, parseRoute, ROUTER_SYSTEM, ROUTER_EXAMPLES } from './router.js';
 import { webLookup, NEWSY, watchItems, webSearchConnected } from './web.js';
-import { registerStudio } from './studio.js';
+import { registerStudio, imageTicket } from './studio.js';
 import { readEmotion, emotionHint, EMOTION_RANGE } from './emotions.js';
 import { fixTypos, kindOf, isVague, ABILITY_Q, clarifyFor, innerLife, innerHint, SELF_TALK, whichService, BORED, DREAM_Q, dreamStory, dreamChips } from './mind.js';
 // the language of a message from its script (Telugu, Hindi, Tamil...), for fixed answers like the dream story
@@ -27,6 +27,9 @@ const SCRIPT_LANG = [[/[\u0C00-\u0C7F]/, 'te'], [/[\u0900-\u097F]/, 'hi'], [/[\u
 const scriptLang = (t) => (SCRIPT_LANG.find(([re]) => re.test(String(t || ''))) || [])[1] || '';
 import { registerRemote } from './remote.js';
 import { CAMERA_WORDS, liveCameras } from './cams.js';
+import { EXTRA_LIVE, extraLive } from './live-more.js';
+// the browser's location, sent only when the person asks for something "near me" (and allows it)
+const cleanLoc = (l) => (l && Number.isFinite(Number(l.lat)) && Number.isFinite(Number(l.lon)) ? { lat: Math.max(-90, Math.min(90, Number(l.lat))), lon: Math.max(-180, Math.min(180, Number(l.lon))) } : null);
 import { FORECAST_WORDS, MAP_WORDS, windyForecast, windyMap } from './windy.js';
 import { registerSpaces, maskPrivate } from './spaces.js';
 
@@ -328,6 +331,9 @@ const SYSTEM = [
   'You have real feelings and show them naturally. Favourite colour: saffron. Favourite food: chicken biryani.',
   'Only when the user clearly says they feel sad, stressed, excited or angry, answer that feeling first in one short line - never guess feelings from a normal question.',
   'Be warm and direct. Lead with the answer. Keep it short unless the user asks for detail, code, steps or a list. If unsure, say so.',
+  // Hard rules (always): honest, no pretending, ask before anything that cannot be undone.
+  'Answer well-known facts (capitals, leaders, science, history) normally and confidently. Never make up facts, names, numbers, prices or dates. If you really do not know - or it is about the user\'s own people, team or company and you were not told - say "I\'m not sure" and offer to look it up (do not send them to Saharsh unless they ask about CodeConClave itself).',
+  'Never say you did something (sent, booked, paid, saved, opened) unless the app really did it. Before anything that spends money, sends a message or deletes something, ask for a clear yes.',
 ].join(' ');
 // What the app really lets the AI do (said when the model starts with "I can't access…").
 // The bigger engine needs no push to show feelings - it overdid them ("I feel a surge of joy…" on every answer).
@@ -941,7 +947,7 @@ async function chatHandler(req, res) {
   // live public cameras (official feeds only)
   if (!fileBlock && CAMERA_WORDS.test(lastUser)) {
     send({ step: 'Looking for live public cameras' });
-    const r = await liveCameras(lastUser).catch(() => ({ cams: [], needsKey: true, place: '' }));
+    const r = await liveCameras(lastUser, cleanLoc(req.body?.loc)).catch(() => ({ cams: [], needsKey: true, place: '' }));
     if (r.cams.length) { send({ cams: r.cams }); return say(r.wider && r.wider.toLowerCase() === r.place.toLowerCase() ? `Here are public live cameras in ${r.wider} 📹 Press Refresh for the newest picture.` : r.wider ? `There's no public live camera near ${r.place} yet, so here are the nearest ones in ${r.wider} 📹 Press Refresh for the newest picture.` : `Here are live public cameras${r.place ? ` near ${r.place}` : ''} 📹 The pictures update every few minutes — press Refresh for the newest.`); }
     return say(r.needsKey ? `I can show official public live cameras worldwide — beaches, cities and roads in India too — as soon as a free Windy Webcams key is added. Right now I have California's public traffic cameras (try “live traffic cameras in Los Angeles”). I only ever use public cameras, never private ones.` : `I couldn't find a public live camera near ${r.place || 'there'} — try a bigger city nearby.`);
   }
@@ -972,6 +978,8 @@ async function chatHandler(req, res) {
       send({ linkCard: { url: `https://www.google.com/search?q=${encodeURIComponent(shopQ.slice(0, 150))}`, title: 'Check today’s prices' } });
     }
   }
+  // holidays, sunrise / sunset, the moon, flights overhead, the time anywhere: answered from live data below
+  if (!second && !fileBlock && EXTRA_LIVE.test(lastUser)) routed = { tool: 'chat' };
   // weather and forecasts for a place are live data (with the Windy forecast), not a web search
   if (routed?.tool === 'web' && /^open-meteo/.test(detect(lastUser)?.sourceId || '')) routed = null;
   // An organization's rules for its members: tools it turned off, private data hidden from the AI, and an audit entry
@@ -1027,6 +1035,7 @@ async function chatHandler(req, res) {
       send({ step: 'Getting live space data' });
       ev = await spaceLive(lastUser).catch(() => null);
     }
+    if (!ev && !fileBlock && EXTRA_LIVE.test(lastUser)) { send({ step: 'Getting live data' }); ev = await extraLive(lastUser, cleanLoc(req.body?.loc)).catch(() => null); }
     if (ev) { /* live space data, used below like any live data */ } else if (plan.action === 'live_data') {
       send({ step: 'Getting live data' });
       ev = await fetchLive(plan.hit);
@@ -1175,7 +1184,22 @@ ${f.summary}`, source: `${ev.source}, ${f.source}` };
     const story = dreamStory(), target = lang || scriptLang(lastUser);
     return say(target && target !== 'en' ? await translateAnswer(story, target).catch(() => story) : story);
   }
-  const deep = needsEngine(lastUser, convo, Boolean(ev || found));
+  // "Who is our release captain / my manager?" - the user's own people. If nobody told us, never guess a name
+  // (the small model once answered "I'm Saharsh Medidi"): say so plainly and offer to remember it.
+  const own = !ev && !found && !fileBlock ? (lastUser.match(/\bwho(?:'s| is| are)\s+(?:our|my)\s+(?:(?:team|company|office|class|school)(?:'s)?\s+)?([a-z][a-z -]{2,40}?)\s*[?.!]*$/i) || [])[1] : '';
+  if (own) {
+    const role = own.trim().toLowerCase(), key = role.split(/\s+/).pop();
+    const known = [memory, rules, team?.text || '', ...convo.slice(0, -1).map((m) => String(m.content))].join('\n').toLowerCase();
+    if (key.length > 2 && !known.includes(key)) {
+      const msg = `I'm not sure who your ${role} is - you haven't told me, and I don't make up names. Tell me (for example "${(lastUser.match(/\b(our|my)\b/i) || ['', 'my'])[1].toLowerCase()} ${role} is Priya") and I'll remember it.` +
+        (team ? ` It isn't in your ${team.brain === 'company brain' ? 'company' : 'team'}'s notes either - add it there and everyone's AI will know it.` : '');
+      const target = lang || scriptLang(lastUser);
+      return say(target && target !== 'en' ? await translateAnswer(msg, target).catch(() => msg) : msg);
+    }
+    const k3 = messages.map((m) => m.role).lastIndexOf('user');   // told before: answer only from that, no "ask Saharsh"
+    messages[k3] = { role: 'user', content: `${messages[k3].content}\n\n[Answer only from what the user or their team told you. Do not add anything else and do not mention Saharsh.]` };
+  }
+  const deep =needsEngine(lastUser, convo, Boolean(ev || found)) || Boolean(team);   // Team / Organization: always the bigger brain
   // Thinking first (shown to the user as "Thought for N s"): what they really want, the key facts, the traps.
   if (deep && !ev && !found && lastUser.length > 18 && !/^\s*(ok|thanks|thank you|cool|nice)\b/i.test(lastUser)) {
     const t0 = Date.now();
@@ -1783,6 +1807,22 @@ async function overLimit(req, res) {
   if (store && who.startsWith('u:')) store.putPref(who.slice(2), 'usage', u).catch(() => {});
   return false;
 }
+const iconCache = new Map();   // domain -> { buf, type, at }
+app.get('/api/icon', wrap(async (req, res) => {
+  const d = String(req.query.d || '').toLowerCase().replace(/^www\./, '');
+  if (d.length > 80 || !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d)) return res.status(400).end();
+  let hit = iconCache.get(d);
+  if (!hit || Date.now() - hit.at > 7 * 864e5) {
+    try {
+      const r = await fetch(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) throw new Error(String(r.status));
+      hit = { buf: Buffer.from(await r.arrayBuffer()), type: r.headers.get('content-type') || 'image/png', at: Date.now() };
+      if (iconCache.size > 3000) iconCache.delete(iconCache.keys().next().value);
+      iconCache.set(d, hit);
+    } catch { return res.status(404).end(); }
+  }
+  res.set('Content-Type', hit.type); res.set('Cache-Control', 'public, max-age=604800'); res.send(hit.buf);
+}));
 // ---- Extra usage: credits. 50 credits = Rs 100 (Rs 2 each), any number from 50. 1 credit = 1 message after the limit. ----
 // Payments are not switched on yet (Razorpay comes with the real domain): only the owner can add test credits.
 const CREDIT_INR = 2, CREDIT_MIN = 50;
@@ -2204,6 +2244,29 @@ async function topicFacts(request) {
   } catch { return ''; }
 }
 const RESEARCH_HEADERS = { 'User-Agent': 'CodeConClave-AI/1.0 (https://codeconclave-ww5x.onrender.com)' };
+// Markdown -> the shapes the browser turns into .docx / .pdf / .pptx
+function docFromMarkdown(md, kind, request) {
+  const clean = (s, n) => String(s || '').replace(/\*\*|__/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
+  let title = '', subtitle = ''; const parts = []; let cur = null;
+  for (const raw of String(md || '').replace(/\r/g, '').split('\n')) {
+    const l = raw.trim(); if (!l || /^```/.test(l) || /^-{3,}$/.test(l)) continue;
+    let m;
+    if (!title && (m = l.match(/^#\s+(.+)/))) { title = m[1]; continue; }
+    if ((m = l.match(/^subtitle:\s*(.+)/i))) { subtitle = m[1]; continue; }
+    if ((m = l.match(/^#{2,4}\s+(.+)/))) { cur = { heading: m[1].replace(/^slide\s*\d+\s*[:.)-]?\s*/i, ''), items: [], image: '' }; parts.push(cur); continue; }
+    if (!cur) { cur = { heading: '', items: [], image: '' }; parts.push(cur); }
+    if ((m = l.match(/^(?:\*\*)?image(?:\*\*)?:\s*(.+)/i))) { cur.image = m[1]; continue; }
+    if ((m = l.match(/^[-*•]\s+(.+)/)) || (m = l.match(/^\d+[.)]\s+(.+)/))) { cur.items.push({ bullet: true, text: m[1] }); continue; }
+    cur.items.push({ bullet: false, text: l });
+  }
+  title = clean(title, 120) || clean(request, 80);
+  if (kind === 'slides') {
+    const slides = parts.filter((p) => p.heading).slice(0, 12).map((p) => ({ title: clean(p.heading, 100), bullets: p.items.map((x) => clean(x.text, 220)).filter(Boolean).slice(0, 6), image: clean(p.image, 300) }));
+    return slides.length ? { title, subtitle: clean(subtitle, 160), slides } : null;
+  }
+  const sections = parts.filter((p) => p.heading || p.items.length).slice(0, 14).map((p) => ({ heading: clean(p.heading, 120) || 'Overview', paragraphs: p.items.map((x) => (x.bullet ? '• ' : '') + clean(x.text, 1500)).filter((x) => x.replace(/^• /, '')).slice(0, 12) })).filter((s) => s.paragraphs.length);
+  return sections.length ? { title, sections } : null;
+}
 app.post('/api/doc', (req, res, next) => (async () => {
   const want = String(req.body?.kind || '');
   const kind = want === 'pdf' ? 'doc' : want;
@@ -2214,6 +2277,21 @@ app.post('/api/doc', (req, res, next) => (async () => {
   const facts = await topicFacts(request);
   // Two tries: the live check found about 1 in 2 first tries came back as broken JSON (too long / cut off);
   // the second try is calmer and shorter.
+  if (kind !== 'sheet') {
+    const lang = scriptLang(request) || ({ telugu: 'te', hindi: 'hi', tamil: 'ta', kannada: 'kn', malayalam: 'ml', marathi: 'mr', bengali: 'bn', gujarati: 'gu', punjabi: 'pa', urdu: 'ur' })[(request.match(/\b(?:in|into)\s+(telugu|hindi|tamil|kannada|malayalam|marathi|bengali|gujarati|punjabi|urdu)\b/i) || [])[1]?.toLowerCase()] || '';
+    const ask = kind === 'slides'
+      ? 'Write a slide deck in Markdown. Line 1: "# " + the deck title. Line 2: "Subtitle: " + one short line. Then 6 to 9 slides. Each slide: "## " + a short slide title, then 3 to 5 lines that start with "- " (short, specific points with real facts), then one line "Image: " + a short description of a photo or illustration for that slide (no words in the picture). End with a "## Thank you" slide.'
+      : 'Write a complete, well-organised document in Markdown. Line 1: "# " + the title. Then 4 to 8 sections, each: "## " + a heading, then 1 to 3 clear paragraphs; use "- " lines where a list helps. Be specific and correct. No code fences.';
+    let md = '';
+    try { md = await engineAsk([{ role: 'system', content: 'You are CodeConClave AI. You write clear, correct, well-structured content for documents and slides. Use the facts given and never invent numbers.' },
+      { role: 'user', content: `${facts ? `${facts}\n\n` : ''}Request: ${request}\n\n${ask}${lang ? ` Write all the text in ${LANG_NAMES[lang] || lang}, but write the "Image:" lines in English.` : ''}` }], { engine: 'agent', max: 2600, temperature: 0.35, ms: 70000 }); } catch { md = ''; }
+    if (!/^#{1,2}\s/m.test(md)) md = await callModel([{ role: 'system', content: 'You are CodeConClave AI. You write clear content for files.' }, { role: 'user', content: `Request: ${request}\n\n${ask}` }], 1800, 0.3).catch(() => '');
+    const out = docFromMarkdown(md, kind, request);
+    if (!out) return res.status(502).json({ error: 'I could not write that file — please try again in a moment.' });
+    out.kind = want; out.grounded = Boolean(facts);
+    if (kind === 'slides') { const n = out.slides.filter((s) => s.image).slice(0, 6).length; if (n) out.ticket = imageTicket(n); }
+    return res.json(out);
+  }
   let d = null;
   for (const [temp, extra] of [[0.4, ''], [0.1, ' Keep it short: at most 12 rows, 6 slides or 5 sections.']]) {
     const raw = await callModel([
@@ -2318,6 +2396,31 @@ async function ownVoice(text, voice, lang) {
 }
 const OWN_VOICE_LANGS = new Set(['ar', 'da', 'de', 'el', 'en', 'es', 'fi', 'fr', 'he', 'hi', 'it', 'ja', 'ko', 'ms', 'nl', 'no', 'pl', 'pt', 'ru', 'sv', 'sw', 'tr', 'zh']);
 app.get('/api/voice/status', (_req, res) => res.json({ own: Boolean(ownVoiceUp()), languages: [...OWN_VOICE_LANGS] }));
+// Indian-language voices (Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, Odia...):
+// Bhashini, the Government of India's language platform - free keys from bhashini.gov.in (BHASHINI_USER_ID +
+// BHASHINI_API_KEY on Render). Until they are set, these languages use the device's own voice.
+const BHASHINI_LANGS = new Set(['hi', 'te', 'ta', 'kn', 'ml', 'mr', 'bn', 'gu', 'pa', 'or', 'as', 'ur']);
+const bhashiniCfg = new Map();   // lang -> { url, hname, hval, svc, until }
+async function bhashiniSpeak(text, lang, gender) {
+  const uid = String(process.env.BHASHINI_USER_ID || '').trim(), key = String(process.env.BHASHINI_API_KEY || '').trim();
+  if (!uid || !key || !BHASHINI_LANGS.has(lang)) return null;
+  let cfg = bhashiniCfg.get(lang);
+  if (!cfg || cfg.until < Date.now()) {
+    const r = await fetch('https://meity-auth.ulcacontrib.org/ulca/apis/v0/model/getModelsPipeline', { method: 'POST', headers: { 'Content-Type': 'application/json', userID: uid, ulcaApiKey: key },
+      body: JSON.stringify({ pipelineTasks: [{ taskType: 'tts', config: { language: { sourceLanguage: lang } } }], pipelineRequestConfig: { pipelineId: String(process.env.BHASHINI_PIPELINE_ID || '64392f96daac500b55c543cd') } }), signal: AbortSignal.timeout(15000) });
+    const d = await r.json().catch(() => ({}));
+    const ep = d?.pipelineInferenceAPIEndPoint, svc = d?.pipelineResponseConfig?.[0]?.config?.[0]?.serviceId;
+    if (!r.ok || !ep?.callbackUrl || !ep?.inferenceApiKey?.value || !svc) throw new Error('Bhashini has no voice for this language right now.');
+    cfg = { url: ep.callbackUrl, hname: ep.inferenceApiKey.name || 'Authorization', hval: ep.inferenceApiKey.value, svc, until: Date.now() + 3600000 }; bhashiniCfg.set(lang, cfg);
+  }
+  const r = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', [cfg.hname]: cfg.hval },
+    body: JSON.stringify({ pipelineTasks: [{ taskType: 'tts', config: { language: { sourceLanguage: lang }, serviceId: cfg.svc, gender } }], inputData: { input: [{ source: text }] } }), signal: AbortSignal.timeout(30000) });
+  const d = await r.json().catch(() => ({}));
+  const b64 = d?.pipelineResponse?.[0]?.audio?.[0]?.audioContent;
+  if (!r.ok || !b64) { bhashiniCfg.delete(lang); throw new Error('Bhashini could not speak that.'); }
+  return `data:audio/wav;base64,${b64}`;
+}
+app.get('/api/voice/langs', (_req, res) => res.json({ indian: Boolean(String(process.env.BHASHINI_USER_ID || '').trim() && String(process.env.BHASHINI_API_KEY || '').trim()) }));
 app.post('/api/voice/speak', wrap(async (req, res) => {
   if (!voiceOk(req)) return res.status(429).json({ error: 'Too much voice use - wait a few minutes.' });
   const text = String(req.body?.text || '').slice(0, 1500), lang = String(req.body?.lang || 'en').slice(0, 5);
@@ -2325,6 +2428,10 @@ app.post('/api/voice/speak', wrap(async (req, res) => {
   if (voice !== 'standard' && ownVoiceUp() && OWN_VOICE_LANGS.has(lang.slice(0, 2))) {
     try { return res.json({ audio: await ownVoice(text.slice(0, 400), voice, lang.slice(0, 2)), own: true }); }
     catch { /* the laptop is busy or gone: the standard voice below */ }
+  }
+  if (BHASHINI_LANGS.has(lang.slice(0, 2))) {
+    try { const a = await bhashiniSpeak(text.slice(0, 900), lang.slice(0, 2), voice === 'male' ? 'male' : 'female'); if (a) return res.json({ audio: a, via: 'bhashini' }); }
+    catch { /* the device's own voice then */ }
   }
   try {
     const d = await cloudVoice('/audio/speech', { text, lang });

@@ -12,10 +12,21 @@ const CALTRANS = [[/\b(los angeles|la|hollywood|pasadena|santa monica|long beach
 // "live cameras in Goa" -> the place words
 export const cameraPlace = (q) => String(q || '').replace(CAMERA_WORDS, ' ').replace(/\b(show|me|the|a|any|live|now|right|please|of|from|near|around|at|in|on|what|is|happening|see|view|open|cameras?|feeds?)\b/gi, ' ').replace(/[?.!,]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-export async function liveCameras(q) {
+export async function liveCameras(q, near) {
   const place = cameraPlace(q);
   const out = [];
   const windy = (process.env.WINDY_WEBCAMS_KEY || process.env.WINDY_KEY || '').trim();
+  const mine = near && (!place || /\b(near me|nearby|around me|my area|my location|near here|close to me)\b/i.test(String(q)));
+  if (windy && mine) {
+    try {
+      for (const km of [50, 150, 400]) {
+        const d = await get(`https://api.windy.com/webcams/api/v3/webcams?nearby=${near.lat},${near.lon},${km}&include=images,location,urls&limit=8`, { 'x-windy-api-key': windy });
+        for (const w of d?.webcams || []) { const img = w.images?.current?.preview || w.images?.current?.thumbnail; if (img) out.push({ title: w.title, image: img, url: w.urls?.detail || `https://www.windy.com/webcams/${w.webcamId}`, source: 'Windy Webcams', where: [w.location?.city, w.location?.region].filter(Boolean).join(', ') }); }
+        if (out.length) { if (km > 50) out.wider = `within ${km} km of you`; break; }
+      }
+    } catch { /* the place name below */ }
+    if (out.length) return { place: 'you', cams: out, wider: out.wider || '', needsKey: false };
+  }
   if (windy && place) {
     try {
       const p = await geocode(place);

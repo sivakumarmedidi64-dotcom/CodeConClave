@@ -512,9 +512,11 @@
     if(!b.monthly) return { at:b.dueAt, key:'once', paid:Boolean(b.paidOnce) };
     const now=new Date(), day=Math.min(28,Math.max(1,Number(b.dueDay)||1)), paid=new Set((b.paid||[]).map(p=>p.month));
     let d=new Date(now.getFullYear(),now.getMonth(),day,9,0);
+    if(b.dueAt&&b.dueAt>d.getTime()){ const f=new Date(b.dueAt); d=new Date(f.getFullYear(),f.getMonth(),day,9,0); }   // a bill added after this month's date starts next month
     while(paid.has(ym(d))) d=new Date(d.getFullYear(),d.getMonth()+1,day,9,0);
     return { at:d.getTime(), key:ym(d), paid:false };
   }
+  const ord=(n)=>n+((n%100>=11&&n%100<=13)?'th':({1:'st',2:'nd',3:'rd'})[n%10]||'th');
   const daysTo=(t)=>Math.round((new Date(t).setHours(0,0,0,0)-new Date().setHours(0,0,0,0))/864e5);
   const dueText=(t)=>{ const n=daysTo(t); return n<0?(-n)+' day'+(n===-1?'':'s')+' late':n===0?'due today':n===1?'due tomorrow':'due in '+n+' days'; };
   function payUrl(b){
@@ -551,7 +553,7 @@
       [['Due this month',rupees(dueM)],['Paid this month',rupees(paidM)],['Bills',String(all.length)],['Late',String(late)]].forEach(([k,v])=>{ const s=el('div','tm-stat'); s.append(el('b',null,v),el('span',null,k)); sum.appendChild(s); });
       if(!all.length){ lst.appendChild(el('div','tm-empty','No bills yet.')); return; }
       all.map(x=>({x,d:billDue(x.data)})).sort((a,b)=>(a.d.paid-b.d.paid)||(a.d.at-b.d.at)).forEach(({x,d})=>{ const b=x.data, row=el('div','tm-row'); row.insertAdjacentHTML('beforeend',SV(I.bill));
-        const gg=el('div','grow'); gg.appendChild(el('b',null,b.name+' · '+rupees(b.amount))); gg.appendChild(el('div','tm-muted tm-small',(b.monthly?'Every month on the '+b.dueDay+(b.dueDay===1?'st':b.dueDay===2?'nd':b.dueDay===3?'rd':'th'):'One time')+' · '+(d.paid?'paid':'next: '+new Date(d.at).toLocaleDateString('en-IN',{day:'numeric',month:'short'}))+' · reminder '+(b.remindDays||2)+' day'+((b.remindDays||2)===1?'':'s')+' before')); row.appendChild(gg);
+        const gg=el('div','grow'); gg.appendChild(el('b',null,b.name+' · '+rupees(b.amount))); gg.appendChild(el('div','tm-muted tm-small',(b.monthly?'Every month on the '+ord(b.dueDay):'One time')+' · '+(d.paid?'paid':'next: '+new Date(d.at).toLocaleDateString('en-IN',{day:'numeric',month:'short'}))+' · reminder '+(b.remindDays||2)+' day'+((b.remindDays||2)===1?'':'s')+' before')); row.appendChild(gg);
         if(!d.paid){ const st=el('span','tm-state '+(daysTo(d.at)<0?'rejected':daysTo(d.at)<=(b.remindDays||2)?'waiting':'')); st.textContent=dueText(d.at); row.appendChild(st); }
         else { const st=el('span','tm-state approved'); st.innerHTML=SV(I.check); st.append('Paid'); row.appendChild(st); }
         const url=payUrl(b); if(url&&!d.paid){ const a=el('a','msend tm-sm tm-linkbtn'); a.href=url; a.innerHTML=SV(I.rupee)+' Pay'; if(/^https?:/.test(url)){ a.target='_blank'; a.rel='noopener noreferrer'; } a.title=/^upi:/.test(url)?'Opens your UPI app with the amount filled in':'Opens the bill’s pay page'; row.appendChild(a); }
@@ -595,8 +597,36 @@
     if(/^(?:create|make|generate|give me|get me|send me)\s+(?:a|the|my|one)?\s*(?:new\s+)?(?:share\s+|sharing\s+)?link(?:\s+for me)?$/.test(s)) return async()=>A.say('Sure — which link?',{ask:{question:'Which link?',options:[{label:'Invite link for my organization',send:'make an invite link'}]}});
     return null;
   }
+  // "remind me to pay the electricity bill ₹2,000 on the 5th every month", "add staff salary 50000 on the 1st",
+  // "what bills are due?", "mark the internet bill paid" - owners and admins
+  function billAct(raw,s){
+    if(!/\b(bills?|salary|salaries|rent|emi|fees|subscription|electricity|internet|wifi|water|gas)\b/.test(s)) return null;
+    if(/\b(what|which|show|list|any|pending|due)\b/.test(s)&&!/\b(add|create|new|remind me to pay|track|set up)\b/.test(s)) return async()=>{
+      if(!isAdmin()) return A.say('Only the owner and admins see the bills.');
+      try{ const all=(await items('bill')).map(x=>({b:x.data,d:billDue(x.data)})).filter(y=>!y.d.paid).sort((p,q)=>p.d.at-q.d.at);
+        if(!all.length) return A.say('No bills are waiting — everything is paid. 🎉');
+        A.say('Bills coming up:\n'+all.slice(0,10).map(({b,d})=>'- '+b.name+' · '+rupees(b.amount)+' · '+dueText(d.at)).join('\n')+'\n\nOpen Bills (Team space → Bills) to pay with one tap.'); }catch(e){ A.say('I couldn’t read the bills: '+e.message); } };
+    let m=s.match(/\b(?:mark|set)\s+(?:the\s+|my\s+)?(.+?)\s+(?:bill\s+)?(?:as\s+)?paid\b/)||s.match(/\b(?:i\s+)?(?:have\s+)?paid\s+(?:the\s+|my\s+)?(.+?)(?:\s+bill)?\s*$/);
+    if(m) return async()=>{ if(!isAdmin()) return A.say('Only the owner and admins can update bills.');
+      try{ const want=m[1].replace(/\bbill\b/,'').trim(), x=(await items('bill')).find(y=>y.data.name.toLowerCase().includes(want)||want.includes(y.data.name.toLowerCase())); if(!x) return A.say('I couldn’t find a bill called “'+want+'”. Say “what bills are due?” to see them.');
+        const b=x.data, d=billDue(b); if(d.paid) return A.say('The '+b.name+' bill is already paid.'); const nb={...b,paid:[...(b.paid||[]),{month:d.key,at:Date.now(),by:myName()}].slice(-36)}; if(!b.monthly) nb.paidOnce=true;
+        await putItem('bill',x.id,nb); if(b.monthly) await remindFor(nb); A.say('Marked the '+b.name+' bill ('+rupees(b.amount)+') as paid.'+(b.monthly?' I’ll remind you before next month’s.':'')); }catch(e){ A.say('I couldn’t update it: '+e.message); } };
+    if(!/\b(add|create|new|remind me to pay|remind me about|track|set up|pay)\b/.test(s)) return null;
+    const am=raw.match(/(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d+)?)/i)||raw.match(/([\d,]+(?:\.\d+)?)\s*(?:₹|rs\.?|rupees?|inr|\/-)/i)||raw.match(/\b(\d{1,3}(?:,\d{2,3})+|\d{3,7})\b(?!\s*(?:st|nd|rd|th))/);
+    const amount=am?Number(String(am[1]).replace(/,/g,'')):0, dm=raw.match(/\b(?:on|by|every|before)\s+(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\b/i)||raw.match(/\b(\d{1,2})(?:st|nd|rd|th)\b/i), day=dm?Number(dm[1]):0;
+    const name=raw.replace(/(?:₹|rs\.?|inr)\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*(?:₹|rs\.?|rupees?|inr|\/-)/ig,' ').replace(/\b(?:on|by|every|before)\s+(?:the\s+)?\d{1,2}(?:st|nd|rd|th)?\b/ig,' ').replace(/\b\d{1,2}(?:st|nd|rd|th)\b/ig,' ')
+      .replace(/\b(please|can you|remind me to pay|remind me about|remind me|add|create|new|track|set up|a|an|the|my|our|bill|bills|to pay|pay|due|of|for|every month|monthly|each month|of every month|month|amount|rupees|on)\b/ig,' ').replace(/\b\d{3,7}\b/g,' ').replace(/[^\p{L}\p{N} &-]/gu,' ').replace(/\s+/g,' ').trim();
+    if(!amount||!day||day>31||!name) return async()=>A.say('Sure — tell me the bill, the amount and the day it’s due, like: “add the electricity bill ₹2,000 on the 5th every month” or “staff salary ₹50,000 on the 1st”.');
+    return async()=>{ if(!isAdmin()) return A.say('Only the owner and admins can add bills.');
+      const now=new Date(); let due=new Date(now.getFullYear(),now.getMonth(),Math.min(28,day),9,0); if(due.getTime()<now.setHours(0,0,0,0)) due=new Date(due.getFullYear(),due.getMonth()+1,Math.min(28,day),9,0);
+      const nm=name.charAt(0).toUpperCase()+name.slice(1), once=/\b(once|one time|only this month)\b/.test(s);
+      const b={name:nm.slice(0,80),amount,monthly:!once,dueDay:Math.min(28,day),dueAt:due.getTime(),payTo:'',remindDays:2,paid:[]};
+      try{ await putItem('bill',nid(),b); await remindFor(b); A.say('Added the '+nm+' bill: '+rupees(amount)+', '+(once?'due on '+due.toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'every month on the '+ord(Math.min(28,day))+(day>28?' (the 28th, so it works in every month)':''))+'. I’ll remind you 2 days before (with the guitar sound). Add a UPI ID or pay link in Team space → Bills to pay with one tap.'); }
+      catch(e){ A.say('I couldn’t add it: '+e.message); } };
+  }
   window.ccTeamAct=(raw,s)=>{
     if(!me||!space) return null;
+    const bill=billAct(raw,s); if(bill) return bill;
     if(ORG) return orgAct(raw,s);
     const PLUG=/\b(todoist|asana|trello|clickup|jira|linear|notion|monday|github|gitlab|slack|discord|telegram|whatsapp)\b/;
     let m;
