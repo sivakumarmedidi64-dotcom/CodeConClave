@@ -21,6 +21,8 @@ const ENGINES = {
   lab1: '@cf/zai-org/glm-5.3-flash',
   lab2: '@cf/openai/gpt-oss-120b',
   lab3: '@cf/deepseek-ai/deepseek-v4.1-flash-1017',
+  // candidate core-reasoning brain: open weights, the same price per word as the 3B scout (being tested, not used by the app yet)
+  qwen3: '@cf/qwen/qwen3-30b-a3b-fp8',
 };
 // Different models answer in different shapes; pull the text out of any of them.
 function engineText(r) {
@@ -93,7 +95,7 @@ function visionInput(body) {
 }
 
 // The tuned model sometimes writes training markers like "<|endoftext|>" as plain text; drop them.
-const MARKERS = ['<|endoftext|>', '<|eot_id|>', '<|im_end|>', '<|end_of_text|>', '<|im_start|>'];
+const MARKERS = ['<|endoftext|>', '<|eot_id|>', '<|im_end|>', '<|end_of_text|>', '<|im_start|>', '<think>', '</think>'];
 const stripMarkers = (s) => MARKERS.reduce((t, m) => t.split(m).join(''), s);
 // How many characters at the end of `s` could be the start of a marker (keep those until the next token).
 const heldTail = (s) => {
