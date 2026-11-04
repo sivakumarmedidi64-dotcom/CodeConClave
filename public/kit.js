@@ -1,6 +1,7 @@
 // Shared look + helpers for CodeConClave's own pages (front page, Customize, Team, Organization):
 // colours, buttons, cards, a toast, a question box, sign-in / create-account, and small API helpers.
 (function(){
+  if(!window.ccAccount){ const sc=document.createElement('script'); sc.src='/account.js'; document.head.appendChild(sc); }
   const css=`
   :root{--bg:#141414;--bg2:#1a1a1a;--side:#1c1c1c;--card:#222;--card2:#272727;--line:#2e2e2e;--line2:#3a3a3a;--fg:#ececec;--dim:#8f8f8f;--dim2:#666;--yel:#f2c200;--blue:#3d9bff;--green:#5fd38d;--red:#ff7a70;
     --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -59,10 +60,11 @@
       b.appendChild(el('div','k-muted',why||(mode==='signup'?'Free while we are testing — no card needed.':'Sign in to open your space.')));
       const name=el('input','k-in k-field'); name.placeholder='Your name'; const email=el('input','k-in k-field'); email.type='email'; email.placeholder='Email'; const pass=el('input','k-in k-field'); pass.type='password'; pass.placeholder=mode==='signup'?'Password (8+ characters)':'Password';
       const err=el('div','k-err'); const go=btn(mode==='signup'?'Create account':'Sign in',async()=>{ err.textContent=''; go.disabled=true;
-        try{ await api(mode==='signup'?'/api/auth/signup':'/api/auth/login',{method:'POST',body:mode==='signup'?{name:name.value.trim(),email:email.value.trim(),password:pass.value}:{email:email.value.trim(),password:pass.value}}); await loadMe(); close(); ok(me); }
+        try{ const res=await api(mode==='signup'?'/api/auth/signup':'/api/auth/login',{method:'POST',body:mode==='signup'?{name:name.value.trim(),email:email.value.trim(),password:pass.value}:{email:email.value.trim(),password:pass.value}}); await loadMe(); close(); if(res&&res.verify&&window.ccAccount) await ccAccount.verify(me&&me.email,res.mailError||''); ok(me); }
         catch(e){ err.textContent=e.message; go.disabled=false; } },'pri'); go.style.width='100%';
       [name,email,pass].forEach(x=>x.onkeydown=(e)=>{ if(e.key==='Enter') go.click(); });
       if(mode==='signup') b.appendChild(name); b.append(email,pass,err,go);
+      if(mode!=='signup'){ const fg=el('a',null,'Forgot password?'); fg.href='#'; fg.style.cssText='display:block;text-align:center;margin:12px 0 0;font-size:13px;color:var(--blue)'; fg.onclick=(e)=>{ e.preventDefault(); close(); window.ccAccount&&ccAccount.forgot(email.value.trim()); }; b.appendChild(fg); }
       const sw=el('div','k-muted k-small'); sw.style.cssText='text-align:center;margin:14px 0 0'; const a=el('a',null,mode==='signup'?'I already have an account':'Create a new account'); a.href='#'; a.style.color='var(--blue)'; a.onclick=(e)=>{ e.preventDefault(); mode=mode==='signup'?'signin':'signup'; draw(); }; sw.appendChild(a); b.appendChild(sw);
       setTimeout(()=>(mode==='signup'?name:email).focus(),30); };
     draw(); }); }); }

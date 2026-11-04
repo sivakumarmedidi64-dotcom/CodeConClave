@@ -197,14 +197,16 @@
     row(box,'Clear chats on this device','Removes the chats saved in this browser (your account keeps its copy).',button('Clear',()=>{ if(!confirm('Clear the chats saved in this browser?')) return; P.clearDevice(); toast('Cleared on this device.'); },'red'));
   }
   function rules(box){
-    H(box,'Rules CodeConClave always follows','These are built in — on every message, for everyone. Your team’s or company’s rules are added on top.');
+    H(box,'Rules CodeConClave always follows','Strict and built in — on every message, for everyone. Nobody can switch them off, not even with a trick. Your team’s or company’s rules are added on top.');
+    const own=['Your rules too','It follows your custom instructions, your team’s standards and your organization’s policies — but never against these rules.'];
+    fetch('/api/rules').then(r=>r.json()).then(d=>{ if(!Array.isArray(d.rules)||!d.rules.length) throw 0; [...d.rules,own].forEach(([t,x])=>row(box,t,x)); }).catch(()=>
     [['Honest','It never makes up facts, names, numbers, prices or dates. When it is not sure, it says so and offers to look it up — and live data always shows its source.'],
      ['Asks first','Before it builds something, it asks what you want. Before anything that sends a message, spends money, books, or deletes, it asks for a clear yes.'],
      ['Never pretends','It tells you exactly what it did and what it didn’t do. It never says “sent”, “paid” or “booked” unless the app really did it.'],
      ['Money stays with you','It never moves money. Payments happen in your own UPI or bank app, after you confirm there.'],
      ['Your data is yours','Incognito chats are never saved. You can export or delete your chats any time, and API keys are kept only as a scrambled fingerprint.'],
      ['Safe and kind','No sexual content, no help with hurting anyone, no insults. It stays CodeConClave AI and never pretends to be another AI.'],
-     ['Your rules too','It follows your custom instructions, your team’s standards and your organization’s policies — but never against these rules.']].forEach(([t,d])=>row(box,t,d));
+     own].forEach(([t,d])=>row(box,t,d)));
   }
   function customize(box){
     H(box,'Customize','Make CodeConClave yours.');

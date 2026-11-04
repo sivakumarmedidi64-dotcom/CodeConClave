@@ -135,7 +135,11 @@ async function pgTables(pool) {
       updated bigint not null,
       primary key (space_id, kind, id));
     create index if not exists space_items_recent on space_items (space_id, kind, updated);
-    create index if not exists space_items_by_id on space_items (kind, id);`);
+    create index if not exists space_items_by_id on space_items (kind, id);
+    create table if not exists app_kv (
+      name text primary key,
+      value jsonb not null,
+      updated bigint not null default 0);`);
   const autoOut = (r) => r && { id: r.id, task: r.task, steps: r.steps || null, schedule: r.schedule, enabled: r.enabled,
     nextRun: r.next_run === null ? null : Number(r.next_run), lastRun: r.last_run === null ? null : Number(r.last_run), lastStatus: r.last_status };
   const one = async (text, params) => (await q(text, params)).rows[0] || null;
@@ -148,6 +152,12 @@ async function pgTables(pool) {
     async userByGoogle(sub) { return userOut(await one('select * from users where google_sub = $1', [sub])); },
     async linkGoogle(id, sub) { await q('update users set google_sub = $2 where id = $1', [id, sub]); },
     async setRole(id, role) { await q('update users set role = $2 where id = $1', [id, role]); },
+    async setPassword(id, passHash) { await q('update users set pass_hash = $2 where id = $1', [id, passHash]); },
+    async deleteSessionsOf(userId) { await q('delete from sessions where user_id = $1', [userId]); },
+    // small app-wide values that must survive a restart (usage of guests, today's brain budget)
+    async getKv(name) { return (await one('select value from app_kv where name = $1', [name]))?.value ?? null; },
+    async putKv(name, value) { await q('insert into app_kv values ($1,$2,$3) on conflict (name) do update set value = excluded.value, updated = excluded.updated', [name, JSON.stringify(value), Date.now()]); },
+    async pruneKv(prefix, before) { return (await q('delete from app_kv where name like $1 and updated < $2', [prefix.replace(/[%_]/g, '') + '%', before])).rowCount; },
     async createSession(hash, userId, expires) { await q('insert into sessions values ($1,$2,$3)', [hash, userId, new Date(expires)]); },
     // one account, a few devices: keep only the newest sign-ins (every sign-in lasts the same time, so newest = latest expiry)
     async trimSessions(userId, keep) {
@@ -247,6 +257,11 @@ function fileStore(dir) {
     async userByGoogle(sub) { return userOut(db.users.find((u) => u.google_sub === sub)); },
     async linkGoogle(id, sub) { const u = db.users.find((x) => uid(x.id) === uid(id)); if (u) { u.google_sub = sub; save(); } },
     async setRole(id, role) { const u = db.users.find((x) => uid(x.id) === uid(id)); if (u) { u.role = role; save(); } },
+    async setPassword(id, passHash) { const u = db.users.find((x) => uid(x.id) === uid(id)); if (u) { u.pass_hash = passHash; save(); } },
+    async deleteSessionsOf(userId) { db.sessions = db.sessions.filter((x) => x.userId !== uid(userId)); save(); },
+    async getKv(name) { return (db.kv || {})[name]?.value ?? null; },
+    async putKv(name, value) { db.kv = db.kv || {}; db.kv[name] = { value, updated: Date.now() }; save(); },
+    async pruneKv(prefix, before) { let n = 0; for (const [k, v] of Object.entries(db.kv || {})) if (k.startsWith(prefix) && v.updated < before) { delete db.kv[k]; n++; } if (n) save(); return n; },
     async createSession(hash, userId, expires) { db.sessions.push({ hash, userId: uid(userId), expires }); save(); },
     async trimSessions(userId, keep) {
       const mine = db.sessions.filter((x) => x.userId === uid(userId)).sort((a, b) => b.expires - a.expires);

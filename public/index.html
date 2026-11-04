@@ -670,7 +670,7 @@
     </div>
   </div>
   <div class="page" id="plugPage">
-    <div class="pagehead"><h1>Plugins</h1><button class="bx" id="plugClose" title="Close">×</button></div>
+    <div class="pagehead"><h1>Plugins &amp; app shortcuts</h1><button class="bx" id="plugClose" title="Close">×</button></div>
     <div class="pagebody">
       <div class="feats">
         <div class="feat" data-go="gmail"><span class="featico" id="featGmail"></span><b>Your mail, briefed for you — with replies drafted.</b></div>
@@ -887,6 +887,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
       <input type="email" id="authEmail" placeholder="Email" autocomplete="email" />
       <input type="password" id="authPass" placeholder="Password (at least 8 characters)" autocomplete="current-password" />
       <div class="autherr" id="authErr"></div>
+      <a id="authForgot" href="#" style="display:block;font-size:13px;color:var(--accent);margin:-2px 0 10px;text-decoration:none">Forgot password?</a>
       <div class="mailact"><button class="msend" id="authGo">Sign in</button><button class="mskip" id="authSwitch">Create an account</button></div>
       <div class="mailsubj" style="margin-top:10px">Your chats and memory are saved to your account, and this device keeps a copy too.</div>
     </div>
@@ -949,6 +950,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   </aside>
 
 <script src="/plugins-more.js"></script>
+<script src="/account.js"></script>
 <script src="/skills-more.js"></script>
 <script>
   try { if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch{}
@@ -1481,7 +1483,9 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
           body:JSON.stringify({messages:outMsgs, files:files.map(f=>({name:f.name,text:f.text,...(f.image?{image:f.image}:{})})), memory:c.incognito?'':memory.join('\n'), profile, folder:folderInfo(), rules:await folderRules(), recall:c.incognito?'':recallSnippets(text,c.id), ...(loc?{loc}:{}), ...(window.ccChatExtra?window.ccChatExtra():{}), ...extra})});
       if(!resp.ok && !/event-stream/.test(resp.headers.get('content-type')||'')){   // e.g. the usage limit is reached
         const d=await resp.json().catch(()=>({})); dots.remove(); wrap.appendChild(el('div','err',d.error||'Something went wrong — please try again.'));
-        if(d.usage) usageNow=d.usage; renderSide(); return; }
+        if(d.usage) usageNow=d.usage; renderSide();
+        if(d.verify&&window.ccAccount) ccAccount.verify(me&&me.email); else if(d.signIn&&!me) showAuth(true);
+        return; }
       if(!resp.body) throw new Error('no stream');
       const reader=resp.body.getReader(); const dec=new TextDecoder(); let buf='';
       while(true){ const {done,value}=await reader.read(); if(done)break; buf+=dec.decode(value,{stream:true});
@@ -1576,6 +1580,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   $('authClose').onclick=()=>$('authModal').classList.remove('open');
   $('authSwitch').onclick=()=>showAuth(!signup);
   $('authGo').onclick=doAuth;
+  $('authForgot').onclick=(e)=>{ e.preventDefault(); const em=$('authEmail').value.trim(); $('authModal').classList.remove('open'); window.ccAccount&&ccAccount.forgot(em); };
   [$('authEmail'),$('authPass'),$('authName')].forEach(i=>i.addEventListener('keydown',(e)=>{ if(e.key==='Enter') doAuth(); }));
   $('authGoogle').onclick=()=>{ location.href='/api/auth/google'; };
   $('profClose').onclick=()=>$('profModal').classList.remove('open');
@@ -1629,13 +1634,14 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
   }
   function renderPlugins(){
     const tabs=$('plugTabs'); tabs.innerHTML='';
-    $('plugSearch').placeholder='Search '+PLUGINS.length+' plugins'; ['All',...new Set(PLUGINS.map(p=>p.cat))].forEach(t=>{ const b=el('button',t===plugTab?'on':'',t); b.onclick=()=>{ plugTab=t; renderPlugins(); }; tabs.appendChild(b); });
+    const nLinks=PLUGINS.filter(p=>p.link).length; $('plugSearch').placeholder='Search '+(PLUGINS.length-nLinks)+' connections and '+nLinks+' app shortcuts';
+    ['All','Connections','App shortcuts',...new Set(PLUGINS.map(p=>p.cat))].forEach(t=>{ const b=el('button',t===plugTab?'on':'',t); b.onclick=()=>{ plugTab=t; renderPlugins(); }; tabs.appendChild(b); });
     const q=$('plugSearch').value.toLowerCase(), grid=$('plugGrid'); grid.innerHTML='';
-    PLUGINS.filter(x=>(plugTab==='All'||x.cat===plugTab) && (x.name+' '+x.desc).toLowerCase().includes(q)).forEach(x=>{
+    PLUGINS.filter(x=>(plugTab==='All'||(plugTab==='Connections'&&!x.link)||(plugTab==='App shortcuts'&&x.link)||x.cat===plugTab) && (x.name+' '+x.desc).toLowerCase().includes(q)).forEach(x=>{
       const c=el('div','plug'), ic=el('span','plugico'); ic.innerHTML=plugIconHtml(x);
       const t=el('div','pt'); t.appendChild(el('b',null,x.name));
-      t.appendChild(el('div',null,x.id==='gmail'&&plugState?.gmail?'Connected as '+plugState.gmail.account+'.':x.desc));
-      const on=!x.link&&plugOn(x.id), st=el('span','st'+(on?' ok':'')); st.innerHTML=x.link?uiIco('open'):uiIco(on?'check':'plus'); if(x.link) st.title='Opens the site'; st.title=on?'Connected':'Connect';
+      t.appendChild(el('div',null,x.id==='gmail'&&plugState?.gmail?'Connected as '+plugState.gmail.account+'.':(x.link?'App shortcut · ':'')+x.desc));
+      const on=!x.link&&plugOn(x.id), st=el('span','st'+(on?' ok':'')); st.innerHTML=x.link?uiIco('open'):uiIco(on?'check':'plus'); st.title=x.link?'Opens the site - not connected to your account':on?'Connected':'Connect';
       c.append(ic,t,st); c.onclick=()=>openPlugin(x.id); grid.appendChild(c);
     });
   }
@@ -4274,6 +4280,7 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
   async function loadMe(){
     try{ const d=await (await fetch('/api/auth/me',{headers:mailHeaders()})).json(); me=d.user; authInfo=d; }catch{ me=null; }
     renderProfile(); if(me) await syncDown();
+    if(me&&authInfo&&authInfo.verify&&window.ccAccount) setTimeout(()=>ccAccount.verify(me.email),600);
     if(window.ccApp) window.ccApp.loaded=true; window.dispatchEvent(new CustomEvent('cc-me'));
     if(new URLSearchParams(location.search).get('welcome')){ history.replaceState(null,'',location.pathname); if(me) showGmail(true); }
     if(me){ try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{} await syncProfileAndLibrary(); }
@@ -4284,6 +4291,7 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
     signup=Boolean(isSignup); $('authTitle').textContent=signup?'Create your CodeConClave account':'Sign in to CodeConClave AI';
     $('authName').style.display=signup?'':'none'; $('authGo').textContent=signup?'Create account':'Sign in';
     $('authSwitch').textContent=signup?'I have an account':'Create an account'; $('authPass').autocomplete=signup?'new-password':'current-password';
+    $('authForgot').style.display=signup?'none':'block';
     $('authGoogle').style.display=authInfo.google?'':'none'; $('authErr').textContent='';
     $('profModal').classList.remove('open'); $('authModal').classList.add('open'); (signup?$('authName'):$('authEmail')).focus();
   }
@@ -4296,7 +4304,8 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
       me=d.user; $('authPass').value=''; $('authModal').classList.remove('open');
       await syncDown(); renderProfile(); window.dispatchEvent(new CustomEvent('cc-me')); toast((signup?'Account created — ':'Signed in as ')+me.email);
       try{ mySkills=(await (await fetch('/api/skills')).json()).skills||[]; }catch{}
-      if(signup) showGmail(true); else mailBrief(false);
+      if(d.verify&&window.ccAccount) ccAccount.verify(me.email,d.mailError||'');
+      else if(signup) showGmail(true); else mailBrief(false);
     }catch(e){ $('authErr').textContent=e.message; }
     finally{ $('authGo').disabled=false; }
   }

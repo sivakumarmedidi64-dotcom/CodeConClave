@@ -28,6 +28,7 @@ const scriptLang = (t) => (SCRIPT_LANG.find(([re]) => re.test(String(t || ''))) 
 import { registerRemote } from './remote.js';
 import { CAMERA_WORDS, liveCameras } from './cams.js';
 import { EXTRA_LIVE, extraLive } from './live-more.js';
+import { STRICT_RULES, STRICT_SYSTEM, hardRule, maskSecrets, secretWarning } from './rules.js';
 // the browser's location, sent only when the person asks for something "near me" (and allows it)
 const cleanLoc = (l) => (l && Number.isFinite(Number(l.lat)) && Number.isFinite(Number(l.lon)) ? { lat: Math.max(-90, Math.min(90, Number(l.lat))), lon: Math.max(-180, Math.min(180, Number(l.lon))) } : null);
 import { FORECAST_WORDS, MAP_WORDS, windyForecast, windyMap } from './windy.js';
@@ -83,7 +84,12 @@ function fitMessages(messages, b, maxTokens = 1024) {
 // answering (headers only - a long streamed answer is never cut off).
 // The cloud brain's free allowance resets every day at 00:00 UTC (5:30 AM India). A 429 = used up for today.
 let restingUntil = 0;
-const markResting = (status) => { if (status === 429) { const d = new Date(); restingUntil = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); } };
+const markResting = (status) => {
+  if (status !== 429) return;
+  const d = new Date(), until = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+  if (until === restingUntil) return;
+  restingUntil = until; saveBudgetSoon(); alertOwner('CodeConClave AI is resting', 'Today\'s free brain time (10,000 neurons) is used up. Chat comes back at 5:30 AM India time (00:00 UTC). Users see an honest "resting" message and their messages are not counted.');
+};
 const offlineText = () => (Date.now() < restingUntil
   ? 'CodeConClave AI has used up today\'s free thinking time and is resting. It comes back at 5:30 AM India time (00:00 UTC) - sorry for the wait!'
   : 'CodeConClave AI is offline right now - please try again in a minute.');
@@ -97,7 +103,24 @@ const DAY_NEURONS = Number(process.env.DAY_NEURONS) || 10000;
 let budget = { day: '', spent: 0 };
 const utcDay = () => new Date().toISOString().slice(0, 10);
 const budgetNow = () => { if (budget.day !== utcDay()) budget = { day: utcDay(), spent: 0 }; return budget; };
-const spend = (n) => { budgetNow().spent += Math.max(0, Number(n) || 0); };
+const spend = (n) => { budgetNow().spent += Math.max(0, Number(n) || 0); saveBudgetSoon(); };
+// saved in the database (at most every 20 s), so a restart or Render's sleep doesn't forget today's spending
+let budgetTimer = null;
+function saveBudgetSoon() {
+  if (budgetTimer || !store?.putKv) return;
+  budgetTimer = setTimeout(() => { budgetTimer = null; store.putKv('brain:budget', { ...budgetNow(), restingUntil }).catch(() => {}); }, 20000);
+}
+async function loadBudget() {
+  try { const b = await store?.getKv?.('brain:budget'); if (b && b.day === utcDay()) { budget = { day: b.day, spent: Number(b.spent) || 0 }; restingUntil = Math.max(restingUntil, Number(b.restingUntil) || 0); } } catch { /* start fresh */ }
+}
+// one email to the owner per subject per day (the brain went to rest, ...) - the owner's own Gmail from the server settings
+const alerted = new Map();
+function alertOwner(subject, text) {
+  if (!GUSER || !GPASS) return;
+  const key = subject + utcDay(); if (alerted.has(key)) return; alerted.set(key, 1);
+  nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: GUSER, pass: GPASS } })
+    .sendMail({ from: GUSER, to: (process.env.OWNER_ALERT_TO || 'medidisaharsh@gmail.com').trim(), subject: '[CodeConClave] ' + subject, text }).catch(() => {});
+}
 function budgetMode() {
   if (Date.now() < restingUntil) return 'out';
   const p = budgetNow().spent / DAY_NEURONS;
@@ -199,7 +222,7 @@ async function mailCreds(req) {
 // Data lives in Neon (DATABASE_URL, the live site) or in local files (./data, on your own PC).
 // If the store can't open, the app still runs - only accounts are switched off.
 let store = null;
-try { store = await openStore(); console.log(`Accounts: stored in ${store.kind}`); }
+try { store = await openStore(); console.log(`Accounts: stored in ${store.kind}`); await loadBudget(); }
 catch (e) { console.error('Accounts are OFF:', e.message); }
 const COOKIE = 'cc_session';
 const SESSION_DAYS = 30;
@@ -236,17 +259,21 @@ async function startSession(req, res, user) {
   return safe;
 }
 // A simple brake on password guessing: 20 tries per 15 minutes per address.
+// The visitor's real address: Cloudflare sits in front of Render and passes it in CF-Connecting-IP (it overwrites any
+// value a visitor sends). Without Cloudflare (local), the normal address.
+const clientIp = (req) => String(req.get('cf-connecting-ip') || req.ip || '').trim();
 const tries = new Map();
 function tooMany(req) {
-  const now = Date.now();
-  const list = (tries.get(req.ip) || []).filter((t) => now - t < 15 * 60000);
-  list.push(now); tries.set(req.ip, list);
+  const now = Date.now(), ip = clientIp(req);
+  const list = (tries.get(ip) || []).filter((t) => now - t < 15 * 60000);
+  list.push(now); tries.set(ip, list);
   return list.length > 20;
 }
 const needStore = (res) => { if (!store) { res.status(503).json({ error: 'Accounts are not available right now.' }); return true; } return false; };
 const needUser = (req, res) => { if (!req.user) { res.status(401).json({ error: 'Sign in first.' }); return true; } return false; };
 
 app.get('/api/auth/me', wrap(async (req, res) => res.json({ user: req.user, accounts: Boolean(store), google: Boolean(store && GOOGLE_ID && GOOGLE_SECRET),
+  verify: req.user ? await needsVerify(req.user).catch(() => false) : false, mail: authMailOn,
   plan: req.user && store ? await store.getPref(req.user.id, 'plan').catch(() => null) : null })));
 // the plan the person picked on the front page (no payment while testing); 'custom' = their Customize choices
 app.get('/start', wrap(async (req, res) => { const plan = req.user && store ? await store.getPref(req.user.id, 'plan').catch(() => null) : null; res.redirect({ team: '/team', org: '/org' }[plan] || '/solo'); }));
@@ -258,6 +285,101 @@ app.post('/api/me/plan', wrap(async (req, res) => {
   if (req.body?.custom && typeof req.body.custom === 'object') await store.putPref(req.user.id, 'customPlan', JSON.parse(JSON.stringify(req.body.custom).slice(0, 4000)));
   res.json({ ok: true, plan });
 }));
+
+// ---- Email codes: a new account confirms its email with a 6-digit code (no more fake emails), and "forgot password"
+// sends a code too. Sent from the app's Gmail (GMAIL_USER). Without mail set up, accounts work as before.
+// Accounts made before this (no "verifyCode" saved) count as confirmed.
+const codeHash = (code, uid) => crypto.createHash('sha256').update(`${code}:${uid}:cc`).digest('hex');
+const newCode = () => String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+// The codes come from the app's own Gmail (AUTH_MAIL_USER + an app password in AUTH_MAIL_PASS) - a separate account,
+// so nobody's personal address is shown to users. Until it is set, sign-up works without a code (as before).
+const AUTH_USER = (process.env.AUTH_MAIL_USER || '').trim(), AUTH_PASS = (process.env.AUTH_MAIL_PASS || '').replace(/\s+/g, '');
+const authMailOn = Boolean(AUTH_USER && AUTH_PASS);
+async function sendCodeMail(to, code, why) {
+  if (!authMailOn) throw new Error('mail is not set up');
+  const what = why === 'reset' ? 'reset your password' : 'confirm your email';
+  await nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: AUTH_USER, pass: AUTH_PASS } }).sendMail({
+    from: `"CodeConClave AI" <${AUTH_USER}>`, to, subject: `${code} is your CodeConClave code`,
+    text: `Your code to ${what} on CodeConClave AI is: ${code}
+
+It works for 15 minutes. If you did not ask for it, ignore this email - nobody can get in without the code.
+
+Never share this code with anyone. CodeConClave will never ask you for it in a chat.` });
+}
+const verified = new Set();   // users known to be confirmed (saves a database read per message)
+async function needsVerify(user) {
+  if (!user || !store || user.role === 'owner' || verified.has(String(user.id))) return false;
+  const p = await store.getPref(user.id, 'verifyCode').catch(() => null);
+  if (!p) { verified.add(String(user.id)); return false; }
+  return true;
+}
+async function startVerify(user) {
+  const code = newCode();
+  await store.putPref(user.id, 'verifyCode', { hash: codeHash(code, user.id), expires: Date.now() + 15 * 60000, tries: 0, sentAt: Date.now() });
+  await sendCodeMail(user.email, code, 'verify');
+}
+app.post('/api/auth/verify', wrap(async (req, res) => {
+  if (needStore(res) || needUser(req, res)) return;
+  const p = await store.getPref(req.user.id, 'verifyCode');
+  if (!p) { verified.add(String(req.user.id)); return res.json({ ok: true }); }
+  if (p.tries >= 5 || Date.now() > p.expires) return res.status(400).json({ error: 'That code has expired - press "Send a new code".', expired: true });
+  const code = String(req.body?.code || '').replace(/\D/g, '');
+  if (code.length !== 6 || codeHash(code, req.user.id) !== p.hash) {
+    await store.putPref(req.user.id, 'verifyCode', { ...p, tries: p.tries + 1 });
+    return res.status(400).json({ error: `That code is not right - ${Math.max(0, 4 - p.tries)} tries left.` });
+  }
+  await store.putPref(req.user.id, 'verifyCode', null); verified.add(String(req.user.id));
+  res.json({ ok: true });
+}));
+app.post('/api/auth/verify/resend', wrap(async (req, res) => {
+  if (needStore(res) || needUser(req, res)) return;
+  const p = await store.getPref(req.user.id, 'verifyCode');
+  if (!p) return res.json({ ok: true, done: true });
+  if (Date.now() - (p.sentAt || 0) < 60000) return res.status(429).json({ error: 'Wait a minute before asking for another code.' });
+  try { await startVerify(req.user); res.json({ ok: true }); } catch { res.status(502).json({ error: 'Could not send the email right now - try again in a few minutes.' }); }
+}));
+// forgot password: always answers the same (never tells anyone whether an email has an account)
+app.post('/api/auth/forgot', wrap(async (req, res) => {
+  if (needStore(res)) return;
+  if (tooMany(req)) return res.status(429).json({ error: 'Too many tries — wait a few minutes.' });
+  const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 200);
+  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+  if (!authMailOn) return res.status(503).json({ error: 'Password reset by email is not switched on yet - write to medidisaharsh@gmail.com.' });
+  const user = await store.userByEmail(email);
+  if (user) {
+    const old = await store.getPref(user.id, 'resetCode').catch(() => null);
+    if (!old || Date.now() - (old.sentAt || 0) > 60000) {
+      const code = newCode();
+      await store.putPref(user.id, 'resetCode', { hash: codeHash(code, user.id), expires: Date.now() + 15 * 60000, tries: 0, sentAt: Date.now() });
+      await sendCodeMail(email, code, 'reset').catch(() => {});
+    }
+  }
+  res.json({ ok: true, message: 'If that email has an account, a 6-digit code is on its way. Check your inbox (and spam).' });
+}));
+app.post('/api/auth/reset', wrap(async (req, res) => {
+  if (needStore(res)) return;
+  if (tooMany(req)) return res.status(429).json({ error: 'Too many tries — wait a few minutes.' });
+  const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 200);
+  const password = String(req.body?.password || '');
+  if (password.length < 8 || password.length > 200) return res.status(400).json({ error: 'Use a new password of at least 8 characters.' });
+  const user = await store.userByEmail(email);
+  const p = user ? await store.getPref(user.id, 'resetCode').catch(() => null) : null;
+  const code = String(req.body?.code || '').replace(/\D/g, '');
+  if (!user || !p || p.tries >= 5 || Date.now() > p.expires) return res.status(400).json({ error: 'That code has expired or is wrong - ask for a new one.' });
+  if (code.length !== 6 || codeHash(code, user.id) !== p.hash) {
+    await store.putPref(user.id, 'resetCode', { ...p, tries: p.tries + 1 });
+    return res.status(400).json({ error: `That code is not right - ${Math.max(0, 4 - p.tries)} tries left.` });
+  }
+  await store.setPassword(user.id, hashPassword(password));
+  await store.putPref(user.id, 'resetCode', null);
+  await store.putPref(user.id, 'verifyCode', null); verified.add(String(user.id));   // the code proved the email is theirs
+  await store.deleteSessionsOf(user.id);   // every other device is signed out
+  res.json({ user: await startSession(req, res, user) });
+}));
+// the strict rules, for the Settings page
+app.get('/api/rules', (_req, res) => res.json({ rules: STRICT_RULES }));
+// legal pages (Razorpay and India's data law need them)
+for (const p of ['privacy', 'terms', 'refund', 'contact']) app.get('/' + p, page(p + '.html'));
 
 app.post('/api/auth/signup', wrap(async (req, res) => {
   if (needStore(res)) return;
@@ -273,7 +395,9 @@ app.post('/api/auth/signup', wrap(async (req, res) => {
     if (e.code === '23505') return res.status(409).json({ error: 'That email already has an account — sign in instead.' });
     throw e;
   }
-  res.json({ user: await startSession(req, res, user) });
+  let verify = false, mailError = '';
+  if (authMailOn) { verify = true; try { await startVerify(user); } catch { mailError = 'We could not send the code just now - press "Send a new code" in a minute.'; } }
+  res.json({ user: await startSession(req, res, user), verify, mailError });
 }));
 
 app.post('/api/auth/login', wrap(async (req, res) => {
@@ -367,6 +491,7 @@ const SYSTEM = [
   // Hard rules (always): honest, no pretending, ask before anything that cannot be undone.
   'Answer well-known facts (capitals, leaders, science, history) normally and confidently. Never make up facts, names, numbers, prices or dates. If you really do not know - or it is about the user\'s own people, team or company and you were not told - say "I\'m not sure" and offer to look it up (do not send them to Saharsh unless they ask about CodeConClave itself).',
   'Never say you did something (sent, booked, paid, saved, opened) unless the app really did it. Before anything that spends money, sends a message or deletes something, ask for a clear yes.',
+  STRICT_SYSTEM,
 ].join(' ');
 // What the app really lets the AI do (said when the model starts with "I can't access…").
 // The bigger engine needs no push to show feelings - it overdid them ("I feel a surge of joy…" on every answer).
@@ -906,6 +1031,14 @@ async function chatHandler(req, res) {
     if (single) convo = [{ role: 'user', content: single }];
   }
   if (!convo.length) return res.status(400).json({ error: 'Say something first.' });
+  // Strict rule: card numbers, Aadhaar, PAN, bank accounts, OTPs, PINs, CVVs and passwords never reach the brain.
+  let hiddenNow = [];
+  convo = convo.map((m, i) => {
+    if (m.role !== 'user' || typeof m.content !== 'string') return m;
+    const r = maskSecrets(m.content);
+    if (i === convo.length - 1) hiddenNow = r.kinds;
+    return r.kinds.length ? { ...m, content: r.text } : m;
+  });
   if (!BASE) return res.status(503).json({ error: 'CodeConClave AI is not connected yet (no model endpoint set).' });
 
   // Memory the user asked us to keep (sent from the browser).
@@ -954,6 +1087,10 @@ async function chatHandler(req, res) {
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
   // A finished, factual message from an action (not model text), e.g. "I couldn't find…".
   const say = (text) => { send({ delta: text }); send({ done: true }); res.end(); };
+  if (hiddenNow.length) send({ delta: secretWarning(hiddenNow) });
+  // Strict rules with fixed answers (self-harm, sexual content, weapons/drugs, hacking others) - the brain never sees these.
+  const fixed = !fileBlock ? hardRule(lastUser) : null;
+  if (fixed) { const target = lang || scriptLang(lastUser); return say(target && target !== 'en' ? await translateAnswer(fixed, target).catch(() => fixed) : fixed); }
   // A step of a plan (plan view): a focused worker - no persona chit-chat, no mail/automation actions, full output.
   if (req.body?.task === true) {
     await streamAnswer(res, [{ role: 'system', content: TASK_SYSTEM }, { role: 'user', content: lastUser }], 0.4, null, { max_tokens: 1600 });
@@ -1405,10 +1542,12 @@ async function runAutomation(a) {
 }
 
 let ticking = false;
+let lastPrune = 0;
 async function runDue() {
   if (!store || ticking) return;
   ticking = true;
   try {
+    if (Date.now() - lastPrune > 3600000 && store.pruneKv) { lastPrune = Date.now(); await store.pruneKv('usage:', Date.now() - 8 * 86400000).catch(() => {}); }
     await spaces.applyRetention().catch(() => {});
     for (const a of await store.dueAutomations(Date.now(), 5)) {
       try { await runAutomation(a); } catch (e) { console.error('Automation failed:', e?.message || e); }
@@ -1814,6 +1953,7 @@ function whoIs(req, res) {
 async function usageOf(who, hours = FREE_HOURS) {
   let u = usage.get(who);
   if (!u && store && who.startsWith('u:')) { try { u = await store.getPref(who.slice(2), 'usage'); } catch { /* start fresh */ } }
+  if (!u && store?.getKv && !who.startsWith('u:')) { try { u = await store.getKv('usage:' + who); } catch { /* start fresh */ } }
   u = { h5Start: 0, h5: 0, wkStart: 0, wk: 0, ...(u || {}) };
   const now = Date.now();
   if (u.h5Start && now >= u.h5Start + hours * 3600000) { u.h5Start = 0; u.h5 = 0; }
@@ -1830,7 +1970,20 @@ const usageView = (u, req, w = windowFor(req)) => ({
 // true = the request was refused (limit reached); otherwise the message is counted
 async function overLimit(req, res) {
   if (budgetMode() === 'out') return false;   // the cloud brain is resting today: a message that may fail must not use up the user's 5
+  // strict: a new account confirms its email first (stops fake-email accounts from taking free messages)
+  if (req.user && await needsVerify(req.user).catch(() => false)) {
+    res.status(403).json({ error: `Please confirm your email first - we sent a 6-digit code to ${req.user.email}.`, verify: true });
+    return true;
+  }
   const who = whoIs(req, res), w = windowFor(req), u = await usageOf(who, w.hours);
+  // a guest is also counted by internet address (clearing cookies or incognito no longer gives 5 new messages).
+  // Many people can share one address (college Wi-Fi, mobile networks), so that limit is 4x bigger.
+  const ipWho = !req.user ? 'ip:' + crypto.createHash('sha256').update(clientIp(req) + ':cc-guest').digest('hex').slice(0, 24) : null;
+  const ipU = ipWho ? await usageOf(ipWho, w.hours) : null;
+  if (ipU && !unlimited(req) && ipU.h5 >= w.limit * 4) {
+    res.status(429).json({ error: `Free messages from this internet connection are used up for now. Sign in (free) to get your own ${w.limit} messages every ${w.hours} hours.`, usage: usageView(u, req), signIn: true });
+    return true;
+  }
   if (!unlimited(req)) {
     const v = usageView(u, req);
     const hit = u.h5 >= w.limit ? [`${w.hours}-hour window`, v.fiveHour] : u.wk >= LIMIT_WEEK ? ['week', v.weekly] : null;
@@ -1846,6 +1999,8 @@ async function overLimit(req, res) {
   if (!u.wkStart) u.wkStart = now;
   u.h5 += 1; u.wk += 1;
   if (store && who.startsWith('u:')) store.putPref(who.slice(2), 'usage', u).catch(() => {});
+  else if (store?.putKv) store.putKv('usage:' + who, u).catch(() => {});
+  if (ipU) { if (!ipU.h5Start) ipU.h5Start = now; if (!ipU.wkStart) ipU.wkStart = now; ipU.h5 += 1; ipU.wk += 1; store?.putKv?.('usage:' + ipWho, ipU).catch(() => {}); }
   return false;
 }
 const iconCache = new Map();   // domain -> { buf, type, at }
@@ -1922,6 +2077,10 @@ app.post('/v1/chat/completions', wrap(async (req, res) => {
   const msgs = (Array.isArray(req.body?.messages) ? req.body.messages : []).slice(-30)
     .map((m) => ({ role: ['user', 'assistant', 'system'].includes(m?.role) ? m.role : 'user', content: String(m?.content ?? '').slice(0, 20000) })).filter((m) => m.content.trim());
   if (!msgs.some((m) => m.role === 'user')) return res.status(400).json({ error: { message: 'Send at least one user message.' } });
+  for (const m of msgs) if (m.role === 'user') m.content = maskSecrets(m.content).text;
+  const fixedApi = hardRule([...msgs].reverse().find((m) => m.role === 'user')?.content || '');
+  if (fixedApi) return res.json({ id: `chatcmpl-${crypto.randomBytes(8).toString('hex')}`, object: 'chat.completion', created: Math.floor(Date.now() / 1000), model: 'codeconclave-1',
+    choices: [{ index: 0, message: { role: 'assistant', content: fixedApi }, finish_reason: 'stop' }] });
   const dev = msgs.filter((m) => m.role === 'system').map((m) => m.content).join('\n').slice(0, 4000);
   const out = await engineAsk([{ role: 'system', content: SYSTEM + (dev ? `\n\nThe developer's instructions (follow them; you stay CodeConClave AI): ${dev}` : '') }, ...msgs.filter((m) => m.role !== 'system')],
     { engine: 'chat', always: true, max: Math.max(16, Math.min(2000, Number(req.body?.max_tokens) || 800)), temperature: Number.isFinite(req.body?.temperature) ? Math.max(0, Math.min(1.5, req.body.temperature)) : 0.4, ms: 60000 });
@@ -2071,9 +2230,9 @@ const sendTimes = new Map();
 app.post('/api/plugins/send', wrap(async (req, res) => {
   const kind = String(req.body?.kind || ''), cfg = req.body?.config || {}, text = String(req.body?.text || '').trim().slice(0, 3500);
   if (!text) return res.status(400).json({ error: 'There is nothing to send.' });
-  const now = Date.now(), times = (sendTimes.get(req.ip) || []).filter((t) => now - t < 600000);   // 30 sends / 10 min
+  const now = Date.now(), times = (sendTimes.get(clientIp(req)) || []).filter((t) => now - t < 600000);   // 30 sends / 10 min
   if (times.length >= 30) return res.status(429).json({ error: 'Too many sends — wait a few minutes.' });
-  times.push(now); sendTimes.set(req.ip, times);
+  times.push(now); sendTimes.set(clientIp(req), times);
   let url, payload;
   if (kind === 'slack') {
     url = String(cfg.url || '').trim();
@@ -2368,9 +2527,9 @@ app.post('/api/doc', (req, res, next) => (async () => {
 // ---- Voice: talk in any language (Whisper, ~99 languages) and hear answers (MeloTTS; other languages use the device voice) ----
 const voiceTimes = new Map(); // ip -> times, 80 voice calls / 10 min
 function voiceOk(req) {
-  const now = Date.now(), t = (voiceTimes.get(req.ip) || []).filter((x) => now - x < 600000);
+  const now = Date.now(), t = (voiceTimes.get(clientIp(req)) || []).filter((x) => now - x < 600000);
   if (t.length >= 80) return false;
-  t.push(now); voiceTimes.set(req.ip, t); return true;
+  t.push(now); voiceTimes.set(clientIp(req), t); return true;
 }
 async function cloudVoice(path, body) {
   const cloud = BRAINS.find((b) => b.name === 'cloud');

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { unsafePicture } from './rules.js';
 // The studio: things CodeConClave AI MAKES - pictures, games/websites/apps (code that runs live in a
 // preview), and the plan for a video (the browser turns the plan + pictures + voice into the video file).
 // All of it runs on the always-on brain (Cloudflare): FLUX for pictures, the bigger open "builder"
@@ -47,6 +48,7 @@ export function registerStudio(app, { cloud, headers, wrap, overLimit, spend = (
   app.post('/api/image', wrap(async (req, res) => {
     const prompt = String(req.body?.prompt || '').trim().slice(0, 1500);
     if (!prompt) return res.status(400).json({ error: 'Say what to draw.' });
+    if (unsafePicture(prompt)) return res.status(400).json({ error: 'I don\'t make sexual pictures - that\'s one of my strict rules. Try something else!' });
     // saver mode: near the end of the day's free brain time, pictures pause so chat keeps working
     const mode = budgetMode();
     if (mode === 'reserve' || mode === 'out') return res.status(429).json({ error: 'I have made all the pictures I can for today - they come back at 5:30 AM India time. I can still chat and write for you!' });
