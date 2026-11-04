@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>CodeConClave Remote</title>
+<meta name="robots" content="noindex" />
+<link rel="icon" href="/icon-192.png" />
+<meta name="theme-color" content="#141414" />
+<script src="/kit.js"></script>
+<style>
+  html,body{height:100%}
+  body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+  .bar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #222;background:#161616}
+  .bar img{height:26px;display:block}.bar .who{flex:1;min-width:0}.bar .who b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .who span{font-size:12.5px;color:var(--dim)}.bar .who span.on{color:#9fd8b4}
+  .menu{border:none;background:none;color:var(--dim);padding:6px;cursor:pointer}.menu .k-ico{width:20px;height:20px}
+  .log{flex:1;overflow-y:auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:14px}
+  .me{align-self:flex-end;background:#262626;border-radius:16px 16px 4px 16px;padding:10px 14px;max-width:85%;white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere}
+  .ai{display:flex;gap:10px;align-items:flex-start}.ai img.av{width:28px;height:28px;border-radius:50%;flex:0 0 auto}
+  .ai .b{min-width:0;flex:1}.ai .nm{color:var(--yel);font-size:12.5px;font-weight:600;margin-bottom:2px}.ai .t{white-space:pre-wrap;line-height:1.55;overflow-wrap:anywhere;font-size:15px}
+  .ai .st{color:var(--dim);font-size:14px;display:flex;align-items:center;gap:8px}.ai .st i{width:6px;height:6px;border-radius:50%;background:#777;animation:p 1.2s infinite}.ai .st i:nth-child(2){animation-delay:.2s}.ai .st i:nth-child(3){animation-delay:.4s}
+  @keyframes p{0%,100%{opacity:.25}50%{opacity:1}}
+  .links{display:flex;flex-direction:column;gap:6px;margin-top:8px}.links a{color:var(--blue);font-size:14px;overflow-wrap:anywhere}
+  .pics{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.pics img{width:140px;border-radius:12px;border:1px solid #2a2a2a}
+  .empty{margin:auto 0;text-align:center;padding:10px 6px}.empty h2{margin:6px 0 6px;font-size:22px}.empty p{color:var(--dim);line-height:1.6;margin:0 0 16px}
+  .chips{display:flex;flex-direction:column;gap:8px}.chips button{text-align:left;background:#1e1e1e;border:1px solid #2c2c2c;color:var(--fg);border-radius:12px;padding:11px 13px;font:inherit;font-size:14.5px;cursor:pointer}
+  .comp{display:flex;gap:8px;align-items:flex-end;margin:8px 12px calc(12px + env(safe-area-inset-bottom));background:#1d1d1d;border:1px solid #333;border-radius:18px;padding:8px 8px 8px 14px}
+  .comp textarea{flex:1;background:none;border:none;color:var(--fg);font:inherit;font-size:16px;resize:none;outline:none;max-height:140px;min-height:24px;line-height:1.5}
+  .ib{width:38px;height:38px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;background:#2a2a2a;color:var(--fg)}
+  .ib.send{background:var(--fg);color:#111}.ib.rec{background:#c0392b;color:#fff}.ib .k-ico{width:19px;height:19px}
+  .wrap{max-width:720px;width:100%;margin:0 auto;display:flex;flex-direction:column;flex:1;min-height:0}
+  .center{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
+  .note{max-width:420px;text-align:center}.note .big{width:44px;height:44px;color:var(--dim)}.note h2{margin:8px 0}.note p{color:var(--dim);line-height:1.6}
+  .note ol{text-align:left;color:#d6d6d6;line-height:1.8;padding-left:20px}
+</style>
+</head>
+<body>
+<div id="app" class="wrap"></div>
+<script>
+(function(){
+  const {$,el,ico,btn,toast,api,store}=cc;
+  const app=$('app'), KEY='cc_remote_token', HIST='cc_remote_hist';
+  const P={phone:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',send:'<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>',mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',
+    stop:'<rect x="7" y="7" width="10" height="10" rx="2"/>',dots:'<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',laptop:'<rect x="4" y="4" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>'};
+  let token=store(KEY), hist=store(HIST)||[], since=0, online=false, hostName='', waiting=null, alive=true;
+  const call=async(url,opt={})=>{ const r=await fetch(url,{...opt,headers:{'Content-Type':'application/json','x-remote':token||''},body:opt.body?JSON.stringify(opt.body):undefined}); const d=await r.json().catch(()=>({}));
+    if(r.status===401&&d.unlinked){ unlinked(); throw new Error(d.error); } if(!r.ok) throw new Error(d.error||'Something went wrong.'); return d; };
+  const save=()=>store(HIST,hist.slice(-60));
+  function unlinked(){ store(KEY,null); token=null; alive=false; showStart('This phone is not linked any more.'); }
+
+  // 1. arrived from the QR code: claim it
+  async function start(){
+    const code=location.hash.slice(1);
+    if(code){ history.replaceState(null,'','/remote');
+      try{ const name=/iPhone/i.test(navigator.userAgent)?'iPhone':/iPad/i.test(navigator.userAgent)?'iPad':/Android/i.test(navigator.userAgent)?'Android phone':'Phone';
+        const d=await api('/api/remote/claim',{method:'POST',body:{code,name}}); store(KEY,d.token); token=d.token; hostName=d.hostName; hist=[]; save(); toast('Linked to '+d.hostName+' 🎉'); }
+      catch(e){ if(!token) return showStart(e.message); toast(e.message); } }
+    if(!token) return showStart();
+    chat(); pull();
+  }
+  function showStart(why){
+    app.innerHTML=''; const c=el('div','center'), n=el('div','note'); n.innerHTML=ico(P.phone,'k-ico big');
+    n.appendChild(el('h2',null,'CodeConClave Remote')); n.appendChild(el('p',null,why||'Use CodeConClave on your laptop from this phone — from anywhere.'));
+    const ol=el('ol'); ['On your laptop, open CodeConClave → Remote (left side) and turn it on.','Scan the code it shows with this phone’s camera.','That’s it — then type or speak here, and your laptop does it.'].forEach(x=>ol.appendChild(el('li',null,x))); n.appendChild(ol);
+    const a=el('a','k-btn','Open CodeConClave on this phone'); a.href='/solo'; a.style.marginTop='10px'; n.appendChild(a); c.appendChild(n); app.appendChild(c);
+  }
+  // 2. the chat with your laptop
+  let log, ta, statusEl, sendB, micB;
+  function chat(){
+    app.innerHTML='';
+    const bar=el('div','bar'); bar.innerHTML='<img src="/icon-192.png" alt="">'; const who=el('div','who'); who.appendChild(el('b',null,hostName||'Your laptop')); statusEl=el('span',null,'Connecting…'); who.appendChild(statusEl); bar.appendChild(who);
+    const m=el('button','menu'); m.title='More'; m.innerHTML=ico(P.dots); m.onclick=menu; bar.appendChild(m); app.appendChild(bar);
+    log=el('div','log'); app.appendChild(log); drawAll();
+    const comp=el('div','comp'); ta=document.createElement('textarea'); ta.rows=1; ta.placeholder='Ask your laptop to do anything…';
+    ta.oninput=()=>{ ta.style.height='auto'; ta.style.height=Math.min(140,ta.scrollHeight)+'px'; };
+    ta.onkeydown=(e)=>{ if(e.key==='Enter'&&!e.shiftKey&&!/Android|iPhone|iPad/i.test(navigator.userAgent)){ e.preventDefault(); send(); } };
+    micB=el('button','ib'); micB.title='Speak'; micB.innerHTML=ico(P.mic); micB.onclick=voice;
+    sendB=el('button','ib send'); sendB.title='Send'; sendB.innerHTML=ico(P.send); sendB.onclick=()=>send();
+    comp.append(ta,micB,sendB); app.appendChild(comp);
+  }
+  function paintStatus(){ if(!statusEl) return; statusEl.textContent=online?'Laptop online':'Laptop offline — open CodeConClave on it and turn Remote on'; statusEl.className=online?'on':''; const b=app.querySelector('.bar .who b'); if(b) b.textContent=hostName||'Your laptop'; }
+  function drawAll(){
+    log.innerHTML='';
+    if(!hist.length){ const e=el('div','empty'); e.innerHTML=ico(P.laptop,'k-ico'); e.firstChild.style.cssText='width:40px;height:40px;color:#8f8f8f'; e.appendChild(el('h2',null,'Your laptop, in your pocket'));
+      e.appendChild(el('p',null,'Ask anything — it runs on your laptop: your folders, code, websites and apps. Answers come back here.'));
+      const ch=el('div','chips'); ['What files are in my folder?','Make a folder named Projects','Build a simple to-do website and save it in my folder','Open YouTube on my laptop','Summarize my latest emails'].forEach(t=>{ const b=el('button',null,t); b.onclick=()=>send(t); ch.appendChild(b); }); e.appendChild(ch); log.appendChild(e); return; }
+    hist.forEach(addRow); log.scrollTop=log.scrollHeight;
+  }
+  function addRow(h){
+    log.querySelector('.empty')?.remove();
+    if(h.me){ log.appendChild(el('div','me',h.text)); return; }
+    const row=el('div','ai'); row.dataset.job=h.job||''; const av=el('img','av'); av.src='/icon-192.png'; av.alt=''; const b=el('div','b'); b.appendChild(el('div','nm','Your laptop'));
+    if(!h.done){ const s=el('div','st'); s.innerHTML='<i></i><i></i><i></i>'; s.append(' '+(h.status||'Sending to your laptop…')); b.appendChild(s); }
+    else { b.appendChild(el('div','t',h.text||'Done.'));
+      if(h.images?.length){ const p=el('div','pics'); h.images.forEach(src=>{ if(/^data:image\//.test(src)){ const im=el('img'); im.src=src; im.alt='picture'; p.appendChild(im); } }); b.appendChild(p); }
+      if(h.links?.length){ const l=el('div','links'); h.links.forEach(x=>{ const a=el('a',null,x.title||x.url); a.href=x.url; a.target='_blank'; a.rel='noopener noreferrer'; l.appendChild(a); }); b.appendChild(l); } }
+    row.append(av,b); log.appendChild(row); log.scrollTop=log.scrollHeight;
+  }
+  async function send(text){
+    const t=String(text??ta.value).trim(); if(!t) return; if(!text){ ta.value=''; ta.oninput(); }
+    hist.push({me:true,text:t,at:Date.now()}); addRow(hist[hist.length-1]);
+    try{ const d=await call('/api/remote/send',{method:'POST',body:{text:t}}); online=d.online; if(d.hostName) hostName=d.hostName; paintStatus();
+      const h={job:d.id,done:false,status:online?'Your laptop got it…':'Waiting for your laptop to come online…',at:Date.now()}; hist.push(h); save(); addRow(h); }
+    catch(e){ const h={done:true,text:e.message,at:Date.now()}; hist.push(h); save(); addRow(h); }
+  }
+  // 3. answers and progress from the laptop (long poll)
+  async function pull(){
+    let first=true;
+    while(alive && token){
+      try{ const d=await call('/api/remote/phone/wait?since='+since+(first?'&wait=0':'')); first=false; online=d.online; hostName=d.hostName||hostName; paintStatus();
+        for(const e of d.events||[]){ since=Math.max(since,e.seq);
+          let h=hist.find(x=>x.job===e.job&&!x.me);
+          if(!h){ h={job:e.job,at:e.at}; hist.push(h); }
+          if(e.done){ Object.assign(h,{done:true,text:e.text,links:e.links,images:e.images}); } else h.status=e.status||h.status;
+        }
+        if(d.events?.length){ save(); drawAll(); }
+      }catch{ if(!token) return; await new Promise(ok=>setTimeout(ok,4000)); }
+    }
+  }
+  // speak instead of typing (the laptop's AI understands any language)
+  let rec=null;
+  async function voice(){
+    if(rec){ rec.stop(); return; }
+    if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder) return toast('This phone cannot record here — type instead.');
+    let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch{ return toast('Allow the microphone to speak.'); }
+    const type=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus'].find(t=>MediaRecorder.isTypeSupported?.(t))||''; const chunks=[];
+    rec=new MediaRecorder(stream,type?{mimeType:type}:{}); rec.ondataavailable=(e)=>{ if(e.data.size) chunks.push(e.data); };
+    rec.onstop=async()=>{ stream.getTracks().forEach(t=>t.stop()); rec=null; micB.className='ib'; micB.innerHTML=ico(P.mic); ta.placeholder='Understanding…';
+      try{ const blob=new Blob(chunks,{type:type||'audio/webm'}); const b64=await new Promise(ok=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.readAsDataURL(blob); });
+        const d=await api('/api/voice/transcribe',{method:'POST',body:{audio:b64}}); const said=String(d.text||'').trim(); ta.placeholder='Ask your laptop to do anything…';
+        if(said){ ta.value=said; ta.oninput(); send(); } else toast('I didn’t catch that — try again.'); }
+      catch(e){ ta.placeholder='Ask your laptop to do anything…'; toast(e.message); } };
+    rec.start(); micB.className='ib rec'; micB.innerHTML=ico(P.stop); toast('Listening… tap again to stop');
+    setTimeout(()=>{ if(rec&&rec.state==='recording') rec.stop(); },60000);
+  }
+  function menu(){ cc.modal((b,close)=>{ b.appendChild(el('h2',null,'Remote'));
+    b.appendChild(el('div','k-muted','This phone is linked to '+(hostName||'your laptop')+'. Unlink it if you lose the phone — or unlink it from the laptop.'));
+    const r=el('div','k-row'); r.style.justifyContent='flex-end';
+    r.append(btn('Clear this chat',()=>{ hist=[]; save(); drawAll(); close(); }),btn('Unlink this phone',async()=>{ try{ await call('/api/remote/unlink',{method:'POST',body:{}}); }catch{} store(KEY,null); store(HIST,null); token=null; alive=false; close(); showStart('This phone is unlinked.'); },'pri'));
+    b.appendChild(r); }); }
+  start();
+})();
+</script>
+</body>
+</html>

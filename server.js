@@ -18,16 +18,19 @@ import { gatherSources, searchWords, kindOf as researchKind } from './research.j
 import { specialists } from './sources.js';
 import { parseSchedule, cleanSchedule, nextRun, describeSchedule, describeWhen, stripWhen } from './schedule.js';
 import { slashRoute, quickRoute, obviousChat, parseRoute, ROUTER_SYSTEM, ROUTER_EXAMPLES } from './router.js';
-import { webLookup, NEWSY, watchItems } from './web.js';
+import { webLookup, NEWSY, watchItems, webSearchConnected } from './web.js';
 import { registerStudio } from './studio.js';
 import { readEmotion, emotionHint, EMOTION_RANGE } from './emotions.js';
-import { fixTypos, kindOf, isVague, ABILITY_Q, clarifyFor, innerLife, innerHint, SELF_TALK } from './mind.js';
+import { fixTypos, kindOf, isVague, ABILITY_Q, clarifyFor, innerLife, innerHint, SELF_TALK, whichService } from './mind.js';
+import { registerRemote } from './remote.js';
 import { CAMERA_WORDS, liveCameras } from './cams.js';
 import { FORECAST_WORDS, MAP_WORDS, windyForecast, windyMap } from './windy.js';
 import { registerSpaces, maskPrivate } from './spaces.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+// Render sits in front of us: the visitor's real address is in X-Forwarded-For (so limits are per person, not shared by everyone)
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '8mb' }));
 // Pages: / = the front page (pick Solo, Team or Organization), /solo = the AI app, /team and /org = their own workspaces
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
@@ -36,6 +39,7 @@ app.get('/', (req, res, next) => (req.query.join ? res.redirect(`/team?join=${en
 app.get(['/solo', '/chat', '/team'], page('index.html')); // /team = the same AI app with the team's things added (public/team.js)
 app.get(['/org', '/organization'], page('workspace.html'));
 app.get('/s/:token', page('share.html')); // a share-space link (private or public)
+app.get('/remote', page('remote.html')); // Remote: your phone talks to CodeConClave on your laptop
 app.get('/customize', page('customize.html'));
 
 // Two brains, both the founder's own tuned models (OpenAI-style endpoints):
@@ -782,6 +786,7 @@ async function engineStream(messages, temperature, maxTokens) {
 }
 // Which brain answers: the founder's tuned brain for quick talk; the bigger engine for real work (translating,
 // explaining, writing, code, maths, comparing, data and sources, longer conversations) - the small one drifted there.
+const SHOP_NOW = /\b(best|top|cheapest|good|budget)\b[^.?!]{0,40}\b(under|below|within|less than|around)\s*(rs\.?|₹|inr)?\s*\d|\b(price|prices|cost|rate)\s+(of|for)\b[^.?!]{2,40}\b(today|now|in india|latest|current)\b|\b(which|what)\s+(phone|mobile|laptop|tv|television|car|bike|scooter|earbuds|headphones|smartwatch|watch|camera|fridge|washing machine)\b[^.?!]{0,30}\b(buy|get|should|best)\b|\b(latest|new|newest|upcoming)\s+(phones?|mobiles?|laptops?|cars?|bikes?)\b/i;
 const DEEP_WORDS = /\b(translate|translation|explain|compare|comparison|difference|differences|why|how (do|does|did|to|can|should|would|is|are)|steps?|plan|write|draft|code|program|function|script|essay|story|poem|letter|email|summar(y|ise|ize)|calculate|solve|equation|list|ideas?|suggest|recommend|recipe|analy[sz]e|review|fix|debug|error|teach|lesson|quiz|interview|resume|cv|business|strategy|history of|meaning of)\b/i;
 function needsEngine(lastUser, convo, grounded) {
   if (!cloudBrain()) return false;
@@ -952,6 +957,17 @@ async function chatHandler(req, res) {
   // with a project folder connected, changing or making files - or building "in my project" - is the coding agent's job
   if (folder && routed && ((routed.tool === 'files' && /^(edit|create)$/.test(routed.args?.action || '')) || (routed.tool === 'build' && /\b(my|this|the) (project|folder|code|codebase|site|website|app|repo|files?)\b|\bin (my|the) folder\b/i.test(lastUser))))
     routed = { tool: 'code', args: { goal: lastUser }, say: routed.say };
+  // prices, "best X under Rs N", "which phone should I buy": these change every month. With a web search key we look
+  // them up; without one, the AI gives buying guidance (no made-up exact prices) plus a link to check today's prices.
+  const shopQ = fixTypos(lastUser);
+  if (!second && !fileBlock && (!routed || ['chat', 'web'].includes(routed.tool)) && SHOP_NOW.test(shopQ)) {
+    if (webSearchConnected()) routed = { tool: 'web', args: { query: shopQ.slice(0, 200) } };
+    else {
+      routed = { tool: 'chat' };
+      for (let i = messages.length - 1; i >= 0; i--) if (messages[i].role === 'user') { messages[i] = { ...messages[i], content: `[Prices and models change every month and you cannot see today's prices. Give short, practical buying guidance - what to look for and a few well-known recent choices - but do NOT state exact current prices as facts. End by saying to check today's prices with the link below.]\n\n${messages[i].content}` }; break; }
+      send({ linkCard: { url: `https://www.google.com/search?q=${encodeURIComponent(shopQ.slice(0, 150))}`, title: 'Check today’s prices' } });
+    }
+  }
   // weather and forecasts for a place are live data (with the Windy forecast), not a web search
   if (routed?.tool === 'web' && /^open-meteo/.test(detect(lastUser)?.sourceId || '')) routed = null;
   // An organization's rules for its members: tools it turned off, private data hidden from the AI, and an audit entry
@@ -964,6 +980,9 @@ async function chatHandler(req, res) {
   }
   // "create an image", "make a game", "can you build a website?" - ask what, with ideas to tap (not build blindly)
   const typed = fixTypos(lastUser);
+  // "book a cab" / "order food" with no app named: ask which app (Uber, Ola, Rapido...) - then it opens that one
+  const svc = !second && !fileBlock && !req.automationRun && (!routed || ['browser', 'chat', 'web'].includes(routed.tool)) ? whichService(typed) : null;
+  if (svc) { send({ ask: svc }); return say(svc.question); }
   if (!second && !fileBlock && !req.automationRun && !/^\s*\//.test(lastUser)) {
     const creative = routed && ['image', 'video', 'build', 'audio', 'doc'].includes(routed.tool);
     const kind = kindOf(typed) || (creative ? { image: 'image', video: 'video', audio: 'audio', doc: 'doc', build: ['game', 'website', 'app'].includes(routed.args?.kind) ? routed.args.kind : 'game' }[routed.tool] : null);
@@ -1876,6 +1895,7 @@ registerApps(app, { wrap, fetchPublicPage });
 registerStudio(app, { cloud: cloudBrain, headers: brainHeaders, wrap, overLimit });
 // Teams and organizations (shared, on the server) and the Solo tools - three separate spaces
 const spaces = registerSpaces(app, { store, wrap, engineAsk });
+registerRemote(app, { store, wrap });
 // the organization rules that apply to this person's own AI use (the browser checks them for the coding agent)
 app.get('/api/my-policy', wrap(async (req, res) => res.json({ policy: req.user ? await spaces.policyFor(req.user) : null })));
 
@@ -1922,6 +1942,32 @@ app.post('/api/plugins/send', wrap(async (req, res) => {
     if (!/^\w{30}$/.test(token) || !/^\w{30}$/.test(user)) return res.status(400).json({ error: 'Pushover needs your app token and your user key (30 letters and numbers each).' });
     url = 'https://api.pushover.net/1/messages.json';
     payload = { token, user, title: 'CodeConClave AI', message: text.slice(0, 1000) };
+  } else if (kind === 'twilio' || kind === 'whatsapp' || kind === 'resend') {
+    let call;
+    if (kind === 'twilio') {
+      const sid = String(cfg.sid || '').trim(), token = String(cfg.token || '').trim(), from = String(cfg.from || '').replace(/\s/g, ''), to = String(cfg.to || '').replace(/\s/g, '');
+      if (!/^AC[a-f0-9]{32}$/.test(sid) || !/^[a-f0-9]{32}$/.test(token)) return res.status(400).json({ error: 'Twilio needs your Account SID (starts with AC) and Auth Token (32 letters and numbers).' });
+      if (!/^\+\d{8,15}$/.test(from) || !/^\+\d{8,15}$/.test(to)) return res.status(400).json({ error: 'Write both phone numbers with the country code, like +919876543210.' });
+      call = fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, { method: 'POST', headers: { Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ To: to, From: from, Body: text.slice(0, 1500) }).toString(), signal: AbortSignal.timeout(15000) });
+    } else if (kind === 'whatsapp') {
+      const token = String(cfg.token || '').trim(), phone = String(cfg.phone || '').trim(), to = String(cfg.to || '').replace(/[^\d]/g, '');
+      if (!/^EA[A-Za-z0-9]{40,}$/.test(token) || !/^\d{8,20}$/.test(phone)) return res.status(400).json({ error: 'WhatsApp needs the access token (starts with EA) and the Phone number ID from your Meta app.' });
+      if (!/^\d{10,15}$/.test(to)) return res.status(400).json({ error: 'Write the number to send to with the country code, like 919876543210.' });
+      call = fetch(`https://graph.facebook.com/v21.0/${phone}/messages`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: text.slice(0, 4000) } }), signal: AbortSignal.timeout(15000) });
+    } else {
+      const key = String(cfg.key || '').trim(), from = String(cfg.from || '').trim(), to = String(cfg.to || '').trim();
+      if (!/^re_\w{16,}$/.test(key)) return res.status(400).json({ error: 'A Resend API key starts with re_' });
+      if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(to) || !/@/.test(from)) return res.status(400).json({ error: 'Write the From address (on your Resend domain) and the email to send to.' });
+      call = fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to: [to], subject: String(cfg.subject || 'From CodeConClave AI').slice(0, 120), text }), signal: AbortSignal.timeout(15000) });
+    }
+    try {
+      const r = await call; if (r.ok) return res.json({ ok: true });
+      const j = await r.json().catch(() => ({}));
+      return res.status(502).json({ error: `The service said no (error ${r.status})${j?.message || j?.error?.message ? `: ${String(j.message || j.error.message).slice(0, 160)}` : ''}.` });
+    } catch (e) { return res.status(502).json({ error: e.name === 'TimeoutError' ? 'The service took too long to answer.' : 'Could not reach that service.' }); }
   } else return res.status(400).json({ error: 'Unknown plugin.' });
   try {
     const r = await postPublic(url, payload);

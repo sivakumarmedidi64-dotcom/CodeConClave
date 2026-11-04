@@ -366,7 +366,44 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
     else if (d.what === 'tasks') content = { tasks: (await store.listItems(sp.id, 'task', { limit: 300 })).map(taskOut) };
     else content = { pages: (await store.listItems(sp.id, 'page', { limit: 50 })).map(pageOut), tasks: (await store.listItems(sp.id, 'task', { limit: 300 })).map(taskOut), chats: (await store.listItems(sp.id, 'aichat', { limit: 20 })).map(chatOut) };
     if (!role) store.putItem(sp.id, 'share', it.id, { ...d, views: (Number(d.views) || 0) + 1, lastView: Date.now() }, it.authorId).catch(() => {});
-    res.json({ space: { name: sp.name, id: role ? sp.id : undefined }, what: d.what, title: d.title, byName: d.byName, at: d.at, visibility: isPublic ? 'public' : 'private', member: Boolean(role), content });
+    res.json({ space: { name: sp.name, id: role && sp.kind !== 'personal' ? sp.id : undefined }, what: d.what, title: d.title, byName: d.byName, at: d.at, visibility: isPublic ? 'public' : 'private', member: Boolean(role), content });
+  }));
+
+  // ---- Solo: share one AI chat with a link (anyone with it can read it). One link per chat; turn it off any time. ----
+  async function personalSpace(user, create) {
+    const mine = (await store.listSpaces(user.id)).find((s) => s.kind === 'personal' && same(s.ownerId, user.id));
+    if (mine || !create) return mine || null;
+    const sp = await store.createSpace({ id: newId(), kind: 'personal', name: clip(user.name || String(user.email || '').split('@')[0] || 'My shares', 80), ownerId: user.id, parentId: null, settings: {}, created: Date.now() });
+    await store.addMember(sp.id, user.id, 'owner'); return sp;
+  }
+  const slimChat = (list) => { let out = (Array.isArray(list) ? list : []).slice(-200).map((m) => ({ role: m?.role === 'user' ? 'user' : 'ai', content: clip(m?.content, 20000) })).filter((m) => m.content.trim());
+    while (out.length > 1 && JSON.stringify(out).length > 180000) out = out.slice(1); return out; };
+  app.post('/api/share-chat', wrap(async (req, res) => {
+    if (needUser(req, res)) return;
+    const messages = slimChat(req.body?.messages); if (!messages.length) return res.status(400).json({ error: 'There is nothing to share in this chat yet.' });
+    const sp = await personalSpace(req.user, true);
+    const chatId = clip(String(req.body?.chatId || '').replace(/[^\w-]/g, ''), 60) || newId(), title = clip(req.body?.title, 120).trim() || 'AI chat';
+    await store.putItem(sp.id, 'aichat', chatId, { title, messages, by: req.user.id, byName: req.user.name || req.user.email, at: Date.now() }, req.user.id);
+    const old = (await store.listItems(sp.id, 'share', { limit: 500 })).find((s) => s.data.what === 'chat' && s.data.ref === chatId);
+    if (old) { await store.putItem(sp.id, 'share', old.id, { ...old.data, title, visibility: 'public' }, old.authorId); return res.json({ url: `/s/${old.data.token}`, updated: true }); }
+    const token = crypto.randomBytes(18).toString('base64url');
+    await store.putItem(sp.id, 'share', hashTok(token), { token, what: 'chat', ref: chatId, title, visibility: 'public', views: 0, by: req.user.id, byName: req.user.name || req.user.email, at: Date.now() }, req.user.id);
+    res.json({ url: `/s/${token}` });
+  }));
+  app.get('/api/share-chat', wrap(async (req, res) => {   // my chat links
+    if (needUser(req, res)) return;
+    const sp = await personalSpace(req.user, false); if (!sp) return res.json({ links: [] });
+    res.json({ links: (await store.listItems(sp.id, 'share', { limit: 200 })).map((s) => ({ chatId: s.data.ref, title: s.data.title, url: `/s/${s.data.token}`, views: Number(s.data.views) || 0, at: s.data.at })) });
+  }));
+  app.delete('/api/share-chat/:chatId', wrap(async (req, res) => {   // turn a chat's link off (all = every link)
+    if (needUser(req, res)) return;
+    const sp = await personalSpace(req.user, false); if (!sp) return res.json({ ok: true, off: 0 });
+    const all = req.params.chatId === 'all'; let off = 0;
+    for (const s of await store.listItems(sp.id, 'share', { limit: 500 })) {
+      if (!all && s.data.ref !== req.params.chatId) continue;
+      await store.deleteItem(sp.id, 'share', s.id); await store.deleteItem(sp.id, 'aichat', s.data.ref); off++;
+    }
+    res.json({ ok: true, off });
   }));
 
   // ---- the AI connected to the team: a member's own AI chat on /team follows the team's standards and knows its brain ----

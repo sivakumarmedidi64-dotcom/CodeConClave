@@ -27,7 +27,10 @@
     arrow:'<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>', send:'<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>',
     org:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3"/><path d="M3 12h18"/><path d="M10 12v3h4v-3"/>',
     back:'<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
-    spark:'<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>'
+    spark:'<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>',
+    clip:'<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6"/><path d="M9 16h4"/>',
+    rocket:'<path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2"/><path d="M9 15l-3-3c1.5-4.5 6-9 13-9 0 7-4.5 11.5-9 13z"/><circle cx="14.5" cy="9.5" r="1.5"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>', clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
   };
   const toast=(m)=>A.toast(m);
   const api=async(url,opt={})=>{ const r=await fetch(url,{...opt,headers:{'Content-Type':'application/json'},body:opt.body&&typeof opt.body!=='string'?JSON.stringify(opt.body):opt.body});
@@ -91,6 +94,7 @@
   .tm-send{width:34px;height:34px;border-radius:50%;border:none;background:var(--fg);color:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
   .tm-send .ico{width:18px;height:18px}
   .tm-pages{display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px}
+  .tm-plist button .ico,.tm-acts .ico,.tm-task .acts .ico{width:15px;height:15px;vertical-align:-2px}
   .tm-plist button{display:block;width:100%;text-align:left;background:#1f1f1f;border:1px solid #2a2a2a;color:var(--fg);border-radius:10px;padding:9px 12px;margin-bottom:6px;font:inherit;font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tm-plist button.on{border-color:#5a5a5a;background:#262626}
   .tm-ptitle{width:100%;background:none;border:none;color:var(--fg);font:inherit;font-size:24px;font-weight:700;outline:none;margin-bottom:10px}
@@ -272,7 +276,7 @@
   async function pTasks(box){
     const out=el('div');
     const job=(label,path,title)=>btn(label,async()=>{ out.innerHTML=''; out.appendChild(el('div','tm-muted','Writing the '+title.toLowerCase()+'…')); try{ const d=await api('/api/spaces/'+space.id+'/ai/'+path,{method:'POST',body:{}}); out.innerHTML=''; out.appendChild(aiCard(title,d.text)); }catch(e){ out.textContent=e.message; } },'mskip tm-sm');
-    acts.append(job('📋 Standup','standup','Standup'),job('🚀 Release notes','release-notes','Release notes'));
+    acts.append(job(SV(I.clip)+' Standup','standup','Standup'),job(SV(I.rocket)+' Release notes','release-notes','Release notes'));
     const COLS=[['todo','To do'],['doing','Doing'],['done','Done']], kan=el('div','tm-kan');
     if(canWrite()){ const bar=el('div','tm-bar'), inp=el('input','tm-in'); inp.placeholder='Add a task and press Enter'; inp.maxLength=300;
       const add=async()=>{ const title=inp.value.trim(); if(!title) return; inp.value=''; try{ await putItem('task',nid(),{title,status:'todo'}); draw(); }catch(e){ toast(e.message); } };
@@ -282,14 +286,14 @@
       COLS.forEach(([k,name],ci)=>{ const mine=all.filter(x=>(x.data.status||'todo')===k), col=el('div','tm-col'), h=el('h4'); h.append(el('span',null,name),el('span',null,String(mine.length))); col.appendChild(h);
         if(!mine.length) col.appendChild(el('div','tm-muted tm-small',ci===0?'Nothing to do yet.':ci===1?'Nothing in progress.':'Nothing finished yet.'));
         mine.forEach(x=>{ const d=x.data, c=el('div','tm-task'); c.appendChild(el('div','t',d.title));
-          const meta=[d.assigneeName?'👤 '+d.assigneeName:'',d.estimate?'⏱ '+d.estimate:'',d.risk?'risk '+d.risk:''].filter(Boolean).join(' · '); c.appendChild(el('div','m',meta||'added by '+(d.byName||'')+' · '+ago(d.at||x.updated)));
+          const meta=[d.assigneeName?'for '+d.assigneeName:'',d.estimate?d.estimate:'',d.risk?'risk '+d.risk:''].filter(Boolean).join(' · '); c.appendChild(el('div','m',meta||'added by '+(d.byName||'')+' · '+ago(d.at||x.updated)));
           if(d.steps?.length){ const ul=el('ul'); d.steps.forEach(s=>ul.appendChild(el('li',null,s))); c.appendChild(ul); }
           if(canWrite()){ const a=el('div','acts');
             if(ci>0) a.appendChild(btn('←',async()=>{ await putItem('task',x.id,{...d,status:COLS[ci-1][0]}); draw(); },'mskip tm-sm'));
             if(ci<2) a.appendChild(btn('→',async()=>{ await putItem('task',x.id,{...d,status:COLS[ci+1][0]}); draw(); },'mskip tm-sm'));
             const who=document.createElement('select'); who.appendChild(new Option('Assign…','')); (data.members||[]).forEach(m=>who.appendChild(new Option(m.name||m.email,m.name||m.email))); who.value=d.assigneeName||'';
             who.onchange=async()=>{ await putItem('task',x.id,{...d,assigneeName:who.value}); draw(); }; a.appendChild(who);
-            const pb=btn('✨ Plan',async()=>{ pb.textContent='Planning…'; try{ const p=await api('/api/spaces/'+space.id+'/ai/plan-task',{method:'POST',body:{title:d.title,detail:d.detail||''}}); await putItem('task',x.id,{...d,steps:p.steps,acceptance:p.acceptance,risk:p.risk,estimate:p.estimate}); draw(); }catch(e){ toast(e.message); pb.textContent='✨ Plan'; } },'mskip tm-sm'); a.appendChild(pb);
+            const pb=btn(SV(I.spark)+' Plan',async()=>{ pb.textContent='Planning…'; try{ const p=await api('/api/spaces/'+space.id+'/ai/plan-task',{method:'POST',body:{title:d.title,detail:d.detail||''}}); await putItem('task',x.id,{...d,steps:p.steps,acceptance:p.acceptance,risk:p.risk,estimate:p.estimate}); draw(); }catch(e){ toast(e.message); pb.innerHTML=SV(I.spark)+' Plan'; } },'mskip tm-sm'); a.appendChild(pb);
             a.appendChild(btn('✕',async()=>{ try{ await delItem('task',x.id); draw(); }catch(e){ toast(e.message); } },'mskip tm-sm')); c.appendChild(a); }
           col.appendChild(c); });
         kan.appendChild(col); }); }
@@ -299,14 +303,14 @@
     const wrap=el('div','tm-pages'), left=el('div','tm-plist'), right=el('div'); wrap.append(left,right); box.appendChild(wrap); let cur=null;
     if(canWrite()) acts.appendChild(btn(SV(I.plus)+' New page',()=>openPage({id:nid(),data:{title:'Untitled',body:'',comments:[]}},true),'msend tm-sm'));
     async function drawList(){ left.innerHTML=''; const all=await items('page'); if(!all.length) left.appendChild(el('div','tm-muted tm-small','No pages yet.'+(canWrite()?' Press “New page”.':'')));
-      all.forEach(p=>{ const b=el('button',cur&&cur.id===p.id?'on':null,'📄 '+(p.data.title||'Untitled')); b.onclick=()=>openPage(p); left.appendChild(b); }); if(!cur&&all[0]) openPage(all[0]); }
+      all.forEach(p=>{ const b=el('button',cur&&cur.id===p.id?'on':null); b.innerHTML=SV(I.page); b.append(' '+(p.data.title||'Untitled')); b.onclick=()=>openPage(p); left.appendChild(b); }); if(!cur&&all[0]) openPage(all[0]); }
     function openPage(p,fresh){ cur=p; right.innerHTML=''; const d={comments:[],...p.data}; let saved=!fresh;
       const title=el('input','tm-ptitle'); title.value=d.title||''; title.maxLength=200; const ed=el('textarea','tm-ta'); ed.value=d.body||''; ed.style.minHeight='340px'; ed.placeholder='Write in Markdown — # headings, - lists…';
       if(!canWrite()){ title.readOnly=true; ed.readOnly=true; }
       const bar=el('div','tm-bar'), hist=el('div');
       const save=async()=>{ try{ await putItem('page',p.id,{...d,title:title.value.trim()||'Untitled',body:ed.value}); toast('Saved ✅'); saved=true; cur={...p,data:{...d,title:title.value,body:ed.value}}; drawList(); }catch(e){ toast(e.message); } };
-      const wb=btn('✨ Write with AI',async()=>{ const what=await askText('What should the page be about?','e.g. How we onboard a new developer',title.value==='Untitled'?'':title.value); if(!what) return; wb.textContent='Writing…';
-        try{ const r=await api('/api/spaces/'+space.id+'/ai/write-page',{method:'POST',body:{prompt:what}}); ed.value=r.body; if(!title.value||title.value==='Untitled') title.value=what.slice(0,80); toast('Written — press Save to keep it.'); }catch(e){ toast(e.message); } wb.textContent='✨ Write with AI'; });
+      const wb=btn(SV(I.spark)+' Write with AI',async()=>{ const what=await askText('What should the page be about?','e.g. How we onboard a new developer',title.value==='Untitled'?'':title.value); if(!what) return; wb.textContent='Writing…';
+        try{ const r=await api('/api/spaces/'+space.id+'/ai/write-page',{method:'POST',body:{prompt:what}}); ed.value=r.body; if(!title.value||title.value==='Untitled') title.value=what.slice(0,80); toast('Written — press Save to keep it.'); }catch(e){ toast(e.message); } wb.innerHTML=SV(I.spark)+' Write with AI'; });
       if(canWrite()) bar.append(btn('Save',save,'msend'),wb);
       bar.append(btn('History ('+(d.history||[]).length+')',()=>{ hist.innerHTML=''; (d.history||[]).forEach(v=>{ const r=el('div','tm-row'), g=el('div','grow'); g.appendChild(el('b',null,v.title)); g.appendChild(el('div','tm-muted tm-small',ago(v.at)+' · '+(v.byName||''))); r.appendChild(g);
         if(canWrite()) r.appendChild(btn('Restore',()=>{ title.value=v.title; ed.value=v.body; toast('Restored — press Save to keep it.'); },'mskip tm-sm')); hist.appendChild(r); }); if(!(d.history||[]).length) toast('No earlier versions yet.'); }),
@@ -353,8 +357,8 @@
     box.appendChild(el('div','tm-muted','Paste the meeting notes or transcript. CodeConClave writes the summary, the decisions and the action items — and every action item becomes a task on the board.'));
     const out=el('div');
     if(canWrite()){ const ta=el('textarea','tm-ta'); ta.style.marginTop='14px'; ta.placeholder='Paste the meeting notes or transcript…'; const bar=el('div','tm-bar');
-      const go=btn('✨ Summarize + make tasks',async()=>{ if(ta.value.trim().length<40) return toast('Paste the notes first.'); go.textContent='Working…'; go.disabled=true;
-        try{ await api('/api/spaces/'+space.id+'/ai/meeting',{method:'POST',body:{transcript:ta.value}}); ta.value=''; toast('Done — the action items are on the Tasks board.'); draw(); }catch(e){ toast(e.message); } go.textContent='✨ Summarize + make tasks'; go.disabled=false; },'msend');
+      const go=btn(SV(I.spark)+' Summarize + make tasks',async()=>{ if(ta.value.trim().length<40) return toast('Paste the notes first.'); go.textContent='Working…'; go.disabled=true;
+        try{ await api('/api/spaces/'+space.id+'/ai/meeting',{method:'POST',body:{transcript:ta.value}}); ta.value=''; toast('Done — the action items are on the Tasks board.'); draw(); }catch(e){ toast(e.message); } go.innerHTML=SV(I.spark)+' Summarize + make tasks'; go.disabled=false; },'msend');
       bar.appendChild(go); box.append(ta,bar); }
     box.appendChild(out);
     async function draw(){ out.innerHTML=''; const all=await items('meeting'); if(all.length) out.appendChild(el('div','tm-sec','Meetings'));
@@ -402,6 +406,57 @@
     r.append(role,btn('Make invite link',async()=>{ try{ const d=await api('/api/spaces/'+space.id+'/invites',{method:'POST',body:{role:role.value}}); lk.value=location.origin+'/team?join='+d.token; lk.select(); try{ await navigator.clipboard.writeText(lk.value); toast('Invite link copied'); }catch{} }catch(e){ toast(e.message); } },'msend'),lk);
     c.appendChild(r); return c; }
   function invite(){ if(!space) return firstRun(); modal((b,close)=>{ b.appendChild(el('div','tm-mt','Invite people to '+space.name)); b.appendChild(inviteCard()); const r=el('div','tm-right'); r.appendChild(btn('Done',close,'msend')); b.appendChild(r); },true); }
+
+  // ---------- the AI does team things when you ask in the chat ----------
+  // invite link, a link to the team space / tasks / this chat, add a task, tell the team, open a team page, write a page
+  const OPEN_TAB=[[/^(team )?(space|chat)$|^team$/,'Chat'],[/^(team )?tasks?( board)?$|^board$/,'Tasks'],[/^(team )?pages?$/,'Pages'],[/^(team )?brain$/,'Team brain'],[/^(team )?standards?$|^(team )?rules$/,'Standards'],[/^(team )?meetings?$/,'Meetings'],[/^shared chats?$/,'Shared chats'],[/^(team )?members?$|^(my )?teammates$/,'Members']];
+  window.ccTeamAct=(raw,s)=>{
+    if(!me||!space) return null;
+    const PLUG=/\b(todoist|asana|trello|clickup|jira|linear|notion|monday|github|gitlab|slack|discord|telegram|whatsapp)\b/;
+    let m;
+    if(/\binvite\b.{0,25}\blink\b|\blink\b.{0,15}\binvite\b|^(?:add|invite)\s+(?:people|members?|someone|teammates?|friends?)\b/.test(s)) return async()=>{
+      if(!isAdmin()) return A.say('Only the team’s owner or admins can make invite links — ask one of them.');
+      const role=/\bguests?\b|read.?only/.test(s)?'guest':/\badmins?\b/.test(s)?'admin':'member';
+      try{ const d=await api('/api/spaces/'+space.id+'/invites',{method:'POST',body:{role}}); const url=location.origin+'/team?join='+d.token; navigator.clipboard?.writeText(url).catch(()=>{});
+        A.say('Here’s the invite link for '+space.name+' ('+role+', works for 14 days). I copied it — send it to the people you want. A team holds up to '+(data.seats||20)+' people ('+(data.members||[]).length+' now).',{linkCard:{url,title:'Join '+space.name}}); }
+      catch(e){ A.say('I couldn’t make the invite link: '+e.message); } };
+    const wantsLink=/\b(link|share|sharing)\b/.test(s), pub=/\bpublic\b|\banyone\b|\beveryone\b/.test(s);
+    if(/^(?:share|send)\s+(?:this|my)\s+(?:chat|conversation)\b|\b(?:share|send)\b.{0,20}\b(?:this|my)\s+(?:chat|conversation)\b.{0,15}\bteam\b|\blink\b.{0,25}\b(?:this|my|the)\s+(?:chat|conversation)\b/.test(s)) return async()=>{
+      if(!canWrite()) return A.say('Guests can read the team but cannot share into it.');
+      const c=A.chat(); const msgs=slim((c?.messages||[]).slice(0,-1)); if(!msgs.length) return A.say('There’s nothing to share in this chat yet — talk to me first, then ask again.');
+      const id=(c.id+'_'+me.id).slice(0,80);
+      try{ await putItem('aichat',id,{title:String(c.title||'AI chat').slice(0,120),messages:msgs});
+        if(!/\blink\b/.test(s)&&!pub) return A.say('Shared with '+space.name+' ✓ — your teammates can find it in Team space → Shared chats and carry it on.');
+        const d=await api('/api/spaces/'+space.id+'/shares',{method:'POST',body:{what:'chat',ref:id,visibility:pub?'public':'private'}}); const url=location.origin+d.url; navigator.clipboard?.writeText(url).catch(()=>{});
+        A.say('Shared with '+space.name+', and here’s a '+(pub?'public link — anyone with it can read this chat':'private link — only team members can open it')+'. I copied it. Turn it off any time in Share space.',{linkCard:{url,title:c.title||'Shared chat'}}); }
+      catch(e){ A.say('I couldn’t share it: '+e.message); } };
+    if(wantsLink && /\b(team ?space|my team|the team|our team|workspace|our work|my work|tasks? board|tasks|board|space)\b/.test(s) && !/\binvite\b/.test(s)) return async()=>{
+      if(!canWrite()) return A.say('Guests can view the team but cannot make links.');
+      const what=/\btasks?\b|\bboard\b/.test(s)?'tasks':'space';
+      try{ const d=await api('/api/spaces/'+space.id+'/shares',{method:'POST',body:{what,visibility:pub?'public':'private'}}); const url=location.origin+d.url; navigator.clipboard?.writeText(url).catch(()=>{});
+        A.say('Here’s a '+(pub?'public':'private')+' link to '+(what==='tasks'?'the tasks board':'your team space (pages, tasks and shared chats)')+' — '+(pub?'anyone with it can view, read only':'only members of '+space.name+' can open it')+'. I copied it. You can change it or turn it off in Share space.',{linkCard:{url,title:d.title||space.name}}); }
+      catch(e){ A.say('I couldn’t make the link: '+e.message); } };
+    if((m=raw.match(/^\s*(?:please\s+)?(?:can you\s+)?(?:add|create|make|put)\s+(?:a\s+)?(?:new\s+)?(?:team\s+)?task\s*(?:called|named|for|to|:|-)?\s+(.{2,200}?)\s*[.!]?\s*$/i)) && !PLUG.test(s)) return async()=>{
+      if(!canWrite()) return A.say('Guests can read the team but cannot add tasks.');
+      try{ const title=m[1].replace(/\s+(?:to|on|in)\s+(?:the\s+)?(?:team\s+)?(?:tasks?\s*)?board$/i,'').trim(); await putItem('task',nid(),{title,status:'todo'});
+        A.say('Added to '+space.name+'’s tasks: “'+title+'”. Want me to plan it into steps? Open Team space → Tasks and press Plan.'); }
+      catch(e){ A.say('I couldn’t add the task: '+e.message); } };
+    if((m=raw.match(/^\s*(?:please\s+)?(?:tell|message|ping|post (?:in|to|on))\s+(?:my\s+|the\s+|our\s+)?team(?:\s+chat)?\s*(?:that|:|-)?\s+(.{2,500}?)\s*$/i))) return async()=>{
+      if(!canWrite()) return A.say('Guests can read the team chat but cannot post.');
+      try{ await api('/api/spaces/'+space.id+'/channel',{method:'POST',body:{text:m[1]}}); A.say('Posted in '+space.name+'’s team chat: “'+m[1]+'”.'); }
+      catch(e){ A.say('I couldn’t post it: '+e.message); } };
+    if((m=s.match(/^(?:open|show|go to|take me to)\s+(?:the\s+|my\s+|our\s+)?(.+?)(?:\s+page)?$/))){
+      const w=m[1].trim(); if(/^share space$|^(my )?links$/.test(w)) return async()=>{ A.say('Opening Share space.'); shares(); };
+      const hit=OPEN_TAB.find(([re])=>re.test(w)); if(hit) return async()=>{ A.say('Opening '+hit[1]+'.'); hub(hit[1]); };
+    }
+    if((m=raw.match(/^\s*(?:please\s+)?(?:can you\s+)?(?:create|make|write)\s+(?:a\s+)?(?:team\s+)?page\s+(?:about|on|for|explaining)\s+(.{3,160}?)\s*[.!]?\s*$/i))) return async()=>{
+      if(!canWrite()) return A.say('Guests can read pages but cannot write them.');
+      try{ A.toast('Writing the page…'); const r=await api('/api/spaces/'+space.id+'/ai/write-page',{method:'POST',body:{prompt:m[1]}}); const title=m[1].replace(/^(how|what|why)\b/i,(x)=>x[0].toUpperCase()+x.slice(1)).slice(0,80);
+        await putItem('page',nid(),{title:title.charAt(0).toUpperCase()+title.slice(1),body:r.body,comments:[]}); A.say('I wrote the page “'+title+'” and saved it in '+space.name+'. Open Team space → Pages to read or change it.'); }
+      catch(e){ A.say('I couldn’t write the page: '+e.message); } };
+    if(/^(?:create|make|generate|give me|get me|send me)\s+(?:a|the|my|one)?\s*(?:new\s+)?(?:share\s+|sharing\s+)?link(?:\s+for me)?$/.test(s)) return async()=>A.say('Sure — which link?',{ask:{question:'Which link?',options:[{label:'Invite link for my team',send:'make an invite link'},{label:'Private link to my team space',send:'make a private link to my team space'},{label:'Public link to my team space',send:'make a public link to my team space'},{label:'Link to this chat',send:'make a link for this chat'}]}});
+    return null;
+  };
 
   // ---------- share space: private or public links to the team's work ----------
   function visSeg(init){ let v=init; const s=el('div','tm-seg');

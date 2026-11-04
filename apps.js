@@ -6,6 +6,7 @@
 // called after the person checks it on its card and presses the button.
 
 import { MORE_APPS } from './apps-more.js';
+import { EXTRA_APPS } from './apps-extra.js';
 
 const UA = 'CodeConClave-AI';
 const clip = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -380,6 +381,7 @@ const APPS = {
   },
 };
 Object.assign(APPS, MORE_APPS);   // ~25 more read-only plugins (apps-more.js)
+Object.assign(APPS, EXTRA_APPS);  // Razorpay, Render, Cloudflare, Supabase, Hugging Face, Kaggle, UptimeRobot, Docker Hub, npm, PyPI, DEV, Product Hunt
 
 const calls = new Map(); // ip -> times, 60 calls / 10 min
 export function registerApps(app, { wrap, fetchPublicPage }) {

@@ -34,7 +34,7 @@
   .tcard .m{color:var(--dim);font-size:12.5px;margin-top:6px}
   .pg{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px}
   .plist button{display:block;width:100%;text-align:left;background:#1d1d1d;border:1px solid #2a2a2a;color:var(--fg);border-radius:10px;padding:9px 12px;margin-bottom:6px;font:inherit;font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .plist button.on{border-color:#5a5a5a;background:#262626}
+  .plist button.on{border-color:#5a5a5a;background:#262626}.plist .k-ico{width:15px;height:15px;vertical-align:-3px;color:var(--dim)}
   .pg .md{margin-top:0}.pg h2.pt{font-size:26px;margin:0 0 4px}
   .chat{margin-top:22px;display:flex;flex-direction:column;gap:16px}
   .msg{display:flex;gap:12px;align-items:flex-start}
@@ -99,12 +99,12 @@
   function tasksView(box,tasks){ const k=el('div','kan');
     [['todo','To do'],['doing','Doing'],['done','Done']].forEach(([s,n])=>{ const mine=(tasks||[]).filter((t)=>t.status===s), col=el('div','col'), h=el('h4'); h.append(el('span',null,n),el('span',null,String(mine.length))); col.appendChild(h);
       if(!mine.length) col.appendChild(el('div','k-muted k-small','Nothing here.'));
-      mine.forEach((t)=>{ const c=el('div','tcard',t.title); const meta=[t.who?'👤 '+t.who:'',t.estimate?'⏱ '+t.estimate:''].filter(Boolean).join(' · '); if(meta) c.appendChild(el('div','m',meta)); col.appendChild(c); });
+      mine.forEach((t)=>{ const c=el('div','tcard',t.title); const meta=[t.who?'for '+t.who:'',t.estimate||''].filter(Boolean).join(' · '); if(meta) c.appendChild(el('div','m',meta)); col.appendChild(c); });
       k.appendChild(col); }); box.appendChild(k); }
   function pagesView(box,pages){ if(!pages.length) return box.appendChild(el('div','empty','No pages yet.'));
     const g=el('div','pg'), left=el('div','plist'), right=el('div'); g.append(left,right); box.appendChild(g);
     const show=(p,b)=>{ left.querySelectorAll('button').forEach((x)=>x.classList.toggle('on',x===b)); right.innerHTML=''; right.appendChild(el('h2','pt',p.title)); right.appendChild(el('div','meta','Edited '+ago(p.editedAt)+(p.byName?' by '+p.byName:''))); const a=el('article','md'); a.style.marginTop='18px'; a.innerHTML=md(p.body)||'<p class="k-muted">This page is empty.</p>'; right.appendChild(a); };
-    pages.forEach((p,i)=>{ const b=el('button',null,'📄 '+p.title); b.onclick=()=>show(p,b); left.appendChild(b); if(!i) setTimeout(()=>show(p,b)); }); }
+    pages.forEach((p,i)=>{ const b=el('button'); b.innerHTML=ico('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>'); b.append(' '+p.title); b.onclick=()=>show(p,b); left.appendChild(b); if(!i) setTimeout(()=>show(p,b)); }); }
   function chatsView(box,chats){ if(!chats.length) return box.appendChild(el('div','empty','No shared AI chats yet.'));
     const g=el('div','cards'); chats.forEach((c)=>{ const k=el('div','k-card'); k.appendChild(el('b',null,c.title)); k.appendChild(el('div','k-muted k-small',(c.messages.length)+' messages · '+(c.byName||'')+' · '+ago(c.at)));
       k.onclick=()=>{ box.innerHTML=''; const bk=btn('← All chats',()=>{ box.innerHTML=''; chatsView(box,chats); },'sm'); box.appendChild(bk); box.appendChild(el('h2',null,c.title)).style.margin='16px 0 0'; chatView(box,c); window.scrollTo({top:0,behavior:'smooth'}); }; g.appendChild(k); });

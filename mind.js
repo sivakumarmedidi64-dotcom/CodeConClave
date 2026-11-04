@@ -14,6 +14,32 @@ const KIND_WORDS = { image: /\b(image|picture|photo|pic|drawing|painting|illustr
   game: /\bgames?\b/i, website: /\b(website|web ?site|web ?page|landing page|site|portfolio)s?\b/i, app: /\b(app|application|tool|calculator)s?\b/i, audio: /\b(audio|voice ?note|voice message|mp3|sound file|song)s?\b/i,
   doc: /\b(excel|sheet|spreadsheet|ppt|powerpoint|slides|presentation|word (doc|file)|document|pdf|resume|cv)s?\b/i };
 const ALL_KIND = new RegExp(Object.values(KIND_WORDS).map((r) => r.source).join('|'), 'gi');
+// "book a cab", "order biryani", "book a flight" with no app named: ask which one (the user picks, then it opens)
+const SERVICES = [
+  { want: /\b(book|get|call|need|order|find|arrange|want)\b[^.?!]{0,30}\b(cab|cabs|taxi|ride|auto|auto rickshaw|bike taxi)\b|\b(cab|taxi)\s+(to|from|for)\b/i,
+    named: /\b(uber|ola|rapido|namma yatri|blusmart|indrive|bluesmart)\b/i, q: 'Which app should I open for your ride?', apps: ['Uber', 'Ola', 'Rapido'] },
+  { want: /\b(order|get|deliver|send me|i want|hungry)\b[^.?!]{0,40}\b(food|biryani|pizza|burger|dinner|lunch|breakfast|meal|meals|dosa|idli|noodles|cake|shawarma|momos|ice cream|snacks|chicken|paneer)\b/i,
+    named: /\b(swiggy|zomato|eatsure|domino'?s|dominos|kfc|mcdonald'?s|pizza hut|burger king)\b/i, q: 'Where should I order from?', apps: ['Swiggy', 'Zomato'] },
+  { want: /\b(order|get|buy|deliver)\b[^.?!]{0,30}\b(groceries|grocery|vegetables|milk|fruits|essentials)\b/i,
+    named: /\b(instamart|blinkit|zepto|bigbasket|jiomart|amazon fresh|dmart)\b/i, q: 'Which app should I open for groceries?', apps: ['Blinkit', 'Zepto', 'Swiggy Instamart'] },
+  { want: /\b(book|buy|get|find|search)\b[^.?!]{0,30}\b(flight|flights|air ticket|air tickets|plane ticket|plane tickets)\b/i,
+    named: /\b(makemytrip|goibibo|cleartrip|ixigo|indigo|air india|akasa|spicejet|google flights|skyscanner)\b/i, q: 'Where should I look for flights?', apps: ['MakeMyTrip', 'Google Flights', 'ixigo'] },
+  { want: /\b(book|find|get)\b[^.?!]{0,30}\b(hotel|hotels|room|rooms|stay|homestay|resort)\b/i,
+    named: /\b(oyo|makemytrip|booking\.com|booking dot com|airbnb|agoda|goibibo|treebo|fabhotels)\b/i, q: 'Where should I look for a stay?', apps: ['OYO', 'Booking.com', 'Airbnb'] },
+  { want: /\b(book|buy|get)\b[^.?!]{0,30}\b(bus ticket|bus tickets|bus)\b/i,
+    named: /\b(redbus|abhibus|apsrtc|tsrtc|ksrtc|msrtc|zingbus)\b/i, q: 'Which app should I open for the bus?', apps: ['redBus', 'AbhiBus'] },
+];
+export function whichService(text) {
+  const t = String(text || '');
+  if (t.length > 220 || /^\s*\//.test(t)) return null;
+  for (const s of SERVICES) {
+    if (!s.want.test(t) || s.named.test(t)) continue;
+    const base = t.replace(/\s*[?.!]+\s*$/, '');
+    return { question: s.q, options: s.apps.map((a) => ({ label: a, send: `${base} on ${a}` })) };
+  }
+  return null;
+}
+
 export function kindOf(text) {
   for (const [k, re] of Object.entries(KIND_WORDS)) if (re.test(text)) return k;
   return null;
