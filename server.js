@@ -1800,26 +1800,37 @@ app.post('/api/credits/buy', wrap(async (req, res) => {
 }));
 
 // ---- API keys: use CodeConClave AI from your own code - OpenAI-style POST /v1/chat/completions ----
-// The key is shown once; we keep only its hash. API calls count like messages (limits, then credits).
+// A key is "SHA-" + 43 random letters/numbers (like every big API's keys - nothing personal inside). It is shown once;
+// we keep only its SHA-256 hash, plus a hash -> owner lookup. API calls count like messages (limits, then credits).
 const keyHashOf = (k) => crypto.createHash('sha256').update(String(k)).digest('hex');
 const keysOf = async (uid) => { const v = await store.getPref(uid, 'apiKeys').catch(() => null); return Array.isArray(v) ? v : []; };
 app.get('/api/keys', wrap(async (req, res) => { if (needUser(req, res)) return; res.json({ keys: (await keysOf(req.user.id)).map(({ hash, ...k }) => k) }); }));
 app.post('/api/keys', wrap(async (req, res) => {
   if (needUser(req, res)) return;
   const list = await keysOf(req.user.id); if (list.length >= 10) return res.status(400).json({ error: 'You can have up to 10 keys — delete one first.' });
-  const key = `cck_${req.user.id}_${crypto.randomBytes(24).toString('base64url')}`;
+  const key = `SHA-${crypto.randomBytes(32).toString('base64url')}`;
   const k = { id: crypto.randomBytes(5).toString('hex'), name: String(req.body?.name || 'My key').trim().slice(0, 40) || 'My key', prefix: `${key.slice(0, 10)}…${key.slice(-4)}`, hash: keyHashOf(key), created: Date.now(), lastUsed: 0 };
+  await store.addApiKey(k.hash, req.user.id);
   await store.putPref(req.user.id, 'apiKeys', [...list, k]);
   res.json({ key, id: k.id, name: k.name, prefix: k.prefix });
 }));
-app.delete('/api/keys/:id', wrap(async (req, res) => { if (needUser(req, res)) return; await store.putPref(req.user.id, 'apiKeys', (await keysOf(req.user.id)).filter((k) => k.id !== req.params.id)); res.json({ ok: true }); }));
+app.delete('/api/keys/:id', wrap(async (req, res) => {
+  if (needUser(req, res)) return;
+  const list = await keysOf(req.user.id), gone = list.find((k) => k.id === req.params.id);
+  if (gone) await store.removeApiKey(gone.hash);
+  await store.putPref(req.user.id, 'apiKeys', list.filter((k) => k.id !== req.params.id)); res.json({ ok: true });
+}));
 async function apiUser(req) {
-  const m = /^Bearer\s+(cck_(\w{1,40})_[\w-]{20,})\s*$/.exec(String(req.get('authorization') || ''));
-  if (!m || !store) return null;
-  const list = await keysOf(m[2]), h = keyHashOf(m[1]), k = list.find((x) => x.hash === h);
+  if (!store) return null;
+  const auth = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  let uid = null;
+  if (/^SHA-[\w-]{30,}$/.test(auth)) uid = await store.apiKeyOwner(keyHashOf(auth));
+  else { const old = /^cck_(\w{1,40})_[\w-]{20,}$/.exec(auth); if (old) uid = old[1]; }   // keys made before the SHA- format
+  if (!uid) return null;
+  const list = await keysOf(uid), h = keyHashOf(auth), k = list.find((x) => x.hash === h);
   if (!k) return null;
-  const u = await store.userById(m[2]); if (!u) return null;
-  if (Date.now() - (k.lastUsed || 0) > 60000) { k.lastUsed = Date.now(); store.putPref(m[2], 'apiKeys', list).catch(() => {}); }
+  const u = await store.userById(uid); if (!u) return null;
+  if (Date.now() - (k.lastUsed || 0) > 60000) { k.lastUsed = Date.now(); store.putPref(uid, 'apiKeys', list).catch(() => {}); }
   return u;
 }
 app.get('/v1/models', wrap(async (req, res) => { if (!(await apiUser(req))) return res.status(401).json({ error: { message: 'Invalid API key.' } }); res.json({ object: 'list', data: [{ id: 'codeconclave-1', object: 'model', owned_by: 'codeconclave' }] }); }));

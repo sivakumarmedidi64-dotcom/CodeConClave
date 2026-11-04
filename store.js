@@ -116,6 +116,10 @@ async function pgTables(pool) {
       role text not null default 'member',
       joined bigint not null,
       primary key (space_id, user_id));
+    create table if not exists api_keys (
+      hash text primary key,
+      user_id bigint not null references users(id) on delete cascade,
+      created bigint not null);
     create table if not exists space_invites (
       token_hash text primary key,
       space_id text not null references spaces(id) on delete cascade,
@@ -210,6 +214,9 @@ async function pgTables(pool) {
     async removeMember(spaceId, userId) { await q('delete from space_members where space_id = $1 and user_id = $2', [spaceId, userId]); },
     async listMembers(spaceId) { return (await q('select u.id, u.email, u.name, m.role, m.joined from space_members m join users u on u.id = m.user_id where m.space_id = $1 order by m.joined', [spaceId])).rows.map((r) => ({ id: String(r.id), email: r.email, name: r.name, role: r.role, joined: Number(r.joined) })); },
     async createInvite(hash, spaceId, role, expires, by) { await q('insert into space_invites values ($1,$2,$3,$4,$5)', [hash, spaceId, role, expires, by]); },
+    async addApiKey(hash, userId) { await q('insert into api_keys values ($1,$2,$3) on conflict (hash) do nothing', [hash, userId, Date.now()]); },
+    async apiKeyOwner(hash) { const r = await one('select user_id from api_keys where hash = $1', [hash]); return r ? String(r.user_id) : null; },
+    async removeApiKey(hash) { await q('delete from api_keys where hash = $1', [hash]); },
     async getInvite(hash) { const r = await one('select * from space_invites where token_hash = $1', [hash]); return r && { spaceId: r.space_id, role: r.role, expires: Number(r.expires) }; },
     async putItem(spaceId, kind, id, data, authorId) { await q('insert into space_items values ($1,$2,$3,$4,$5,$6) on conflict (space_id, kind, id) do update set data = excluded.data, updated = excluded.updated', [spaceId, kind, id, JSON.stringify(data), authorId || null, Date.now()]); },
     async getItem(spaceId, kind, id) { const r = await one('select * from space_items where space_id = $1 and kind = $2 and id = $3', [spaceId, kind, id]); return r && itemOut(r); },
@@ -224,7 +231,7 @@ async function pgTables(pool) {
 function fileStore(dir) {
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, 'db.json');
-  let db = { nextId: 1, users: [], sessions: [], chats: [], memories: {}, secrets: [], automations: [], prefs: {}, spaces: [], members: [], invites: [], items: [] };
+  let db = { nextId: 1, users: [], sessions: [], chats: [], memories: {}, secrets: [], automations: [], prefs: {}, spaces: [], members: [], invites: [], items: [], apiKeys: [] };
   try { db = { ...db, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { /* first run */ }
   // Windows can refuse the rename while another program (antivirus, search indexer) holds the file - then write it directly
   const save = () => { const text = JSON.stringify(db); fs.writeFileSync(file + '.tmp', text); try { fs.renameSync(file + '.tmp', file); } catch { fs.writeFileSync(file, text); } };
@@ -309,6 +316,9 @@ function fileStore(dir) {
     async removeMember(spaceId, userId) { db.members = db.members.filter((x) => !(x.spaceId === spaceId && x.userId === uid(userId))); save(); },
     async listMembers(spaceId) { return db.members.filter((m) => m.spaceId === spaceId).map((m) => { const u = db.users.find((y) => uid(y.id) === m.userId) || {}; return { id: m.userId, email: u.email, name: u.name, role: m.role, joined: m.joined }; }); },
     async createInvite(hash, spaceId, role, expires, by) { db.invites.push({ hash, spaceId, role, expires, by: uid(by) }); save(); },
+    async addApiKey(hash, userId) { db.apiKeys = db.apiKeys || []; if (!db.apiKeys.some((k) => k.hash === hash)) db.apiKeys.push({ hash, userId: uid(userId), created: Date.now() }); save(); },
+    async apiKeyOwner(hash) { return (db.apiKeys || []).find((k) => k.hash === hash)?.userId || null; },
+    async removeApiKey(hash) { db.apiKeys = (db.apiKeys || []).filter((k) => k.hash !== hash); save(); },
     async getInvite(hash) { const r = db.invites.find((x) => x.hash === hash); return r && { spaceId: r.spaceId, role: r.role, expires: r.expires }; },
     async putItem(spaceId, kind, id, data, authorId) { const x = db.items.find((y) => y.spaceId === spaceId && y.kind === kind && y.id === id); if (x) { x.data = data; x.updated = Date.now(); } else db.items.push({ spaceId, kind, id, data, authorId: authorId ? uid(authorId) : null, updated: Date.now() }); save(); },
     async getItem(spaceId, kind, id) { return itemOut(db.items.find((y) => y.spaceId === spaceId && y.kind === kind && y.id === id)); },
