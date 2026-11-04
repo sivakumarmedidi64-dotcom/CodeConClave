@@ -36,8 +36,8 @@ app.use(express.json({ limit: '8mb' }));
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 const page = (file) => (_req, res) => res.sendFile(path.join(__dirname, 'public', file));
 app.get('/', (req, res, next) => (req.query.join ? res.redirect(`/team?join=${encodeURIComponent(String(req.query.join))}`) : page('home.html')(req, res, next)));
-app.get(['/solo', '/chat', '/team'], page('index.html')); // /team = the same AI app with the team's things added (public/team.js)
-app.get(['/org', '/organization'], page('workspace.html'));
+// /team and /org = the same AI app with the team's / company's things added (public/team.js)
+app.get(['/solo', '/chat', '/team', '/org', '/organization'], page('index.html'));
 app.get('/s/:token', page('share.html')); // a share-space link (private or public)
 app.get('/remote', page('remote.html')); // Remote: your phone talks to CodeConClave on your laptop
 app.get('/customize', page('customize.html'));
@@ -893,7 +893,7 @@ async function chatHandler(req, res) {
       const recall = typeof req.body?.recall === 'string' ? req.body.recall.slice(0, 1500).trim() : '';
       if (recall) content = `[From the user's earlier chats - use only if it helps answer:\n${recall}]\n\n${content}`;
       // on /team: the parts of the team brain that match the question, right where the model reads it
-      if (team?.notes) content = `[From the team brain of "${team.name}" - the team's own notes. If they answer the question, answer from them and say it is from the team brain:\n${team.notes}]\n\n${content}`;
+      if (team?.notes) content = `[From the ${team.brain} of "${team.name}" - their own notes. If they answer the question, answer from them and say it is from the ${team.brain}:\n${team.notes}]\n\n${content}`;
       messages[i] = { role: 'user', content };
       break;
     }

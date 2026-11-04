@@ -555,6 +555,65 @@
   .runout{margin:0;padding:10px 14px;border-top:1px solid #2c2c2c;background:#0f0f0f;color:#b9f6ca;font:12.5px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;max-height:260px;overflow:auto}
   .windybox{margin:10px 0 4px;max-width:720px}.windybox b{display:block;font-size:13px;color:#b3b3b3;margin-bottom:6px;font-weight:500}
   .windybox iframe{display:block;width:100%;height:380px;border:0;border-radius:12px;background:#111}
+
+  /* restored: the Automations page, its Create menu, calendar, trigger cards, mood chip, save bar (lost in an earlier update) */
+  @keyframes lvspin{to{transform:rotate(360deg)}}
+  @keyframes lvpulse{50%{transform:scale(1.05)}}
+  /* automations page */
+  .autohead h1{flex:1}
+  .autotabs{padding-left:22px;border-bottom:1px solid #2c2c2c;margin:0 22px 0 22px;padding-left:0}
+  .autotabs button{border-radius:0;padding:10px 4px;margin-right:22px;border-bottom:2px solid transparent}.autotabs button.on{background:none;border-bottom-color:#e6e6e6}
+  .autobody{max-width:1100px;padding-top:18px}
+  .ddwrap{position:relative}
+  .ddmenu{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:5;min-width:220px;background:#2a2a2a;border:1px solid #363636;border-radius:12px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+  .ddmenu.right{left:auto;right:0}.ddmenu.open{display:block}
+  .dditem{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:#e6e6e6;font:inherit;font-size:14.5px;padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left}
+  .dditem:hover{background:#333}.dditem .ico{width:17px;height:17px;color:#b3b3b3}.dditem i{font-style:normal;font-size:11px;color:#b3b3b3;background:#3a3a3a;border-radius:6px;padding:1px 6px;margin-left:4px}
+  .ddcheck{margin-left:auto;color:#e6e6e6}
+  .ddmenu{min-width:250px}.dditem{white-space:nowrap}
+  .createbtn{display:flex;align-items:center;gap:6px;height:38px;padding:0 14px;border:1px solid #363636;background:none;color:#e6e6e6;border-radius:10px;font:inherit;font-size:14.5px;cursor:pointer}
+  .createbtn:hover{background:#242424}.createbtn .ico{width:16px;height:16px}
+  .libicon.on{color:#1a93fe;border-color:#1a93fe}
+  .autoempty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:110px 10px;color:#8c8c8c;text-align:center}
+  .autoempty .ico{width:34px;height:34px;color:#8c8c8c}.autoempty div{color:#b3b3b3;font-size:15px}.autoempty span{font-size:13px}
+  .autorowx{display:flex;align-items:center;gap:14px;width:100%;background:#232323;border:none;border-radius:12px;padding:12px 16px;margin-bottom:8px;color:#e6e6e6;font:inherit;text-align:left;cursor:pointer}
+  .autorowx:hover{background:#282828}.autorowx .tic{width:34px;height:34px;flex:0 0 auto;border-radius:9px;background:#2c2c2c;display:flex;align-items:center;justify-content:center;color:#b3b3b3}
+  .autorowx .tt{flex:1;min-width:0}.autorowx b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.autorowx span{color:#8c8c8c;font-size:13px}
+  .autonote{color:#8c8c8c;font-size:14px;margin:10px 2px}.linkbtn{border:none;background:none;color:#5cb3ff;font:inherit;cursor:pointer;padding:0}
+  .autoh3{font-weight:500;margin:0 0 18px}
+  .calhead{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px}.calhead b{font-size:18px}
+  .calnav{display:flex;align-items:center;gap:6px}.calnav .railbtn{font-size:20px}
+  .calToday{border:none;background:none;color:#e6e6e6;font:inherit;font-weight:600;cursor:pointer;padding:4px 10px;border-radius:8px}.calToday:hover{background:#2a2a2a}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid #2c2c2c;border-left:1px solid #2c2c2c}
+  .caldow{text-align:center;color:#8c8c8c;font-size:13px;padding:8px 0;border-right:1px solid transparent}
+  .calcell{min-height:104px;border-right:1px solid #2c2c2c;border-bottom:1px solid #2c2c2c;padding:8px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
+  .calcell.other .caln{color:#8c8c8c}
+  .caln{align-self:flex-end;font-weight:600;font-size:14px;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+  .caln.today{background:#e6e6e6;color:#1a1a1a}
+  .calev{font-size:11.5px;background:#1a93fe26;color:#9ccdff;border-radius:6px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .calev.trigger{background:#f2c20026;color:#f2d36b}
+  .autonew{max-width:560px;background:#242424;border:1px solid #353535;border-radius:20px;padding:22px}
+  .anhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .anhead h2{margin:0;font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:30px;color:#f3f3f3}
+  .anhead .bx{border:none;background:none;color:#8c8c8c;cursor:pointer}.anhead .bx .ico{width:20px;height:20px}
+  .beta{font-style:normal;font-family:var(--sans);font-size:12px;color:#b3b3b3;background:#333;border-radius:6px;padding:2px 7px;vertical-align:middle}
+  .ancard{display:flex;flex-direction:column;gap:8px}
+  .anlbl{font-weight:600;font-size:14.5px;margin-top:6px}
+  .anrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid #353535;border-radius:12px;padding:10px 12px}
+  .anrow .ico{width:18px;height:18px;color:#b3b3b3}
+  .anrow select,.anrow input{background:#2e2e2e;border:none;color:#e6e6e6;border-radius:8px;padding:7px 10px;font:inherit;font-size:14px}
+  .antext,.aninput{width:100%;background:#1e1e1e;border:1px solid #353535;border-radius:12px;color:#e6e6e6;font:inherit;font-size:14.5px;padding:11px 12px;resize:vertical}
+  .antext.big{min-height:120px}.antext:focus,.aninput:focus{outline:none;border-color:#4a4a4a}
+  .anact{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:14px}.anact .autherr{flex:1;margin:0}
+  .trgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:340px;overflow:auto}
+  .trcard{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:#202020;border:1px solid #353535;border-radius:12px;padding:12px;color:#e6e6e6;font:inherit;text-align:left;cursor:pointer}
+  .trcard:hover{background:#2a2a2a}.trcard.on{border-color:#1a93fe;background:#1a93fe14}.trcard .ico{width:20px;height:20px}
+  .trcard b{font-weight:500;font-size:14.5px}.trcard span{color:#8c8c8c;font-size:12.5px}
+  .trform{display:flex;flex-direction:column;gap:8px}.annote{color:#b3b3b3;font-size:14px;line-height:1.5}
+  @media(max-width:720px){ .trgrid{grid-template-columns:1fr} .calcell{min-height:64px;padding:4px} .calev{display:none} .autohead{flex-wrap:wrap} }
+  .moodchip{display:inline-block;margin-left:8px;font-size:11.5px;color:#d9c27a;background:#2a2615;border:1px solid #3a3420;border-radius:999px;padding:1px 8px;vertical-align:1px;text-transform:none;letter-spacing:0}
+  .savebar{display:flex;gap:8px;padding:8px 10px;border-top:1px solid #2c2c2c;background:#161616}.savebar .aninput{padding:7px 10px;font-size:13px}
+  .cbhead button+button{margin-left:6px}
 </style>
 </head>
 <body>
@@ -920,7 +979,7 @@ Output plain text only. No code blocks. No nested bullets.</textarea></div></div
     // its own day, in its own words
     const inner=el('div','homeinner'); h.appendChild(inner);
     fetch('/api/inner').then(r=>r.json()).then(d=>{ if(d?.mood) { inner.innerHTML=uiIco('thought'); inner.append(' Today I feel '+d.mood+' — I’ve been thinking about '+d.thought+'.'); } }).catch(()=>{});
-    const card=(color,icon,title,sub,go)=>{ const b=el('button','hcard'); b.innerHTML=`<svg class="hico" style="color:#d6d6d6" data-c="${color}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg><b></b><span></span>`;
+    const card=(color,icon,title,sub,go)=>{ const b=el('button','hcard'); b.innerHTML=`<svg class="hico" style="color:${color}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg><b></b><span></span>`;
       b.querySelector('b').append(title); b.querySelector('b').insertAdjacentHTML('beforeend',CHEV); b.querySelector('span').textContent=sub; b.onclick=go; return b; };
     h.append(
       card('#1c7dd2','<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>','Work in a folder','Read, edit and save files on your computer — right from here',()=>openFolder()),

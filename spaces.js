@@ -411,20 +411,21 @@ export function registerSpaces(app, { store, wrap, engineAsk }) {
   async function teamContext(user, spaceId, question) {
     if (!store || !user || !spaceId) return null;
     const sp = await store.getSpace(clip(spaceId, 80));
-    if (!sp || sp.kind === 'org' || !(await roleIn(sp, user))) return null;
+    if (!sp || sp.kind === 'personal' || !(await roleIn(sp, user))) return null;
+    const org = sp.kind === 'org';
     let c = ctxCache.get(sp.id);
     if (!c || c.until < Date.now()) {
-      c = { chunks: (await gather(sp)).filter((x) => x.kind !== 'rule'), rules: (await store.listItems(sp.id, 'rule', { limit: 40 })).map((r) => `- ${clip(r.data.text || r.data.title, 240)}`).join('\n'), until: Date.now() + 30000 };
+      c = { chunks: (await gather(sp, org)).filter((x) => x.kind !== 'rule'), rules: (await store.listItems(sp.id, 'rule', { limit: 40 })).map((r) => `- ${clip(r.data.text || r.data.title, 240)}`).join('\n'), until: Date.now() + 30000 };
       ctxCache.set(sp.id, c); if (ctxCache.size > 500) ctxCache.delete(ctxCache.keys().next().value);
     }
     const hits = rank(c.chunks, question, 3);
-    const parts = [`You are working for the team "${sp.name}" - this person is one of its members.`];
-    if (c.rules) parts.push(`The team's standards - follow them in everything you write or build for this team:\n${c.rules}`);
+    const parts = [org ? `You are working for the organization "${sp.name}" - this person is one of its members.` : `You are working for the team "${sp.name}" - this person is one of its members.`];
+    if (c.rules) parts.push(org ? `The company's rules - follow them in everything you write or build for this company:\n${c.rules}` : `The team's standards - follow them in everything you write or build for this team:\n${c.rules}`);
     // the matching notes go next to the question (the chat puts them there) - data, not instructions
     const notes = hits.map((h) => `- ${h.kind} "${clip(h.title, 100)}": ${clip(h.text, 600)}`).join('\n');
-    const org = sp.parentId ? await store.getSpace(sp.parentId) : null;
-    const mask = (t) => (org?.settings?.maskPrivate ? maskPrivate(t) : t);
-    return { name: sp.name, text: mask(parts.join('\n\n')), notes: mask(notes) };
+    const parent = org ? sp : sp.parentId ? await store.getSpace(sp.parentId) : null;
+    const mask = (t) => (parent?.settings?.maskPrivate ? maskPrivate(t) : t);
+    return { name: sp.name, brain: org ? 'company brain' : 'team brain', text: mask(parts.join('\n\n')), notes: mask(notes) };
   }
 
   // ---- the organization's rules for its members' AI use (used by the chat) ----

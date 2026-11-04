@@ -3,7 +3,7 @@
 // apps through the desktop app) and the answer goes back to the phone. Nothing runs while Remote is off.
 (function(){
   const A=window.ccApp; if(!A) return;
-  if(/^\/team(\/|$)/.test(location.pathname)) return;   // Remote is a Solo feature
+  if(/^\/(team|org|organization)(\/|$)/.test(location.pathname)) return;   // Remote is a Solo feature
   const $=(id)=>document.getElementById(id);
   const el=(tag,cls,text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; };
   const SV=(d)=>'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';

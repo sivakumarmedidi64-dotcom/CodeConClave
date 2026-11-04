@@ -1,11 +1,16 @@
-// CodeConClave Team (/team): the whole CodeConClave AI app - chat, voice and Live, pictures, videos, games, Automations,
-// Plugins, Skills, Library, Creations - plus the team's own things in the same sidebar: a team chat with @CodeConClave,
-// tasks, pages, the team brain, standards, meetings, shared AI chats, members (up to 20) and share-space links.
-// Your own AI chats here follow the team's standards and know its brain (the server adds them, for members only).
+// CodeConClave Team (/team) and Organization (/org): the whole CodeConClave AI app - chat, voice and Live, pictures,
+// videos, games, Automations, Plugins, Skills, Library, Creations - plus, in the same sidebar:
+//   Team: a team chat with @CodeConClave, tasks, pages, the team brain, standards, meetings, shared AI chats,
+//         members (up to 20) and share-space links.
+//   Organization: the company console - overview, teamspaces, members, AI policies, company brain, company rules,
+//         approvals, audit log and data. (Remote is only in Solo.)
+// Your own AI chats here follow the team's / company's rules and know its brain (the server adds them, members only).
 (function(){
-  if(!/^\/team(\/|$)/.test(location.pathname)) return;
+  const ORG=/^\/(org|organization)(\/|$)/.test(location.pathname);
+  if(!ORG && !/^\/team(\/|$)/.test(location.pathname)) return;
   const A=window.ccApp; if(!A) return;
-  document.title='CodeConClave Team';
+  const K=ORG?{name:'Organization',word:'organization',hub:'Company console',key:'org',path:'/org',brain:'company brain'}:{name:'Team',word:'team',hub:'Team space',key:'team',path:'/team',brain:'team brain'};
+  document.title='CodeConClave '+K.name;
   const $=(id)=>document.getElementById(id);
   const el=(tag,cls,text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; };
   const SV=(d)=>'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';
@@ -27,6 +32,9 @@
     arrow:'<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>', send:'<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>',
     org:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3"/><path d="M3 12h18"/><path d="M10 12v3h4v-3"/>',
     back:'<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
+    chart:'<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>', spaces:'<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>',
+    log:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>', data:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+    policy:'<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>', x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', dl:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
     spark:'<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>',
     clip:'<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6"/><path d="M9 16h4"/>',
     rocket:'<path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2"/><path d="M9 15l-3-3c1.5-4.5 6-9 13-9 0 7-4.5 11.5-9 13z"/><circle cx="14.5" cy="9.5" r="1.5"/>',
@@ -116,6 +124,17 @@
   .tm-modal .tm-log{max-height:56vh;border:1px solid #2a2a2a;border-radius:12px;padding:8px;margin-top:12px}
   .tm-opt{display:flex;gap:10px;align-items:flex-start;padding:9px 2px;cursor:pointer;font-size:14.5px}.tm-opt input{margin-top:3px;accent-color:#e6e6e6}
   .tm-clip{color:#bdbdbd;font-size:13px;margin-top:8px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .tm-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+  .tm-stat{background:#1f1f1f;border:1px solid #2a2a2a;border-radius:14px;padding:16px}.tm-stat b{display:block;font-size:28px;letter-spacing:-.02em}.tm-stat span{color:var(--dim);font-size:13px}
+  .tm-kv{display:flex;justify-content:space-between;gap:10px;margin:8px 0;font-size:14px}.tm-kv span{color:#cfcfcf;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tm-cardhead{display:flex;align-items:center;gap:10px}.tm-cardhead b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tm-checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0 12px}
+  .tm-state{display:inline-flex;align-items:center;gap:5px;font-size:12px;border-radius:999px;padding:3px 10px;background:#2c2c2c;color:#cfcfcf}.tm-state .ico{width:13px;height:13px}
+  .tm-state.approved{background:rgba(95,211,141,.14);color:#8fe0b0}.tm-state.rejected{background:rgba(229,83,75,.14);color:#ff9a92}.tm-state.waiting{background:rgba(242,194,0,.12);color:#f2d36b}
+  .tm-tablewrap{overflow-x:auto;margin-top:14px;border:1px solid #2a2a2a;border-radius:12px}
+  .tm-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:620px}.tm-table td,.tm-table th{border-bottom:1px solid #262626;padding:9px 10px;text-align:left;vertical-align:top}.tm-table th{color:var(--dim);font-weight:500;background:#1c1c1c}
+  .tm-linkbtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none}.tm-linkbtn .ico{width:15px;height:15px}
+  .tm-danger{border-color:#5a2020!important}
   @media(max-width:720px){ .tm-kan,.tm-pages,.tm-feat{grid-template-columns:1fr} .tm-topshare span{display:none} .tm-topshare{padding:0 8px!important}
     .tm-pill span{max-width:84px} .tm-chat{height:calc(100vh - 250px)} .tm-seg button{min-width:0}
     .tm-page .pagehead{flex-wrap:wrap}.tm-page .pagehead h1{min-width:0;font-size:19px}.tm-page .tm-acts{width:100%;order:3}.tm-h1sub{display:inline;margin-left:6px}
@@ -125,14 +144,14 @@
 
   // ---------- state ----------
   let me=null, space=null, data=null, list=[], poll=null, unreadT=null, mode=null, lastMe, booted=false;
-  let tab=store('cc_team_tab')||'Chat', joinTok=new URLSearchParams(location.search).get('join');
+  let tab=store('cc_'+K.key+'_tab')||(ORG?'Overview':'Chat'), joinTok=new URLSearchParams(location.search).get('join');
   const isAdmin=()=>['owner','admin'].includes(data?.myRole);
   const canWrite=()=>Boolean(data)&&data.myRole!=='guest';
   const myName=()=>me?.name||me?.email||'';
   const items=async(kind,since)=>(await api('/api/spaces/'+space.id+'/items/'+kind+(since?'?since='+since:''))).items;
   const putItem=(kind,id,d)=>api('/api/spaces/'+space.id+'/items/'+kind+'/'+encodeURIComponent(id),{method:'PUT',body:{data:d}});
   const delItem=(kind,id)=>api('/api/spaces/'+space.id+'/items/'+kind+'/'+encodeURIComponent(id),{method:'DELETE'});
-  // every AI chat you send from /team carries the team id: the server adds the team's standards + brain (members only)
+  // every AI chat you send from /team or /org carries the space id: the server adds its rules + brain (members only)
   window.ccChatExtra=()=>me&&space?{space:space.id}:{};
 
   // ---------- small boxes: a question, a yes/no ----------
@@ -151,21 +170,21 @@
     if(badge){ const s=el('span','tm-badge'); s.id='tmBadge'; s.hidden=true; b.appendChild(s); } b.onclick=fn; side.appendChild(b); return b; }
   const seatsText=()=>{ const n=data?.members?.length||0; return data?.seats?n+' of '+data.seats+' people':n+' member'+(n===1?'':'s'); };
   function drawSide(){
-    side.innerHTML=''; side.appendChild(el('div','raillbl','Team'));
-    if(!me){ link('Sign in to use Team',I.team,welcome,'tmHub'); return; }
-    if(!space){ link('Create or join a team',I.plus,firstRun,'tmHub'); return; }
-    const sw=el('button','tm-switch'); sw.title='Switch team'; sw.appendChild(avatar(space.name)); const nm=el('div','nm'); nm.appendChild(el('b',null,space.name)); nm.appendChild(el('span',null,seatsText()+' · '+(data?.myRole||'member'))); sw.appendChild(nm); sw.insertAdjacentHTML('beforeend',SV(I.down));
+    side.innerHTML=''; side.appendChild(el('div','raillbl',K.name));
+    if(!me){ link('Sign in to use '+K.name,ORG?I.org:I.team,welcome,'tmHub'); return; }
+    if(!space){ link(ORG?'Set up your organization':'Create or join a team',I.plus,firstRun,'tmHub'); return; }
+    const sw=el('button','tm-switch'); sw.title='Switch '+K.word; sw.appendChild(avatar(space.name)); const nm=el('div','nm'); nm.appendChild(el('b',null,space.name)); nm.appendChild(el('span',null,seatsText()+' · '+(data?.myRole||'member'))); sw.appendChild(nm); sw.insertAdjacentHTML('beforeend',SV(I.down));
     sw.onclick=(e)=>{ e.stopPropagation(); switcher(sw); }; side.appendChild(sw);
-    link('Team space',I.team,()=>hub(),'tmHub',true);
-    link('Share space',I.share,shares,'tmShare');
+    if(ORG){ link('Company console',I.org,()=>hub(),'tmHub'); link('Teamspaces',I.spaces,()=>hub('Teamspaces'),'tmSpaces'); }
+    else { link('Team space',I.team,()=>hub(),'tmHub',true); link('Share space',I.share,shares,'tmShare'); }
     if(isAdmin()) link('Invite people',I.invite,invite,'tmInvite');
   }
   // the top bar: which team you are in + Share (this chat -> the team)
   const titleEl=document.querySelector('.top__title'), panelBtn=$('panelBtn');
-  const pill=el('button','tm-pill'); pill.title='Open your team space'; pill.hidden=true; pill.onclick=()=>hub(); if(titleEl) titleEl.after(pill);
+  const pill=el('button','tm-pill'); pill.title='Open your '+K.hub.toLowerCase(); pill.hidden=true; pill.onclick=()=>hub(); if(titleEl) titleEl.after(pill);
   const shareTop=el('button','railbtn tm-topshare'); shareTop.title='Share this chat with your team'; shareTop.innerHTML=SV(I.share)+'<span>Share</span>'; shareTop.hidden=true; shareTop.onclick=()=>shareChat();
   if(panelBtn) panelBtn.before(shareTop);
-  function drawTop(){ const on=Boolean(me&&space); pill.hidden=!on; shareTop.hidden=!on; if(panelBtn) panelBtn.style.marginLeft=on?'4px':'';
+  function drawTop(){ const on=Boolean(me&&space); pill.hidden=!on; shareTop.hidden=!on||ORG; if(panelBtn) panelBtn.style.marginLeft=on&&!ORG?'4px':'';
     if(on){ pill.innerHTML=''; pill.appendChild(avatar(space.name,true)); pill.appendChild(el('span',null,space.name)); } }
 
   // ---------- one page for everything Team (opens in the main area, like Library or Automations) ----------
@@ -180,39 +199,42 @@
   async function boot(){
     me=A.me||null;
     if(!me){ space=null; data=null; list=[]; clearInterval(unreadT); drawSide(); drawTop(); welcome(); return; }
-    let show=mode==='welcome'?'Chat':null;
-    if(joinTok){ const t=joinTok; joinTok=null; history.replaceState(null,'','/team');
-      try{ const d=await api('/api/join',{method:'POST',body:{token:t}}); if(d.space.kind==='org') return location.replace('/org?space='+encodeURIComponent(d.space.id));
-        store('cc_team_cur',d.space.id); toast('Welcome to '+d.space.name+' 🎉'); show='Chat'; }catch(e){ toast(e.message); } }
-    const q=new URLSearchParams(location.search); if(q.get('space')){ store('cc_team_cur',q.get('space')); history.replaceState(null,'','/team'); show=show||'Chat'; }
-    await openSpace(store('cc_team_cur'),show);
+    const FIRST=ORG?'Overview':'Chat'; let show=mode==='welcome'?FIRST:null;
+    if(joinTok){ const t=joinTok; joinTok=null; history.replaceState(null,'',K.path);
+      try{ const d=await api('/api/join',{method:'POST',body:{token:t}});
+        if(d.space.kind==='org'&&!ORG) return location.replace('/org?space='+encodeURIComponent(d.space.id));
+        if(d.space.kind!=='org'&&ORG) return location.replace('/team?space='+encodeURIComponent(d.space.id));
+        store('cc_'+K.key+'_cur',d.space.id); toast('Welcome to '+d.space.name+' 🎉'); show=FIRST; }catch(e){ toast(e.message); } }
+    const q=new URLSearchParams(location.search); if(q.get('space')){ store('cc_'+K.key+'_cur',q.get('space')); history.replaceState(null,'',K.path); show=show||FIRST; }
+    await openSpace(store('cc_'+K.key+'_cur'),show);
   }
   async function openSpace(id,show){
-    try{ list=(await api('/api/spaces')).spaces.filter(s=>s.kind==='team'||s.kind==='teamspace'); }catch(e){ toast(e.message); list=[]; }
+    try{ list=(await api('/api/spaces')).spaces.filter(s=>ORG?s.kind==='org':s.kind==='team'||s.kind==='teamspace'); }catch(e){ toast(e.message); list=[]; }
     if(!list.length){ space=null; data=null; clearInterval(unreadT); drawSide(); drawTop(); if(show||mode) firstRun(); return; }
-    space=list.find(s=>s.id===id)||list[0]; store('cc_team_cur',space.id);
+    space=list.find(s=>s.id===id)||list[0]; store('cc_'+K.key+'_cur',space.id);
     try{ data=await api('/api/spaces/'+space.id); space=data.space; }catch(e){ toast(e.message); data={space,myRole:'guest',members:[],seats:null}; }
-    drawSide(); drawTop(); startUnread(); if(show) hub(show); else if(mode==='firstRun') hub('Members');
+    drawSide(); drawTop(); if(!ORG) startUnread(); if(show) hub(show); else if(mode==='firstRun') hub(ORG&&isAdmin()?'Teamspaces':'Members');
   }
   const onMe=()=>{ const id=A.me?A.me.id:null; if(booted&&same(id,lastMe)) return; if(booted&&id==null&&lastMe==null) return; booted=true; lastMe=id; boot(); };
   window.addEventListener('cc-me',onMe); if(A.loaded) onMe();
 
   function welcome(){
-    const b=open('CodeConClave Team','tmHub','welcome'), w=el('div','tm-welcome');
-    w.innerHTML='<img src="/logo.png" alt="CodeConClave">'; w.appendChild(el('h2',null,joinTok?'You’re invited to a team':'CodeConClave Team'));
-    w.appendChild(el('div','tm-muted',joinTok?'Create your free account or sign in — you’ll join the team right away.':'Everything in CodeConClave AI, together. Your AI works for the whole team, and your team works in one place.'));
-    const f=el('div','tm-feat'); [[I.spark,'The whole AI — chat, voice and Live'],[I.share,'Pictures, videos, games and websites'],[I.tasks,'Automations, Plugins and Skills'],[I.chat,'Team chat with @CodeConClave'],[I.page,'Tasks, pages and meeting notes'],[I.brain,'Team brain + standards the AI follows'],[I.people,'Up to 20 people, invite by link'],[I.link,'Share space: private or public links']]
+    const b=open('CodeConClave '+K.name,'tmHub','welcome'), w=el('div','tm-welcome');
+    w.innerHTML='<img src="/logo.png" alt="CodeConClave">'; w.appendChild(el('h2',null,joinTok?'You’re invited to '+(ORG?'an organization':'a team'):'CodeConClave '+K.name));
+    w.appendChild(el('div','tm-muted',joinTok?'Create your free account or sign in — you’ll join right away.':ORG?'Everything in CodeConClave AI for your whole company — with teamspaces, AI policies, approvals and an audit log.':'Everything in CodeConClave AI, together. Your AI works for the whole team, and your team works in one place.'));
+    const f=el('div','tm-feat'); (ORG?[[I.spark,'The whole AI — chat, voice and Live'],[I.share,'Pictures, videos, games and websites'],[I.tasks,'Automations, Plugins and Skills'],[I.spaces,'A teamspace for every department'],[I.policy,'AI policies: tools on/off, protected files'],[I.brain,'Company brain + rules the AI follows'],[I.check,'Approvals for big or risky things'],[I.log,'Audit log, CSV and data export']]
+      :[[I.spark,'The whole AI — chat, voice and Live'],[I.share,'Pictures, videos, games and websites'],[I.tasks,'Automations, Plugins and Skills'],[I.chat,'Team chat with @CodeConClave'],[I.page,'Tasks, pages and meeting notes'],[I.brain,'Team brain + standards the AI follows'],[I.people,'Up to 20 people, invite by link'],[I.link,'Share space: private or public links']])
       .forEach(([ic,t])=>{ const d=el('div'); d.innerHTML=SV(ic); d.append(t); f.appendChild(d); }); w.appendChild(f);
     const r=el('div','tm-right'); r.append(btn('Create free account',()=>A.signIn(true),'msend'),btn('Sign in',()=>A.signIn(false))); w.appendChild(r);
     const bk=el('div','tm-muted tm-small'); bk.style.marginTop='20px'; bk.innerHTML='<a href="/?home=1" style="color:inherit">← All plans</a>'; w.appendChild(bk); b.appendChild(w);
   }
   function firstRun(){
-    const b=open('Your team','tmHub','firstRun'), w=el('div','tm-welcome');
-    w.innerHTML='<img src="/logo.png" alt="CodeConClave">'; w.appendChild(el('h2',null,'Create your team'));
-    w.appendChild(el('div','tm-muted','Give it a name, then invite up to 20 people with a link. Everything in CodeConClave AI works here too.'));
-    const c=el('div','tm-card'), inp=el('input','tm-in'); inp.placeholder='Team name, e.g. Product team'; inp.maxLength=80;
-    const go=btn('Create team',async()=>{ const n=inp.value.trim(); if(!n) return toast('Type a name first.'); go.disabled=true;
-      try{ const d=await api('/api/spaces',{method:'POST',body:{kind:'team',name:n}}); await api('/api/me/plan',{method:'POST',body:{plan:'team'}}).catch(()=>{}); await openSpace(d.space.id,'Members'); toast(n+' is ready — invite your team 🎉'); }catch(e){ toast(e.message); go.disabled=false; } },'msend');
+    const b=open(ORG?'Your organization':'Your team','tmHub','firstRun'), w=el('div','tm-welcome');
+    w.innerHTML='<img src="/logo.png" alt="CodeConClave">'; w.appendChild(el('h2',null,ORG?'Set up your organization':'Create your team'));
+    w.appendChild(el('div','tm-muted',ORG?'Give it your company’s name. Then add teamspaces, invite people and set your AI policies. Everything in CodeConClave AI works here too.':'Give it a name, then invite up to 20 people with a link. Everything in CodeConClave AI works here too.'));
+    const c=el('div','tm-card'), inp=el('input','tm-in'); inp.placeholder=ORG?'Company name, e.g. Sweet Spot Pvt Ltd':'Team name, e.g. Product team'; inp.maxLength=80;
+    const go=btn(ORG?'Create organization':'Create team',async()=>{ const n=inp.value.trim(); if(!n) return toast('Type a name first.'); go.disabled=true;
+      try{ const d=await api('/api/spaces',{method:'POST',body:{kind:K.key,name:n}}); await api('/api/me/plan',{method:'POST',body:{plan:K.key}}).catch(()=>{}); await openSpace(d.space.id,ORG?'Teamspaces':'Members'); toast(n+' is ready 🎉'); }catch(e){ toast(e.message); go.disabled=false; } },'msend');
     go.style.cssText='width:100%;margin-top:10px'; inp.onkeydown=(e)=>{ if(e.key==='Enter') go.click(); }; c.append(inp,go); w.appendChild(c);
     const j=el('div','tm-card'); j.appendChild(el('div','tm-muted tm-small','Got an invite link?')); const ji=el('input','tm-in'); ji.placeholder='Paste the invite link'; ji.style.marginTop='8px';
     const jb=btn('Join',()=>joinWith(ji.value)); jb.style.marginTop='8px'; j.append(ji,jb); w.appendChild(j); b.appendChild(w); setTimeout(()=>inp.focus(),50);
@@ -227,9 +249,10 @@
     const item=(ic,label,fn)=>{ const b=el('button'); b.innerHTML=SV(ic); b.appendChild(el('span','grow',label)); b.onclick=fn; m.appendChild(b); };
     list.forEach(s=>{ const b=el('button'); b.appendChild(avatar(s.name)); b.appendChild(el('span','grow',s.name+(s.kind==='teamspace'?' · teamspace':''))); if(s.id===space.id) b.insertAdjacentHTML('beforeend',SV(I.check)); b.onclick=()=>openSpace(s.id,'Chat'); m.appendChild(b); });
     m.appendChild(el('hr'));
-    item(I.plus,'New team',async()=>{ const n=await askText('Name the new team','e.g. Design team'); if(!n) return; try{ const d=await api('/api/spaces',{method:'POST',body:{kind:'team',name:n}}); openSpace(d.space.id,'Members'); }catch(e){ toast(e.message); } });
-    item(I.link,'Join with an invite link',async()=>{ const v=await askText('Paste the invite link','https://…/team?join=…'); if(v) joinWith(v); });
-    if(space.kind==='teamspace') item(I.org,'Organization console',()=>{ location.href='/org'; });
+    item(I.plus,'New '+K.word,async()=>{ const n=await askText('Name the new '+K.word,ORG?'e.g. Sweet Spot Pvt Ltd':'e.g. Design team'); if(!n) return; try{ const d=await api('/api/spaces',{method:'POST',body:{kind:K.key,name:n}}); openSpace(d.space.id,ORG?'Teamspaces':'Members'); }catch(e){ toast(e.message); } });
+    item(I.link,'Join with an invite link',async()=>{ const v=await askText('Paste the invite link','https://…'+K.path+'?join=…'); if(v) joinWith(v); });
+    if(!ORG && space.kind==='teamspace') item(I.org,'Organization console',()=>{ location.href='/org'; });
+    if(ORG) item(I.team,'My teams',()=>{ location.href='/team'; });
     item(I.arrow,'All plans',()=>{ location.href='/?home=1'; });
     document.body.appendChild(m);
   }
@@ -242,14 +265,18 @@
     tick(); unreadT=setInterval(tick,30000); }
 
   // ---------- Team space: chat, tasks, pages, brain, standards, meetings, shared chats, members ----------
-  const TABS=[['Chat',I.chat],['Tasks',I.tasks],['Pages',I.page],['Team brain',I.brain],['Standards',I.rule],['Meetings',I.meet],['Shared chats',I.share],['Members',I.people]];
+  const TEAM_TABS=[['Chat',I.chat],['Tasks',I.tasks],['Pages',I.page],['Team brain',I.brain],['Standards',I.rule],['Meetings',I.meet],['Shared chats',I.share],['Members',I.people]];
+  const ORG_ADMIN_TABS=[['Overview',I.chart],['Teamspaces',I.spaces],['Members',I.people],['Policies',I.policy],['Company brain',I.brain],['Company rules',I.rule],['Approvals',I.check],['Audit log',I.log],['Data',I.data]];
+  const ORG_TABS=[['Teamspaces',I.spaces],['Company brain',I.brain],['Company rules',I.rule],['Approvals',I.check],['Members',I.people]];
+  const tabsNow=()=>ORG?(isAdmin()?ORG_ADMIN_TABS:ORG_TABS):TEAM_TABS;
   function hub(t){
     if(!me) return welcome(); if(!space) return firstRun();
-    if(t) tab=t; if(!TABS.some(x=>x[0]===tab)) tab='Chat'; store('cc_team_tab',tab);
-    const b=open(space.name,'tmHub','hub'); h1.appendChild(el('span','tm-h1sub','Team space · '+seatsText()));
+    const TABS=tabsNow(); if(t) tab=t; if(!TABS.some(x=>x[0]===tab)) tab=TABS[0][0]; store('cc_'+K.key+'_tab',tab);
+    const b=open(space.name,ORG&&tab==='Teamspaces'?'tmSpaces':'tmHub','hub'); h1.appendChild(el('span','tm-h1sub',K.hub+' · '+seatsText()));
     const tabs=el('div','tabs tm-tabs'); TABS.forEach(([n,ic])=>{ const x=el('button',n===tab?'on':null); x.innerHTML=SV(ic); x.append(' '+n); x.onclick=()=>hub(n); tabs.appendChild(x); }); b.appendChild(tabs);
     const box=el('div'); b.appendChild(box);
-    const R={Chat:pChat,Tasks:pTasks,Pages:pPages,'Team brain':pBrain,Standards:pRules,Meetings:pMeetings,'Shared chats':pShared,Members:pMembers}[tab];
+    const R={Chat:pChat,Tasks:pTasks,Pages:pPages,'Team brain':pBrain,Standards:pRules,Meetings:pMeetings,'Shared chats':pShared,Members:pMembers,
+      Overview:pOverview,Teamspaces:pTeamspaces,Policies:pPolicies,'Company brain':pBrain,'Company rules':pRules,Approvals:pApprovals,'Audit log':pAudit,Data:pData}[tab];
     Promise.resolve(R(box)).catch(e=>{ box.appendChild(el('div','tm-empty',e.message||'Could not load this.')); });
   }
   async function pChat(box){
@@ -325,8 +352,8 @@
     await drawList();
   }
   async function pBrain(box){
-    box.appendChild(el('div','tm-muted','The team brain — notes, docs and files everyone shares. Ask anything and CodeConClave answers from them, with sources. Your own AI chats on this page use it too.'));
-    const bar=el('div','tm-bar'), ask=el('input','tm-in'); ask.placeholder='Ask the team brain… e.g. How do we deploy?'; const ans=el('div');
+    box.appendChild(el('div','tm-muted',ORG?'The company brain — notes, docs and files everyone in the company shares. Ask anything and CodeConClave answers from them (and from every teamspace), with sources. Your own AI chats here use it too.':'The team brain — notes, docs and files everyone shares. Ask anything and CodeConClave answers from them, with sources. Your own AI chats on this page use it too.'));
+    const bar=el('div','tm-bar'), ask=el('input','tm-in'); ask.placeholder=ORG?'Ask the company brain… e.g. Which team owns billing?':'Ask the team brain… e.g. How do we deploy?'; const ans=el('div');
     const go=async()=>{ const q=ask.value.trim(); if(!q) return; ans.innerHTML=''; ans.appendChild(el('div','tm-muted','Looking through your knowledge…'));
       try{ const d=await api('/api/spaces/'+space.id+'/ask',{method:'POST',body:{question:q}}); ans.innerHTML=''; const c=aiCard('Answer',d.answer); if(d.sources?.length){ const s=el('div','tm-src'); d.sources.forEach(x=>s.appendChild(el('span',null,'['+x.n+'] '+x.title))); c.appendChild(s); } ans.appendChild(c); }catch(e){ ans.textContent=e.message; } };
     ask.onkeydown=(e)=>{ if(e.key==='Enter') go(); }; bar.append(ask,btn('Ask',go,'msend')); box.append(bar,ans);
@@ -344,12 +371,12 @@
     await drawK();
   }
   async function pRules(box){
-    box.appendChild(el('div','tm-muted','Team standards — naming, libraries, testing, what to avoid, how to review. CodeConClave follows them for everyone in the team: in the team chat and in each person’s own AI chats here. Only admins can change them.'));
+    box.appendChild(el('div','tm-muted',ORG?'Company-wide rules — brand voice, security, what to avoid, how work is reviewed. CodeConClave follows them for everyone in the company, in every teamspace. Only admins can change them.':'Team standards — naming, libraries, testing, what to avoid, how to review. CodeConClave follows them for everyone in the team: in the team chat and in each person’s own AI chats here. Only admins can change them.'));
     if(isAdmin()){ const bar=el('div','tm-bar'), inp=el('input','tm-in'); inp.placeholder='e.g. Every API change needs a test and a docs update'; inp.maxLength=300;
       const add=async()=>{ if(!inp.value.trim()) return; try{ await putItem('rule',nid(),{text:inp.value.trim()}); inp.value=''; draw(); }catch(e){ toast(e.message); } };
       inp.onkeydown=(e)=>{ if(e.key==='Enter') add(); }; bar.append(inp,btn(SV(I.plus)+' Add rule',add,'msend')); box.appendChild(bar); }
     const lst=el('div'); lst.style.marginTop='12px'; box.appendChild(lst);
-    async function draw(){ lst.innerHTML=''; const rules=await items('rule'); if(!rules.length) lst.appendChild(el('div','tm-empty','No standards yet.'));
+    async function draw(){ lst.innerHTML=''; const rules=await items('rule'); if(!rules.length) lst.appendChild(el('div','tm-empty',ORG?'No company rules yet.':'No standards yet.'));
       rules.forEach(r=>{ const row=el('div','tm-row'); row.insertAdjacentHTML('beforeend',SV(I.rule)); row.appendChild(el('div','grow',r.data.text)); if(isAdmin()) row.appendChild(btn('Delete',async()=>{ await delItem('rule',r.id); draw(); },'mskip tm-sm')); lst.appendChild(row); }); }
     await draw();
   }
@@ -387,6 +414,9 @@
     r.appendChild(btn('Continue in my chats',()=>{ close(); A.openChat(d.title,(d.messages||[]).map(m=>({role:m.role==='user'?'user':'assistant',content:m.content}))); toast('Copied into your chats — carry on.'); },'msend'));
     b.appendChild(r); },true); }
   async function pMembers(box){
+    if(ORG&&isAdmin()){ const c=el('div','tm-card'); c.style.marginBottom='14px'; c.appendChild(el('b',null,'Company email domain')); c.appendChild(el('div','tm-muted tm-small','People who sign up with an email on this domain can join by themselves (for example yourcompany.com).')).style.margin='4px 0 10px';
+      const r=el('div','tm-bar'); r.style.margin='0'; const inp=el('input','tm-in'); inp.placeholder='yourcompany.com'; inp.value=space.settings?.domain||'';
+      r.append(inp,btn('Save',async()=>{ try{ data=await api('/api/spaces/'+space.id,{method:'PATCH',body:{settings:{domain:inp.value}}}); space=data.space; toast('Saved'); }catch(e){ toast(e.message); } },'msend')); c.appendChild(r); box.appendChild(c); }
     if(isAdmin()) box.appendChild(inviteCard());
     box.appendChild(el('div','tm-sec',seatsText()));
     (data.members||[]).forEach(m=>{ const row=el('div','tm-row'); row.appendChild(avatar(m.name||m.email,true)); const g=el('div','grow'); g.appendChild(el('b',null,(m.name||m.email)+(same(m.id,me.id)?' (you)':''))); g.appendChild(el('div','tm-muted tm-small',(m.email||'')+(m.joined?' · joined '+ago(m.joined):''))); row.appendChild(g);
@@ -394,7 +424,7 @@
         sel.onchange=async()=>{ try{ await api('/api/spaces/'+space.id+'/members/'+m.id,{method:'PATCH',body:{role:sel.value}}); toast('Role changed'); }catch(e){ toast(e.message); } }; row.appendChild(sel);
         row.appendChild(btn('Remove',async()=>{ if(!(await askYes('Remove '+(m.name||m.email)+' from '+space.name+'?','Remove'))) return; try{ await api('/api/spaces/'+space.id+'/members/'+m.id,{method:'DELETE'}); openSpace(space.id,'Members'); }catch(e){ toast(e.message); } },'mskip tm-sm')); }
       else row.appendChild(el('span','tm-role',m.role));
-      if(same(m.id,me.id)&&m.role!=='owner') row.appendChild(btn('Leave',async()=>{ if(!(await askYes('Leave '+space.name+'?','Leave'))) return; try{ await api('/api/spaces/'+space.id+'/members/'+m.id,{method:'DELETE'}); store('cc_team_cur',null); openSpace(null,'Chat'); }catch(e){ toast(e.message); } },'mskip tm-sm'));
+      if(same(m.id,me.id)&&m.role!=='owner') row.appendChild(btn('Leave',async()=>{ if(!(await askYes('Leave '+space.name+'?','Leave'))) return; try{ await api('/api/spaces/'+space.id+'/members/'+m.id,{method:'DELETE'}); store('cc_'+K.key+'_cur',null); openSpace(null,ORG?'Overview':'Chat'); }catch(e){ toast(e.message); } },'mskip tm-sm'));
       box.appendChild(row); });
     if(space.kind==='team'&&data.myRole==='owner'){ box.appendChild(el('div','tm-sec','Danger zone')); const r=el('div','tm-row'); const g=el('div','grow'); g.appendChild(el('b',null,'Delete this team')); g.appendChild(el('div','tm-muted tm-small','Removes its chat, tasks, pages, brain, shared chats and every share link. This cannot be undone.')); r.appendChild(g);
       r.appendChild(btn('Delete team',async()=>{ const n=await askText('Type the team name to delete it',space.name); if(n!==space.name){ if(n) toast('The name did not match — nothing was deleted.'); return; } try{ await api('/api/spaces/'+space.id,{method:'DELETE'}); store('cc_team_cur',null); toast('Team deleted.'); openSpace(null,'Chat'); }catch(e){ toast(e.message); } },'mskip tm-sm')); box.appendChild(r); }
@@ -403,15 +433,109 @@
     const c=el('div','tm-card'); c.appendChild(el('b',null,'Invite people')); c.appendChild(el('div','tm-muted tm-small','Make a link and send it to them — it works for 14 days.'+(data.seats?' A team holds up to '+data.seats+' people ('+(data.members||[]).length+' now).':''))).style.margin='4px 0 10px';
     const r=el('div','tm-bar'); r.style.margin='0'; const role=el('select','tm-sel'); role.style.width='auto'; [['member','Member'],['admin','Admin'],['guest','Guest (read only)']].forEach(([v,n])=>role.appendChild(new Option(n,v)));
     const lk=el('input','tm-in'); lk.readOnly=true; lk.placeholder='Press “Make invite link”'; lk.onclick=()=>lk.select();
-    r.append(role,btn('Make invite link',async()=>{ try{ const d=await api('/api/spaces/'+space.id+'/invites',{method:'POST',body:{role:role.value}}); lk.value=location.origin+'/team?join='+d.token; lk.select(); try{ await navigator.clipboard.writeText(lk.value); toast('Invite link copied'); }catch{} }catch(e){ toast(e.message); } },'msend'),lk);
+    r.append(role,btn('Make invite link',async()=>{ try{ const d=await api('/api/spaces/'+space.id+'/invites',{method:'POST',body:{role:role.value}}); lk.value=location.origin+K.path+'?join='+d.token; lk.select(); try{ await navigator.clipboard.writeText(lk.value); toast('Invite link copied'); }catch{} }catch(e){ toast(e.message); } },'msend'),lk);
     c.appendChild(r); return c; }
+  // ---------- ORGANIZATION pages (the company console) ----------
+  async function pOverview(box){
+    let d; try{ d=await api('/api/spaces/'+space.id+'/overview'); }catch(e){ box.appendChild(el('div','tm-empty',e.message)); return; }
+    const g=el('div','tm-stats'); [['Members',d.members],['Teamspaces',d.teamspaces],['Actions in 30 days',d.actions30d],['Approvals waiting',d.approvalsWaiting],['Tasks done',d.tasksDone],['Tasks open',d.tasksOpen]]
+      .forEach(([k,v])=>{ const c=el('div','tm-stat'); c.appendChild(el('b',null,String(v??0))); c.appendChild(el('span',null,k)); g.appendChild(c); }); box.appendChild(g);
+    const two=el('div','tm-grid'); two.style.marginTop='14px';
+    const tbl=(t,obj)=>{ const c=el('div','tm-card'); c.appendChild(el('b',null,t)); const rows=Object.entries(obj||{}).sort((a,b)=>b[1]-a[1]).slice(0,10); if(!rows.length) c.appendChild(el('div','tm-muted tm-small','Nothing yet.')).style.marginTop='8px';
+      rows.forEach(([k,v])=>{ const r=el('div','tm-kv'); r.append(el('span',null,k),el('b',null,String(v))); c.appendChild(r); }); return c; };
+    two.append(tbl('Most active people',d.byPerson),tbl('What is being done',d.byAction)); box.appendChild(two);
+    box.appendChild(el('div','tm-muted tm-small','Real counts from your audit log — no estimates.')).style.marginTop='12px';
+  }
+  async function pTeamspaces(box){
+    box.appendChild(el('div','tm-muted','Every team in the company gets its own teamspace — the whole AI plus its own chat, tasks, pages, brain, standards and meetings. Company rules and policies apply to all of them.'));
+    if(isAdmin()) acts.appendChild(btn(SV(I.plus)+' New teamspace',async()=>{ const n=await askText('Name the teamspace','e.g. Engineering'); if(!n) return;
+      try{ await api('/api/spaces',{method:'POST',body:{kind:'teamspace',name:n,parentId:space.id}}); await openSpace(space.id,'Teamspaces'); toast(n+' is ready'); }catch(e){ toast(e.message); } },'msend tm-sm'));
+    const g=el('div','tm-grid'); g.style.marginTop='16px'; box.appendChild(g);
+    if(!(data.children||[]).length) g.appendChild(el('div','tm-empty','No teamspaces yet.'+(isAdmin()?' Press “New teamspace” to add one.':'')));
+    (data.children||[]).forEach(c=>{ const k=el('div','tm-card'), h=el('div','tm-cardhead'); h.append(avatar(c.name),el('b',null,c.name)); k.appendChild(h);
+      k.appendChild(el('div','tm-muted tm-small','created '+ago(c.created))).style.margin='8px 0 12px';
+      k.appendChild(btn('Open teamspace '+SV(I.arrow),()=>{ location.href='/team?space='+encodeURIComponent(c.id); },'msend tm-sm')); g.appendChild(k); });
+  }
+  const TOOLS=[['image','Pictures'],['video','Videos'],['audio','Audio files'],['build','Games / websites / apps'],['code','Coding agent in folders'],['files','Local files'],['browser','Opening websites'],['device','Opening apps on computers'],['web','Web search'],['research','Deep research'],['mail','Gmail'],['doc','Office files']];
+  function pPolicies(box){
+    const st={disabledTools:[],agentMode:'ask',protectedPaths:[],maskPrivate:false,publicShares:false,retentionDays:0,instructions:'',...(space.settings||{})};
+    const card=(t,sub)=>{ const c=el('div','tm-card'); c.style.marginBottom='14px'; c.appendChild(el('b',null,t)); if(sub) c.appendChild(el('div','tm-muted tm-small',sub)).style.margin='4px 0 10px'; box.appendChild(c); return c; };
+    const opt=(parent,checked,text)=>{ const r=el('label','tm-opt'), cb=document.createElement('input'); cb.type='checkbox'; cb.checked=checked; r.append(cb,el('span',null,text)); parent.appendChild(r); return cb; };
+    const c1=card('AI tools members can use','Untick anything your company does not want people to use. It applies to every member’s AI.'); const g=el('div','tm-checks'); c1.appendChild(g); const boxes={};
+    TOOLS.forEach(([k,n])=>{ boxes[k]=opt(g,!st.disabledTools.includes(k),n); });
+    const c2=card('How the coding agent may act'); const mode2=el('select','tm-sel');
+    [['readonly','Read only — it explains and suggests, never changes files'],['ask','Ask before changes — every change needs the person’s OK'],['auto','Automatic — it changes files and shows Undo']].forEach(([v,n])=>mode2.appendChild(new Option(n,v))); mode2.value=st.agentMode; c2.appendChild(mode2);
+    c2.appendChild(el('div','tm-muted tm-small','Protected files and folders — the agent never changes these (one per line)')).style.margin='12px 0 8px'; const prot=el('textarea','tm-ta'); prot.value=(st.protectedPaths||[]).join('\n'); c2.appendChild(prot);
+    const c3=card('Privacy and data');
+    const mk=opt(c3,st.maskPrivate,'Hide private data from the AI — emails, phone numbers, Aadhaar, PAN and card numbers are replaced before anything is sent');
+    const ps=opt(c3,st.publicShares===true,'Allow public share links in teamspaces — anyone with the link can view that work (read only). Private links for members always work.');
+    const r2=el('div','tm-bar'); const days=el('input','tm-in'); days.type='number'; days.min='0'; days.value=st.retentionDays||0; days.style.cssText='max-width:110px;min-width:0;flex:0 0 110px';
+    r2.append(el('span',null,'Delete team chat messages after'),days,el('span','tm-muted','days (0 = keep)')); c3.appendChild(r2);
+    const c4=card('Company instructions','How CodeConClave should talk and work for your company — brand voice, what to avoid, who to send people to.'); const ins=el('textarea','tm-ta'); ins.value=st.instructions||''; c4.appendChild(ins);
+    box.appendChild(btn('Save policies',async()=>{ try{ data=await api('/api/spaces/'+space.id,{method:'PATCH',body:{settings:{disabledTools:TOOLS.map(([k])=>k).filter(k=>!boxes[k].checked),agentMode:mode2.value,protectedPaths:prot.value.split('\n').map(x=>x.trim()).filter(Boolean),maskPrivate:mk.checked,publicShares:ps.checked,retentionDays:Number(days.value)||0,instructions:ins.value}}}); space=data.space; toast('Policies saved — they apply to every member now.'); }catch(e){ toast(e.message); } },'msend'));
+  }
+  async function pApprovals(box){
+    box.appendChild(el('div','tm-muted','Big or risky things go through an approval: a production deploy, a payments change, deleting data, a new tool. Members ask; admins approve or reject — and it is all in the audit log.'));
+    if(canWrite()){ const c=el('div','tm-card'); c.style.margin='14px 0'; const ti=el('input','tm-in'); ti.placeholder='What needs approval?'; ti.maxLength=200; const why=el('textarea','tm-ta'); why.placeholder='Why, and what could go wrong'; why.style.margin='10px 0';
+      c.append(ti,why,btn('Ask for approval',async()=>{ if(!ti.value.trim()) return toast('Write what needs approval.'); try{ await putItem('approval',nid(),{title:ti.value.trim(),reason:why.value.trim(),status:'waiting'}); ti.value=''; why.value=''; draw(); toast('Sent to the admins'); }catch(e){ toast(e.message); } },'msend')); box.appendChild(c); }
+    const lst=el('div'); box.appendChild(lst);
+    const ST={waiting:[I.clock,'Waiting'],approved:[I.check,'Approved'],rejected:[I.x,'Rejected']};
+    async function draw(){ lst.innerHTML=''; const all=await items('approval'); if(!all.length) lst.appendChild(el('div','tm-empty','No approvals yet.'));
+      all.forEach(a=>{ const d=a.data, row=el('div','tm-row'), g=el('div','grow'); g.appendChild(el('b',null,d.title)); g.appendChild(el('div','tm-muted tm-small','asked by '+(d.byName||'')+' · '+ago(d.at||a.updated)+(d.decidedBy?' · '+d.status+' by '+d.decidedBy:''))); if(d.reason) g.appendChild(el('div','tm-small',d.reason)).style.marginTop='6px'; row.appendChild(g);
+        const s=ST[d.status]||ST.waiting, pl=el('span','tm-state '+(ST[d.status]?d.status:'waiting')); pl.innerHTML=SV(s[0]); pl.append(s[1]); row.appendChild(pl);
+        if(isAdmin()&&d.status==='waiting'){ row.appendChild(btn('Approve',async()=>{ try{ await putItem('approval',a.id,{...d,status:'approved',decidedBy:myName(),decidedAt:Date.now()}); draw(); }catch(e){ toast(e.message); } },'msend tm-sm'));
+          row.appendChild(btn('Reject',async()=>{ try{ await putItem('approval',a.id,{...d,status:'rejected',decidedBy:myName(),decidedAt:Date.now()}); draw(); }catch(e){ toast(e.message); } },'mskip tm-sm')); }
+        lst.appendChild(row); }); }
+    await draw();
+  }
+  async function pAudit(box){
+    const dl=el('a','mskip tm-sm tm-linkbtn'); dl.href='/api/spaces/'+space.id+'/audit.csv'; dl.innerHTML=SV(I.dl)+' Download CSV'; acts.appendChild(dl);
+    box.appendChild(el('div','tm-muted','Who did what, when — in the organization and every teamspace. The AI’s use is logged by tool only, never the content of chats.'));
+    const all=await items('audit'); if(!all.length){ box.appendChild(el('div','tm-empty','Nothing logged yet.')); return; }
+    const wrap=el('div','tm-tablewrap'), tb=el('table','tm-table'); tb.innerHTML='<tr><th>When</th><th>Who</th><th>Action</th><th>Where</th><th>Detail</th></tr>'; wrap.appendChild(tb); box.appendChild(wrap);
+    for(const r of all){ const tr=document.createElement('tr'); [new Date(r.data.at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}),r.data.whoName,r.data.action,r.data.space,r.data.detail].forEach(v=>tr.appendChild(el('td',null,v||''))); tb.appendChild(tr); }
+  }
+  function pData(box){
+    const c=el('div','tm-card'); c.style.marginBottom='14px'; c.appendChild(el('b',null,'Export everything')); c.appendChild(el('div','tm-muted tm-small','All members, teamspaces, pages, tasks, knowledge, rules, approvals and the audit log — as one JSON file.')).style.margin='4px 0 12px';
+    const a=el('a','msend tm-linkbtn'); a.href='/api/spaces/'+space.id+'/export'; a.innerHTML=SV(I.dl)+' Export organization data'; c.appendChild(a); box.appendChild(c);
+    if(data.myRole!=='owner') return;
+    const d=el('div','tm-card tm-danger'); d.appendChild(el('b',null,'Delete the organization')); d.appendChild(el('div','tm-muted tm-small','Deletes the organization, all its teamspaces and everything in them. This cannot be undone.')).style.margin='4px 0 12px';
+    d.appendChild(btn('Delete organization',async()=>{ const n=await askText('Type the organization name to delete it',space.name); if(n!==space.name){ if(n) toast('The name did not match — nothing was deleted.'); return; }
+      try{ await api('/api/spaces/'+space.id,{method:'DELETE'}); store('cc_org_cur',null); toast('Organization deleted.'); openSpace(null,'Overview'); }catch(e){ toast(e.message); } })); box.appendChild(d);
+  }
   function invite(){ if(!space) return firstRun(); modal((b,close)=>{ b.appendChild(el('div','tm-mt','Invite people to '+space.name)); b.appendChild(inviteCard()); const r=el('div','tm-right'); r.appendChild(btn('Done',close,'msend')); b.appendChild(r); },true); }
 
   // ---------- the AI does team things when you ask in the chat ----------
   // invite link, a link to the team space / tasks / this chat, add a task, tell the team, open a team page, write a page
   const OPEN_TAB=[[/^(team )?(space|chat)$|^team$/,'Chat'],[/^(team )?tasks?( board)?$|^board$/,'Tasks'],[/^(team )?pages?$/,'Pages'],[/^(team )?brain$/,'Team brain'],[/^(team )?standards?$|^(team )?rules$/,'Standards'],[/^(team )?meetings?$/,'Meetings'],[/^shared chats?$/,'Shared chats'],[/^(team )?members?$|^(my )?teammates$/,'Members']];
+  const OPEN_ORG=[[/^(overview|dashboard|stats)$/,'Overview'],[/^teamspaces?$|^(our |my )?teams$/,'Teamspaces'],[/^(members|people|employees)$/,'Members'],[/^(ai )?polic(y|ies)$/,'Policies'],[/^(company )?brain$/,'Company brain'],[/^(company )?rules$/,'Company rules'],[/^approvals?$/,'Approvals'],[/^audit( log)?$|^logs?$/,'Audit log'],[/^data$|^export$/,'Data'],[/^(company )?console$|^(the )?(organi[sz]ation|org|company)$/,null]];
+  function orgAct(raw,s){
+    let m;
+    if(/\binvite\b.{0,25}\blink\b|\blink\b.{0,15}\binvite\b|^(?:add|invite)\s+(?:people|members?|someone|employees?|colleagues?)\b/.test(s)) return async()=>{
+      if(!isAdmin()) return A.say('Only the organization’s owner or admins can make invite links — ask one of them.');
+      const role=/\bguests?\b|read.?only/.test(s)?'guest':/\badmins?\b/.test(s)?'admin':'member';
+      try{ const d=await api('/api/spaces/'+space.id+'/invites',{method:'POST',body:{role}}); const url=location.origin+'/org?join='+d.token; navigator.clipboard?.writeText(url).catch(()=>{});
+        A.say('Here’s the invite link for '+space.name+' ('+role+', works for 14 days). I copied it — send it to the people you want.',{linkCard:{url,title:'Join '+space.name}}); }
+      catch(e){ A.say('I couldn’t make the invite link: '+e.message); } };
+    if((m=raw.match(/^\s*(?:please\s+)?(?:can you\s+)?(?:create|make|add|start)\s+(?:a\s+)?(?:new\s+)?teamspace\s*(?:called|named|for|:|-)?\s+(.{2,80}?)\s*[.!]?\s*$/i))) return async()=>{
+      if(!isAdmin()) return A.say('Only admins can add teamspaces.');
+      try{ await api('/api/spaces',{method:'POST',body:{kind:'teamspace',name:m[1],parentId:space.id}}); data=await api('/api/spaces/'+space.id); A.say('Done — the teamspace “'+m[1]+'” is ready. Open the Company console → Teamspaces to open it and invite its people.'); }
+      catch(e){ A.say('I couldn’t add it: '+e.message); } };
+    if((m=raw.match(/^\s*(?:please\s+)?add\s+(?:a\s+)?(?:new\s+)?(?:company\s+)?rule\s*(?:that|:|-)?\s+(.{3,300}?)\s*$/i))) return async()=>{
+      if(!isAdmin()) return A.say('Only admins can set company rules.');
+      try{ await putItem('rule',nid(),{text:m[1]}); A.say('Added to the company rules: “'+m[1]+'”. CodeConClave follows it for everyone now.'); }catch(e){ A.say('I couldn’t add it: '+e.message); } };
+    if((m=raw.match(/^\s*(?:please\s+)?(?:ask|request)\s+(?:for\s+)?(?:an?\s+)?approval\s*(?:for|to|:|-)?\s+(.{3,200}?)\s*$/i))) return async()=>{
+      if(!canWrite()) return A.say('Guests cannot ask for approvals.');
+      try{ await putItem('approval',nid(),{title:m[1],reason:'',status:'waiting'}); A.say('Sent to the admins for approval: “'+m[1]+'”. You’ll see the answer in the Company console → Approvals.'); }catch(e){ A.say('I couldn’t send it: '+e.message); } };
+    if((m=s.match(/^(?:open|show|go to|take me to)\s+(?:the\s+|my\s+|our\s+)?(.+?)(?:\s+page)?$/))){
+      const w=m[1].trim(), hit=OPEN_ORG.find(([re])=>re.test(w)); if(hit) return async()=>{ A.say('Opening '+(hit[1]||'the Company console')+'.'); hub(hit[1]||undefined); };
+    }
+    if(/^(?:create|make|generate|give me|get me|send me)\s+(?:a|the|my|one)?\s*(?:new\s+)?(?:share\s+|sharing\s+)?link(?:\s+for me)?$/.test(s)) return async()=>A.say('Sure — which link?',{ask:{question:'Which link?',options:[{label:'Invite link for my organization',send:'make an invite link'}]}});
+    return null;
+  }
   window.ccTeamAct=(raw,s)=>{
     if(!me||!space) return null;
+    if(ORG) return orgAct(raw,s);
     const PLUG=/\b(todoist|asana|trello|clickup|jira|linear|notion|monday|github|gitlab|slack|discord|telegram|whatsapp)\b/;
     let m;
     if(/\binvite\b.{0,25}\blink\b|\blink\b.{0,15}\binvite\b|^(?:add|invite)\s+(?:people|members?|someone|teammates?|friends?)\b/.test(s)) return async()=>{
