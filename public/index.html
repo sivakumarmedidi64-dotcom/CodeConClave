@@ -3689,13 +3689,13 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
     return 'Resets '+(d.toDateString()===new Date().toDateString()?'at '+t:d.toLocaleDateString('en-IN',{weekday:'short'})+' '+t); }
   function paintUsage(){
     const u=usageNow, ring=$('usageRing'), line=$('useLine'); if(!u||!ring) return;
-    const five=usePct(u.fiveHour), week=usePct(u.weekly), p=u.unlimited?0:Math.max(five,week);
+    const five=usePct(u.fiveHour), week=usePct(u.weekly), p=u.unlimited?0:Math.max(five,week), hrs=(u.fiveHour&&u.fiveHour.hours)||8;
     ring.querySelector('.rfg').style.strokeDasharray=(p*0.999)+' 100'; ring.classList.toggle('warn',p>=80&&p<100); ring.classList.toggle('full',p>=100);
-    ring.title=u.unlimited?'Unlimited usage (owner)':'5-hour limit '+five+'% used · Weekly '+week+'%';
-    line.textContent=u.unlimited?'Unlimited usage (owner)':'5-hour limit '+five+'% used · Weekly '+week+'%';
+    ring.title=u.unlimited?'Unlimited usage (owner)':hrs+'-hour limit '+five+'% used · Weekly '+week+'%';
+    line.textContent=u.unlimited?'Unlimited usage (owner)':(u.fiveHour&&u.fiveHour.free?'Free plan · ':'')+hrs+'-hour limit '+five+'% used · Weekly '+week+'%';
     const body=$('usePopBody'); body.innerHTML='';
     if(u.unlimited){ body.appendChild(el('div','dim','You have unlimited usage as the owner.')); return; }
-    [['5-hour limit',u.fiveHour],['Weekly · all models',u.weekly]].forEach(([label,w])=>{ const r=el('div','uprow'), top=el('div','uptop'), pct=usePct(w);
+    [[hrs+'-hour limit',u.fiveHour],['Weekly · all models',u.weekly]].forEach(([label,w])=>{ const r=el('div','uprow'), top=el('div','uptop'), pct=usePct(w);
       top.append(el('b',null,label)); top.appendChild(el('span',null,resetText(w)+'   '+pct+'%')); r.appendChild(top);
       const bar=el('div','upbar'), fill=document.createElement('i'); fill.style.width=pct+'%'; if(pct>=80) fill.style.background=pct>=100?'#e5534b':'#f2c200'; bar.appendChild(fill); r.appendChild(bar);
       r.appendChild(el('div','dim',(w?.used||0)+' of '+(w?.limit||0)+' messages')); body.appendChild(r); });
@@ -3798,7 +3798,7 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
   $('panelToggle').onchange=()=>setPanel($('panelToggle').checked);
   setInterval(()=>{ const u=usageNow, f=u?.fiveHour; if(!f||!f.resetsAt||u.unlimited||Date.now()<f.resetsAt) return;
     const k='cc_limit_back_'+f.resetsAt; let seen=false; try{ seen=Boolean(localStorage.getItem(k)); localStorage.setItem(k,'1'); }catch{}
-    if(!seen&&f.used>0){ let on=true; try{ on=localStorage.getItem('cc_limit_sound')!=='off'; }catch{} if(on) notify(); toast('Your 5-hour limit is back — keep going!'); try{ if(document.hidden&&Notification.permission==='granted') new Notification('CodeConClave AI',{body:'Your 5-hour limit is back — keep going!',icon:'/icon-192.png'}); }catch{} }
+    if(!seen&&f.used>0){ let on=true; try{ on=localStorage.getItem('cc_limit_sound')!=='off'; }catch{} if(on) notify(); toast('Your messages are back — keep going!'); try{ if(document.hidden&&Notification.permission==='granted') new Notification('CodeConClave AI',{body:'Your messages are back — keep going!',icon:'/icon-192.png'}); }catch{} }
     refreshUsage(); },30000);
   async function refreshUsage(){ try{ const r=await fetch('/api/usage'); if(r.ok){ usageNow=await r.json(); renderSide(); paintUsage(); } }catch{} }
   async function refreshStatus(){
@@ -3845,7 +3845,7 @@ float edge=smoothstep(1.,.975,r);gl_FragColor=vec4(col*edge,edge);}`;
     // Usage
     const us=sec('Usage');
     if(!usageNow) us.appendChild(el('div','sempty','Loading…'));
-    else [['5-hour window',usageNow.fiveHour],['Weekly',usageNow.weekly]].forEach(([l,u])=>{
+    else [[((usageNow.fiveHour&&usageNow.fiveHour.hours)||8)+'-hour window',usageNow.fiveHour],['Weekly',usageNow.weekly]].forEach(([l,u])=>{
       const big=el('div','sbig'); big.append(l); big.appendChild(el('span',null,usageNow.unlimited?u.used+' used · unlimited':u.used+' / '+u.limit+' messages')); us.appendChild(big);
       const bar=el('div','sbar'), i=document.createElement('i'), p=usageNow.unlimited?0:Math.min(100,u.used/u.limit*100); i.style.width=p+'%'; i.style.background=p>=90?'#e5534b':p>=70?'#f2c200':'#1a93fe'; bar.appendChild(i); us.appendChild(bar);
       us.appendChild(el('div','sempty',u.resetsAt?'Resets '+when(u.resetsAt):'Starts with your next message')); us.lastChild.style.marginBottom='10px'; });

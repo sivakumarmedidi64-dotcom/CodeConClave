@@ -123,18 +123,18 @@
     row(box,'Plan',planName(),linkBtn('Customize','/customize'));
     row(box,'Payments','Free while we test. Payments (Razorpay) open when CodeConClave launches on its own domain — nothing is charged before that.');
     if(window.ccTeam?.canBills?.()) row(box,'Bills','Your '+(window.ccTeam.kind==='org'?'company':'team')+'’s monthly bills — reminders before each one is due, and pay with one tap.',button('Open bills',()=>{ close(); window.ccTeam.open('Bills'); }));
-    row(box,'Extra usage','Used up your 5-hour limit? Add credits and keep going — 50 credits for ₹100.',button('Add credits',()=>go('usage',box)));
+    row(box,'Extra usage','Used up your messages? Add credits and keep going — 50 credits for ₹100.',button('Add credits',()=>go('usage',box)));
     row(box,'API prepaid','Use CodeConClave AI from your own code. Prepaid from ₹20,000 to ₹1,50,000.',button('API keys',()=>go('keys',box)));
   }
   async function usage(box){
-    H(box,'Usage','Your plan’s limits. A 5-hour window starts with your first message; the weekly one with your first message of the week.');
+    H(box,'Usage','Your plan’s limits. Free plan: 5 messages every 8 hours — the window starts with your first message. The weekly limit starts with your first message of the week.');
     let u=A.usage(); try{ u=await (await fetch('/api/usage')).json(); }catch{}
     if(u?.unlimited) row(box,'Unlimited','You are the owner — no limits.');
-    else if(u){ for(const [k,name] of [['fiveHour','5-hour limit'],['weekly','Weekly limit']]){ const x=u[k]||{used:0,limit:1}; const p=Math.min(100,Math.round(x.used/Math.max(1,x.limit)*100));
+    else if(u){ for(const [k,name] of [['fiveHour',((u.fiveHour&&u.fiveHour.hours)||8)+'-hour limit'],['weekly','Weekly limit']]){ const x=u[k]||{used:0,limit:1}; const p=Math.min(100,Math.round(x.used/Math.max(1,x.limit)*100));
         const r=row(box,name,x.used+' of '+x.limit+' messages used'+(x.resetsAt?' · resets '+when(x.resetsAt):'')); const bar=el('div','st-bar'+(p>=100?' full':p>=80?' warn':'')); const i=el('i'); i.style.width=p+'%'; bar.appendChild(i); r.querySelector('.tx').appendChild(bar); } }
-    row(box,'Sound when my limit is back','Play the guitar sound when your 5-hour window is over.',tog(store('cc_limit_sound')!=='off',(v)=>store('cc_limit_sound',v?'on':'off')));
+    row(box,'Sound when my limit is back','Play the guitar sound when your messages are back.',tog(store('cc_limit_sound')!=='off',(v)=>store('cc_limit_sound',v?'on':'off')));
     // extra usage credits
-    const c=el('div','st-row col'); const t=el('div','tx'); t.appendChild(el('b',null,'Extra usage credits')); t.appendChild(el('span',null,'1 credit = 1 message after your 5-hour or weekly limit. 50 credits cost ₹100 (₹2 each) — pick any number from 50.')); c.appendChild(t); box.appendChild(c);
+    const c=el('div','st-row col'); const t=el('div','tx'); t.appendChild(el('b',null,'Extra usage credits')); t.appendChild(el('span',null,'1 credit = 1 message after your limit. 50 credits cost ₹100 (₹2 each) — pick any number from 50.')); c.appendChild(t); box.appendChild(c);
     const bal=el('div','st-note'); c.appendChild(bal);
     if(!A.me){ bal.textContent='Sign in to add credits.'; return; }
     try{ const d=await api('/api/credits'); bal.innerHTML=''; bal.append('Your credits: '); bal.appendChild(el('b',null,String(d.balance))); }catch{ bal.textContent=''; }
@@ -184,7 +184,7 @@
   function notif(box){
     H(box,'Notifications');
     row(box,'Answer sound','Play the guitar sound when an answer is ready — again every 25 s until you look.',tog(P.sound(),(v)=>P.setSound(v)));
-    row(box,'Limit is back','Play the guitar sound when your 5-hour limit is back.',tog(store('cc_limit_sound')!=='off',(v)=>store('cc_limit_sound',v?'on':'off')));
+    row(box,'Limit is back','Play the guitar sound when your messages are back.',tog(store('cc_limit_sound')!=='off',(v)=>store('cc_limit_sound',v?'on':'off')));
     const perm=(window.Notification&&Notification.permission)||'unsupported';
     row(box,'Desktop notifications',perm==='granted'?'On — you get a notification when something is ready and this tab is in the background.':perm==='denied'?'Blocked in this browser — allow them in the site settings (the lock next to the address).':'Get a notification when something is ready while this tab is in the background.',
       perm==='default'?button('Allow',async()=>{ try{ await Notification.requestPermission(); }catch{} draw(box); },'pri'):null);

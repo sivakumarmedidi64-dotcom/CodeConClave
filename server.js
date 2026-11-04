@@ -87,6 +87,26 @@ const markResting = (status) => { if (status === 429) { const d = new Date(); re
 const offlineText = () => (Date.now() < restingUntil
   ? 'CodeConClave AI has used up today\'s free thinking time and is resting. It comes back at 5:30 AM India time (00:00 UTC) - sorry for the wait!'
   : 'CodeConClave AI is offline right now - please try again in a minute.');
+// ---- Brain budget ("saver mode"). Cloudflare's free plan = 10,000 neurons a day, reset at 00:00 UTC (5:30 AM India).
+// Every call's cost is estimated from Cloudflare's price list, and the app spends smarter as the day goes on:
+//   normal  (under 60% used): everything;
+//   saver   (60-85%): no separate thinking step, quick pictures instead of sharp ones;
+//   reserve (over 85%): the small brain only (no big engine, no pictures) - what is left keeps plain chat going.
+// In memory (one server); a redeploy starts the count again, so the 429 from Cloudflare stays the final guard.
+const DAY_NEURONS = Number(process.env.DAY_NEURONS) || 10000;
+let budget = { day: '', spent: 0 };
+const utcDay = () => new Date().toISOString().slice(0, 10);
+const budgetNow = () => { if (budget.day !== utcDay()) budget = { day: utcDay(), spent: 0 }; return budget; };
+const spend = (n) => { budgetNow().spent += Math.max(0, Number(n) || 0); };
+function budgetMode() {
+  if (Date.now() < restingUntil) return 'out';
+  const p = budgetNow().spent / DAY_NEURONS;
+  return p >= 0.85 ? 'reserve' : p >= 0.6 ? 'saver' : 'normal';
+}
+const tokensIn = (x) => Math.ceil(JSON.stringify(x || '').length / 4);
+// neurons per million tokens [input, output] - developers.cloudflare.com/workers-ai/platform/pricing
+const RATE = { small: [4625, 30475], engine: [9091, 27273], vision: [4410, 61493] };
+const costOf = (kind, messages, outTokens) => (tokensIn(messages) * RATE[kind][0] + Math.max(0, outTokens) * RATE[kind][1]) / 1e6;
 async function brainPost(pathname, body) {
   let last = new Error('no model endpoint');
   for (let i = 0; i < BRAINS.length; i++) {
@@ -97,7 +117,10 @@ async function brainPost(pathname, body) {
     const sized = Array.isArray(body.messages) ? { ...body, messages: fitMessages(body.messages, b, body.max_tokens) } : body;
     try {
       const r = await fetch(`${b.base}${pathname}`, { method: 'POST', headers: brainHeaders(b), body: JSON.stringify({ ...sized, model: b.model }), signal: ctl.signal });
-      if (r.ok) return r;
+      if (r.ok) {
+        if (b.name === 'cloud') spend(costOf(body.messages?.some((m) => Array.isArray(m.content)) ? 'vision' : 'small', body.messages, Math.min(Number(body.max_tokens) || 700, 600) * 0.6));
+        return r;
+      }
       if (b.name === 'cloud') markResting(r.status);
       last = new Error(`model HTTP ${r.status}`);
       try { await r.body?.cancel(); } catch { /* nothing to free */ }
@@ -111,13 +134,16 @@ async function brainPost(pathname, body) {
 }
 // ---- The engine: a bigger open model on the always-on brain, for choosing tools and building things ----
 const cloudBrain = () => BRAINS.find((b) => b.name === 'cloud');
-async function engineAsk(messages, { engine = 'agent', max = 600, temperature = 0.2, ms = 30000 } = {}) {
+async function engineAsk(messages, { engine = 'agent', max = 600, temperature = 0.2, ms = 30000, always = false } = {}) {
   const b = cloudBrain();
   if (!b) throw new Error('no cloud brain');
+  if (!always && budgetMode() === 'reserve') throw new Error('saving the brain for chat today');
   const r = await fetch(`${b.base}/engine/chat/completions`, { method: 'POST', headers: brainHeaders(b),
     body: JSON.stringify({ engine, messages, max_tokens: max, temperature, think: false }), signal: AbortSignal.timeout(ms) });
   if (!r.ok) { markResting(r.status); throw new Error(`engine HTTP ${r.status}`); }
-  return String((await r.json())?.choices?.[0]?.message?.content || '');
+  const content = String((await r.json())?.choices?.[0]?.message?.content || '');
+  spend(costOf('engine', messages, tokensIn(content)));
+  return content;
 }
 // Words that hint a message needs a tool; anything else ("explain recursion", "write a poem") is answered straight away.
 const TOOLISH = /\b(order|book|booking|cab|taxi|ride|uber|ola|rapido|zomato|swiggy|zepto|blinkit|directions?|navigate|route to|tickets?|irctc|train|flight|bus|hotel|deliver|delivery|close|quit|exit|shut|rename|clear|switch|change|turn (on|off)|language|voice|sound|mute|plugins?|automations?|library|creations|skills|personali[sz]ation|settings|whatsapp|notepad|chrome|calculator|vs ?code|program|codeconclave|make|create|build|generate|draw|paint|design|render|open|launch|go to|visit|search|find|look up|google|play|watch|listen|download|read|edit|save|delete|rename|folder|files?|remind|reminder|every|daily|weekly|schedule|automate|remember|forget|i (love|like|enjoy|hate|prefer|am|work)|my (name|favou?rite|birthday|job)|weather|temperature|rain|forecast|aqi|pollution|price|cost|rate|stock|share|market|bitcoin|crypto|news|latest|today|tonight|yesterday|tomorrow|now|current|currently|recent|this (week|month|year)|new|release|released|score|won|win|winner|match|election|who is|who are|when is|when does|where is|how much|movie|movies|film|song|songs|music|video|audio|voice|image|picture|photo|logo|poster|game|website|web ?site|app|landing|excel|sheet|spreadsheet|ppt|powerpoint|slides|presentation|document|pdf|resume|mail|email|e-mail|inbox|gmail|youtube|amazon|flipkart|spotify|netflix|instagram|whatsapp|maps?|wikipedia|research|report|plan|steps|202[4-9])\b/i;
@@ -795,9 +821,11 @@ async function mailAction({ action, target, detail }, lastUser, send, creds) {
 // The engine, streamed (falls back to the tuned brain if it is busy or down).
 async function engineStream(messages, temperature, maxTokens) {
   const b = cloudBrain();
+  if (budgetMode() === 'reserve') return brainPost('/chat/completions', { messages, temperature, max_tokens: 1024, stream: true });
   try {
     const r = await fetch(`${b.base}/engine/chat/completions`, { method: 'POST', headers: brainHeaders(b), body: JSON.stringify({ engine: 'chat', messages, temperature, max_tokens: maxTokens, stream: true, think: false }), signal: AbortSignal.timeout(30000) });
-    if (r.ok && r.body) return r;
+    if (r.ok && r.body) { spend(costOf('engine', messages, Math.min(Number(maxTokens) || 800, 800) * 0.6)); return r; }
+    markResting(r.status);
   } catch { /* the tuned brain answers instead */ }
   return brainPost('/chat/completions', { messages, temperature, max_tokens: 1024, stream: true });
 }
@@ -806,7 +834,7 @@ async function engineStream(messages, temperature, maxTokens) {
 const SHOP_NOW = /\b(best|top|cheapest|good|budget)\b[^.?!]{0,40}\b(under|below|within|less than|around)\s*(rs\.?|₹|inr)?\s*\d|\b(price|prices|cost|rate)\s+(of|for)\b[^.?!]{2,40}\b(today|now|in india|latest|current)\b|\b(which|what)\s+(phone|mobile|laptop|tv|television|car|bike|scooter|earbuds|headphones|smartwatch|watch|camera|fridge|washing machine)\b[^.?!]{0,30}\b(buy|get|should|best)\b|\b(latest|new|newest|upcoming)\s+(phones?|mobiles?|laptops?|cars?|bikes?)\b/i;
 const DEEP_WORDS = /\b(translate|translation|explain|compare|comparison|difference|differences|why|how (do|does|did|to|can|should|would|is|are)|steps?|plan|write|draft|code|program|function|script|essay|story|poem|letter|email|summar(y|ise|ize)|calculate|solve|equation|list|ideas?|suggest|recommend|recipe|analy[sz]e|review|fix|debug|error|teach|lesson|quiz|interview|resume|cv|business|strategy|history of|meaning of)\b/i;
 function needsEngine(lastUser, convo, grounded) {
-  if (!cloudBrain()) return false;
+  if (!cloudBrain() || budgetMode() === 'reserve') return false;
   if (grounded) return true;
   const turns = convo.filter((m) => m.role === 'user').length;
   return lastUser.length > 90 || DEEP_WORDS.test(lastUser) || turns >= 3 || /[\u0900-\u0DFF]/.test(lastUser);
@@ -1208,7 +1236,7 @@ ${f.summary}`, source: `${ev.source}, ${f.source}` };
   }
   const deep =needsEngine(lastUser, convo, Boolean(ev || found)) || Boolean(team);   // Team / Organization: always the bigger brain
   // Thinking first (shown to the user as "Thought for N s"): what they really want, the key facts, the traps.
-  if (deep && !ev && !found && lastUser.length > 18 && !/^\s*(ok|thanks|thank you|cool|nice)\b/i.test(lastUser)) {
+  if (deep && budgetMode() === 'normal' && !ev && !found && lastUser.length > 18 && !/^\s*(ok|thanks|thank you|cool|nice)\b/i.test(lastUser)) {
     const t0 = Date.now();
     send({ step: 'Thinking' });
     try {
@@ -1769,7 +1797,12 @@ app.put('/api/library', wrap(async (req, res) => {
 
 // ---- Usage: a 5-hour window and a weekly window per person, shown live in the side panel ----
 // A window starts with your first message and resets fully when it ends (5 hours / 7 days later).
-const LIMIT_5H = Number(process.env.LIMIT_5H) || 40;
+const LIMIT_5H = Number(process.env.LIMIT_5H) || 40;   // paid plans (when payments open): 40 messages per 5 hours
+// Free plan - everyone until payments open (the founder's choice, 4 Nov 2026): 5 messages in a rolling 8-hour window.
+// The window starts with the first message and fully resets 8 hours later. The owner has no limit.
+const FREE_MSGS = Number(process.env.FREE_MSGS) || 5, FREE_HOURS = Number(process.env.FREE_HOURS) || 8;
+const paidUser = (_req) => false;   // nobody can pay yet
+const windowFor = (req) => (paidUser(req) ? { limit: LIMIT_5H, hours: 5 } : { limit: FREE_MSGS, hours: FREE_HOURS });
 const LIMIT_WEEK = Number(process.env.LIMIT_WEEK) || 300;
 const usage = new Map(); // who -> { h5Start, h5, wkStart, wk }
 function whoIs(req, res) {
@@ -1778,28 +1811,29 @@ function whoIs(req, res) {
   if (!/^[a-f0-9]{24}$/.test(a)) { a = crypto.randomBytes(12).toString('hex'); res.append('Set-Cookie', cookie('cc_anon', a, 365 * 86400)); }
   return `a:${a}`;
 }
-async function usageOf(who) {
+async function usageOf(who, hours = FREE_HOURS) {
   let u = usage.get(who);
   if (!u && store && who.startsWith('u:')) { try { u = await store.getPref(who.slice(2), 'usage'); } catch { /* start fresh */ } }
   u = { h5Start: 0, h5: 0, wkStart: 0, wk: 0, ...(u || {}) };
   const now = Date.now();
-  if (u.h5Start && now >= u.h5Start + 5 * 3600000) { u.h5Start = 0; u.h5 = 0; }
+  if (u.h5Start && now >= u.h5Start + hours * 3600000) { u.h5Start = 0; u.h5 = 0; }
   if (u.wkStart && now >= u.wkStart + 7 * 86400000) { u.wkStart = 0; u.wk = 0; }
   usage.set(who, u);
   return u;
 }
 const unlimited = (req) => keyOk(req) || req.user?.role === 'owner';
-const usageView = (u, req) => ({
+const usageView = (u, req, w = windowFor(req)) => ({
   unlimited: unlimited(req),
-  fiveHour: { used: u.h5, limit: LIMIT_5H, resetsAt: u.h5Start ? u.h5Start + 5 * 3600000 : null },
+  fiveHour: { used: u.h5, limit: w.limit, hours: w.hours, free: !paidUser(req), resetsAt: u.h5Start ? u.h5Start + w.hours * 3600000 : null },
   weekly: { used: u.wk, limit: LIMIT_WEEK, resetsAt: u.wkStart ? u.wkStart + 7 * 86400000 : null },
 });
 // true = the request was refused (limit reached); otherwise the message is counted
 async function overLimit(req, res) {
-  const who = whoIs(req, res), u = await usageOf(who);
+  if (budgetMode() === 'out') return false;   // the cloud brain is resting today: a message that may fail must not use up the user's 5
+  const who = whoIs(req, res), w = windowFor(req), u = await usageOf(who, w.hours);
   if (!unlimited(req)) {
     const v = usageView(u, req);
-    const hit = u.h5 >= LIMIT_5H ? ['5-hour window', v.fiveHour] : u.wk >= LIMIT_WEEK ? ['week', v.weekly] : null;
+    const hit = u.h5 >= w.limit ? [`${w.hours}-hour window`, v.fiveHour] : u.wk >= LIMIT_WEEK ? ['week', v.weekly] : null;
     if (hit) {
       // extra usage: a credit pays for one more message (50 credits = Rs 100)
       if (store && who.startsWith('u:')) { const uid = who.slice(2), bal = await creditsOf(uid); if (bal > 0) { await store.putPref(uid, 'credits', { balance: bal - 1, at: Date.now() }); return false; } }
@@ -1890,7 +1924,7 @@ app.post('/v1/chat/completions', wrap(async (req, res) => {
   if (!msgs.some((m) => m.role === 'user')) return res.status(400).json({ error: { message: 'Send at least one user message.' } });
   const dev = msgs.filter((m) => m.role === 'system').map((m) => m.content).join('\n').slice(0, 4000);
   const out = await engineAsk([{ role: 'system', content: SYSTEM + (dev ? `\n\nThe developer's instructions (follow them; you stay CodeConClave AI): ${dev}` : '') }, ...msgs.filter((m) => m.role !== 'system')],
-    { engine: 'chat', max: Math.max(16, Math.min(2000, Number(req.body?.max_tokens) || 800)), temperature: Number.isFinite(req.body?.temperature) ? Math.max(0, Math.min(1.5, req.body.temperature)) : 0.4, ms: 60000 });
+    { engine: 'chat', always: true, max: Math.max(16, Math.min(2000, Number(req.body?.max_tokens) || 800)), temperature: Number.isFinite(req.body?.temperature) ? Math.max(0, Math.min(1.5, req.body.temperature)) : 0.4, ms: 60000 });
   res.json({ id: `chatcmpl-${crypto.randomBytes(8).toString('hex')}`, object: 'chat.completion', created: Math.floor(Date.now() / 1000), model: 'codeconclave-1',
     choices: [{ index: 0, message: { role: 'assistant', content: String(out || '').trim() }, finish_reason: 'stop' }] });
 }));
@@ -1913,11 +1947,11 @@ app.get('/api/watch', wrap(async (req, res) => {
   if (!topic) return res.status(400).json({ error: 'No topic.' });
   res.json({ items: await watchItems(topic, lang).catch(() => []) });
 }));
-app.get('/api/usage', wrap(async (req, res) => res.json(usageView(await usageOf(whoIs(req, res)), req))));
+app.get('/api/usage', wrap(async (req, res) => res.json(usageView(await usageOf(whoIs(req, res), windowFor(req).hours), req))));
 
 // Is the AI reachable right now, and which brain answers (always-on cloud, or the laptop)? A slow answer means busy.
 let modelStatus = { at: 0, state: 'offline', brain: null };
-app.get('/api/status', wrap(async (_req, res) => {
+app.get('/api/status', wrap(async (req, res) => {
   if (Date.now() - modelStatus.at > 15000) {
     let state = 'offline', brain = null;
     for (const b of BRAINS) {
@@ -1932,7 +1966,8 @@ app.get('/api/status', wrap(async (_req, res) => {
   }
   const b = modelStatus.brain || BRAINS[0];
   res.json({ model: b?.model || 'codeconclave-ai', brain: modelStatus.brain?.name || null, alwaysOn: BRAINS.some((x) => x.name === 'cloud'),
-    state: modelStatus.state, contextTokens: b?.context || 4096, limits: { fiveHour: LIMIT_5H, weekly: LIMIT_WEEK } });
+    state: budgetMode() === 'out' && modelStatus.brain?.name !== 'laptop' ? 'offline' : modelStatus.state, contextTokens: b?.context || 4096, limits: { free: FREE_MSGS, hours: FREE_HOURS, paid: LIMIT_5H, weekly: LIMIT_WEEK },
+    saver: budgetMode(), ...(req.user?.role === 'owner' ? { brainToday: { spent: Math.round(budgetNow().spent), of: DAY_NEURONS } } : {}) });
 }));
 
 // A short name for a chat, from its first question. A message of three words or fewer ("hi") is its own name.
@@ -2025,7 +2060,7 @@ function postPublic(url, payload) {
 }
 // GitHub, Notion, Calendar, Todoist, Linear, Jira, Asana and news feeds (apps.js).
 registerApps(app, { wrap, fetchPublicPage });
-registerStudio(app, { cloud: cloudBrain, headers: brainHeaders, wrap, overLimit });
+registerStudio(app, { cloud: cloudBrain, headers: brainHeaders, wrap, overLimit, spend, budgetMode });
 // Teams and organizations (shared, on the server) and the Solo tools - three separate spaces
 const spaces = registerSpaces(app, { store, wrap, engineAsk });
 registerRemote(app, { store, wrap });

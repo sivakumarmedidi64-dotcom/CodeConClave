@@ -35,7 +35,7 @@ const tickets = new Map();   // ticket -> { left, until }
 // a short-lived ticket so the pictures of one deck or video count as one request (not one per picture)
 export function imageTicket(n) { const t = crypto.randomUUID(); tickets.set(t, { left: Math.max(0, Math.min(8, n)), until: Date.now() + 15 * 60000 }); return t; }
 
-export function registerStudio(app, { cloud, headers, wrap, overLimit }) {
+export function registerStudio(app, { cloud, headers, wrap, overLimit, spend = () => {}, budgetMode = () => 'normal' }) {
   const brain = () => cloud();
   const post = (path, body, ms) => {
     const b = brain();
@@ -47,18 +47,22 @@ export function registerStudio(app, { cloud, headers, wrap, overLimit }) {
   app.post('/api/image', wrap(async (req, res) => {
     const prompt = String(req.body?.prompt || '').trim().slice(0, 1500);
     if (!prompt) return res.status(400).json({ error: 'Say what to draw.' });
+    // saver mode: near the end of the day's free brain time, pictures pause so chat keeps working
+    const mode = budgetMode();
+    if (mode === 'reserve' || mode === 'out') return res.status(429).json({ error: 'I have made all the pictures I can for today - they come back at 5:30 AM India time. I can still chat and write for you!' });
     const t = tickets.get(String(req.body?.ticket || ''));
     if (t && t.left > 0 && t.until > Date.now()) t.left--;
     else if (await overLimit(req, res)) return;
     const size = { square: [1024, 1024], wide: [1280, 720], tall: [720, 1280] }[req.body?.shape] || [1024, 1024];
     let r, d = {}, b64 = null;
     // the sharp model first; if Cloudflare is busy ("capacity") or it fails, the fast model tries once more
-    for (const quality of req.body?.quality === 'fast' ? ['fast', 'fast'] : ['best', 'fast']) {
+    for (const quality of req.body?.quality === 'fast' || mode === 'saver' ? ['fast', 'fast'] : ['best', 'fast']) {
       try {
         r = await post('/images/generations', { prompt, quality, width: size[0], height: size[1] }, 90000);
       } catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); continue; }
       d = await r.json().catch(() => ({}));
       b64 = d?.data?.[0]?.b64_json;
+      if (b64) spend(quality === 'best' ? 110 : 60);   // Cloudflare's price for one 1024px picture, in neurons (about)
       if (b64 || r.status === 429) break;
     }
     if (!r) return res.status(504).json({ error: 'Drawing took too long - please try again.' });
