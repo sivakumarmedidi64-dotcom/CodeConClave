@@ -81,6 +81,12 @@ function fitMessages(messages, b, maxTokens = 1024) {
 
 // POST to the first brain that answers. A brain with another one behind it gets 45 s to start
 // answering (headers only - a long streamed answer is never cut off).
+// The cloud brain's free allowance resets every day at 00:00 UTC (5:30 AM India). A 429 = used up for today.
+let restingUntil = 0;
+const markResting = (status) => { if (status === 429) { const d = new Date(); restingUntil = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); } };
+const offlineText = () => (Date.now() < restingUntil
+  ? 'CodeConClave AI has used up today\'s free thinking time and is resting. It comes back at 5:30 AM India time (00:00 UTC) - sorry for the wait!'
+  : 'CodeConClave AI is offline right now - please try again in a minute.');
 async function brainPost(pathname, body) {
   let last = new Error('no model endpoint');
   for (let i = 0; i < BRAINS.length; i++) {
@@ -92,6 +98,7 @@ async function brainPost(pathname, body) {
     try {
       const r = await fetch(`${b.base}${pathname}`, { method: 'POST', headers: brainHeaders(b), body: JSON.stringify({ ...sized, model: b.model }), signal: ctl.signal });
       if (r.ok) return r;
+      if (b.name === 'cloud') markResting(r.status);
       last = new Error(`model HTTP ${r.status}`);
       try { await r.body?.cancel(); } catch { /* nothing to free */ }
     } catch (e) {
@@ -109,7 +116,7 @@ async function engineAsk(messages, { engine = 'agent', max = 600, temperature = 
   if (!b) throw new Error('no cloud brain');
   const r = await fetch(`${b.base}/engine/chat/completions`, { method: 'POST', headers: brainHeaders(b),
     body: JSON.stringify({ engine, messages, max_tokens: max, temperature, think: false }), signal: AbortSignal.timeout(ms) });
-  if (!r.ok) throw new Error(`engine HTTP ${r.status}`);
+  if (!r.ok) { markResting(r.status); throw new Error(`engine HTTP ${r.status}`); }
   return String((await r.json())?.choices?.[0]?.message?.content || '');
 }
 // Words that hint a message needs a tool; anything else ("explain recursion", "write a poem") is answered straight away.
@@ -845,7 +852,7 @@ async function streamAnswer(res, messages, temperature = 0.7, guard = null, extr
     }
     if (!any) res.write(`data: ${JSON.stringify({ error: EMPTY_ANSWER })}\n\n`);
   } catch {
-    res.write(`data: ${JSON.stringify({ error: 'CodeConClave AI is offline right now — your tuned model is not reachable.' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ error: offlineText() })}\n\n`);
   }
   res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   res.end();
@@ -1654,7 +1661,7 @@ app.post('/api/mail/redraft', wrap(async (req, res) => {
     ], 260);
     res.json({ draft: cleanDraft(raw, SIGNATURE) });
   } catch {
-    res.status(502).json({ error: 'CodeConClave AI is offline right now.' });
+    res.status(502).json({ error: offlineText() });
   }
 }));
 
