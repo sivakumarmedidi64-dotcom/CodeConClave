@@ -7,7 +7,8 @@ const BASE_MODEL = '@cf/meta/llama-3.2-3b-instruct';
 // Seeing pictures: Llama 3.2 11B Vision (open weights; the founder accepted Meta's license on 2026-11-02).
 const VISION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
 // round 2 (2026-11-02): exam 28/30 vs 25 - identity 8/8, same code/facts; 'codeconclave-scout-1' stays uploaded for a quick rollback
-const LORA = 'codeconclave-scout-2';
+// round 3 (2026-11-05): Kaggle exam 87/108 vs 81 (old exam 29 vs live 28); on Cloudflare 39 vs 36 - live. 'codeconclave-scout-2' stays for rollback
+const LORA = 'codeconclave-scout-r3';
 const NAME = 'codeconclave-scout';
 // tuned brains the exam may compare (only the live one, LORA, is used by the app)
 const TEST_LORAS = new Set(['codeconclave-scout-2', 'codeconclave-scout-r3']);
