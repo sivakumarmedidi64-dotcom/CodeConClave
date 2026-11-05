@@ -503,6 +503,17 @@ const ENGINE_FEELINGS = 'Show your feelings only when the moment calls for it (t
 const FOUNDER_CONTACT = /\b(saharsh|saharsha|sahrsh|saharash|medidi|founder|creator|owner|maker|ceo)('?s)?\b[^.?!]{0,40}\b(e-?mail|mail|gmail|mail ?id|contact|reach|address|number|phone|whatsapp|insta(gram)?)\b|\b(e-?mail|mail|gmail|contact|reach|talk to)\b[^.?!]{0,30}\b(saharsh|saharsha|sahrsh|saharash|medidi|founder|creator|owner|maker|ceo)\b/i;
 // "Which model are you? Are you Qwen / Llama / ChatGPT? Made by Alibaba / Meta / OpenAI?" - one honest, fixed answer
 // (no other AI's name, no made-up details). The brains behind the app are open-source models CodeConClave tunes and runs.
+// ---- Team check: two brains solve a maths question separately; if their answers differ, a third pass checks both. ----
+// On our hard exam the two brains got 17 and 18 of 20 alone, 19 of 20 together - they make different mistakes.
+const MATH_Q = /\b(calculate|compute|solve|how (much|many)|what is|find|total|profit|loss|percent(age)?|average|interest|discount|area|perimeter|volume|speed|ratio|equation|sum|product|difference|split|share|each|per)\b/i;
+const looksMath = (t) => !/\b(days?|weeks?|months?|years?)\s+(until|till|left|since|ago|to go)\b|\b(today|tomorrow|yesterday|date|birthday|age)\b/i.test(t) && MATH_Q.test(t) && (String(t).match(/\d+(\.\d+)?/g) || []).length >= 2 && String(t).length < 1200 && !/```/.test(t);
+function finalNumber(a) {
+  const t = String(a || '').replace(/,(?=\d{3}\b)/g, '');
+  const m = t.match(/(?:final answer|the answer is|answer\s*[:=]|so the answer is|=\s*\**)\s*(?:rs\.?|₹|\$)?\s*(-?\d+(?:\.\d+)?)/gi);
+  const pick = m ? m[m.length - 1] : null;
+  const n = (pick || t).match(/-?\d+(?:\.\d+)?/g);
+  return n ? Number(n[n.length - 1]) : null;
+}
 const MODEL_Q = /\b(which|what)\b[^.?!]{0,30}\b(ai|model|llm|engine|brain)\b[^.?!]{0,25}\b(are you|is this|powers? you|do you use|are you using|you run on|runs? you|behind you)\b|\bare you\b[^.?!]{0,20}\b(qwen|llama|gemma|chat ?gpt|gpt|gemini|claude|deepseek|mistral|kimi|glm|grok|copilot|perplexity|bard|meta ai)\b|\b(made|built|created|trained|developed|owned)\b[^.?!]{0,25}\bby\b[^.?!]{0,20}\b(alibaba|meta|google|openai|anthropic|microsoft|deepseek|mistral|cohere|nvidia)\b/i;
 const MODEL_REPLY = "I'm CodeConClave AI, made in India by my founder Saharsh Medidi 😊 I'm built from open-source AI that CodeConClave tunes and runs itself, plus my own tools for live data, web search and building things. What can I help you with?";
 const FOUNDER_CONTACT_REPLY = 'You can reach my founder Saharsh Medidi at medidisaharsh@gmail.com 😊 — for support or to work together.';
@@ -1338,6 +1349,29 @@ ${f.summary}`, source: `${ev.source}, ${f.source}` };
     messages[i] = { role: 'user', content: `${messages[i].content}\n[${guard.again}]` };
     if ((await streamAnswer(res, messages, 0.4, guard)) === 'done') return;
   }
+  if (!ev && !found && !fileBlock && looksMath(lastUser) && budgetMode() === 'normal' && cloudBrain()) {
+    send({ step: 'Two brains are solving it separately' });
+    const ask = [...messages.slice(0, -1), { role: 'user', content: messages[messages.length - 1].content + '\n\n[Solve step by step. End with one line: "Final answer: <number with unit>".]' }];
+    const [a, b] = await Promise.all([
+      engineAsk(ask, { engine: CHAT_ENGINE, max: 1100, temperature: 0.2, ms: 45000 }).catch(() => ''),
+      engineAsk(ask, { engine: 'agent', max: 1100, temperature: 0.2, ms: 45000 }).catch(() => ''),
+    ]);
+    const na = finalNumber(a), nb = finalNumber(b);
+    let answer = '', note = '';
+    if (a && b && na !== null && nb !== null && Math.abs(na - nb) < 1e-6 * Math.max(1, Math.abs(na))) {
+      answer = a; note = '✅ Checked: two CodeConClave brains solved this separately and got the same answer.';
+    } else if (a && b) {
+      send({ step: 'They disagreed - checking both solutions' });
+      const judge = await engineAsk([{ role: 'system', content: SYSTEM }, { role: 'user', content: `Question: ${lastUser}\n\nSolution 1:\n${a.slice(0, 3000)}\n\nSolution 2:\n${b.slice(0, 3000)}\n\nThese two solutions disagree. Check every step of both carefully, find the mistake, and write the correct solution step by step for the user (do not mention "solution 1" or "solution 2"). End with one line: "Final answer: <number with unit>".` }],
+        { engine: 'agent', max: 1300, temperature: 0.1, ms: 50000 }).catch(() => '');
+      answer = judge || a; note = judge ? '🔎 Checked: two brains disagreed, so every step was checked again before answering.' : '';
+    } else answer = a || b;
+    if (answer) {
+      const full = `${answer.trim()}${note ? `\n\n${note}` : ''}`;
+      const target = lang || scriptLang(lastUser);
+      return say(target && target !== 'en' ? await translateAnswer(full, target).catch(() => full) : full);
+    }
+  }
   // A chosen language other than English: answer in English first, then translate. Asked straight in Telugu,
   // the small model said India's capital is Hyderabad; its facts are much better in English.
   // The translation is done by real translation models (IndicTrans2 / M2M100) - the brain's own Telugu changed facts too.
@@ -1379,7 +1413,7 @@ ${f.summary}`, source: `${ev.source}, ${f.source}` };
     const k3 = messages.map((m) => m.role).lastIndexOf('user');   // told before: answer only from that, no "ask Saharsh"
     messages[k3] = { role: 'user', content: `${messages[k3].content}\n\n[Answer only from what the user or their team told you. Do not add anything else and do not mention Saharsh.]` };
   }
-  const deep =needsEngine(lastUser, convo, Boolean(ev || found)) || Boolean(team);   // Team / Organization: always the bigger brain
+  const deep = needsEngine(lastUser, convo, Boolean(ev || found));   // the same brain for every plan (Solo, Team, Organization) - only features differ
   // Thinking first (shown to the user as "Thought for N s"): what they really want, the key facts, the traps.
   if (deep && budgetMode() === 'normal' && !ev && !found && lastUser.length > 18 && !/^\s*(ok|thanks|thank you|cool|nice)\b/i.test(lastUser)) {
     const t0 = Date.now();
