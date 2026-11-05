@@ -26,6 +26,9 @@ const ENGINES = {
   lab3: '@cf/deepseek-ai/deepseek-v4.1-flash-1017',
   // candidate core-reasoning brain: open weights, the same price per word as the 3B scout (being tested, not used by the app yet)
   qwen3: '@cf/qwen/qwen3-30b-a3b-fp8',
+  // candidates for the hard-questions brain (being tested)
+  nemotron: '@cf/nvidia/nemotron-3-120b-a12b',
+  gptoss: '@cf/openai/gpt-oss-120b',
 };
 // Different models answer in different shapes; pull the text out of any of them.
 // reasoningIsAnswer: Qwen3 with thinking switched off puts its answer in reasoning_content (content is null)
