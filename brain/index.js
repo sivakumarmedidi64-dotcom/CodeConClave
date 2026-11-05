@@ -9,6 +9,8 @@ const VISION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
 // round 2 (2026-11-02): exam 28/30 vs 25 - identity 8/8, same code/facts; 'codeconclave-scout-1' stays uploaded for a quick rollback
 const LORA = 'codeconclave-scout-2';
 const NAME = 'codeconclave-scout';
+// tuned brains the exam may compare (only the live one, LORA, is used by the app)
+const TEST_LORAS = new Set(['codeconclave-scout-2', 'codeconclave-scout-r3']);
 // Pictures (FLUX, open weights). "fast" = 4 steps, a few seconds; "best" = FLUX.2 klein, sharper.
 const IMAGE_MODELS = {
   fast: { id: '@cf/black-forest-labs/flux-1-schnell', steps: 4 },
@@ -25,10 +27,11 @@ const ENGINES = {
   qwen3: '@cf/qwen/qwen3-30b-a3b-fp8',
 };
 // Different models answer in different shapes; pull the text out of any of them.
-function engineText(r) {
+// reasoningIsAnswer: Qwen3 with thinking switched off puts its answer in reasoning_content (content is null)
+function engineText(r, reasoningIsAnswer = false) {
   if (typeof r?.response === 'string') return r.response;
   const c = r?.choices?.[0];
-  if (c) return String(c.message?.content ?? c.text ?? '');
+  if (c) return String(c.message?.content ?? c.text ?? (reasoningIsAnswer ? c.message?.reasoning_content ?? c.message?.reasoning : '') ?? '');
   if (Array.isArray(r?.output)) return r.output.flatMap((o) => o?.content || []).map((p) => p?.text || '').join('');
   return r?.response ? JSON.stringify(r.response) : '';
 }
@@ -67,7 +70,7 @@ function aiInput(body) {
   const input = {
     prompt: llamaPrompt(Array.isArray(body.messages) ? body.messages.slice(-40) : []),
     raw: true,
-    lora: LORA,
+    lora: TEST_LORAS.has(body.lora) ? body.lora : LORA,   // the exam can ask for a specific tuned brain
     stream: Boolean(body.stream),
     max_tokens: num(body.max_tokens, 1, 2048) ?? 1024,
     temperature: num(body.temperature, 0, 2) ?? 0.7,
@@ -104,7 +107,7 @@ const heldTail = (s) => {
 };
 
 // Cloudflare streams {"response":"..."} lines; turn them into OpenAI-style deltas.
-function toOpenAIStream(stream) {
+function toOpenAIStream(stream, reasoningIsAnswer = false) {
   const dec = new TextDecoder();
   const enc = new TextEncoder();
   let buf = '', pending = '';
@@ -124,7 +127,7 @@ function toOpenAIStream(stream) {
           const d = JSON.parse(payload);
           // Use the exact token text: in "response", tokens like " false" or "2" arrive as JSON
           // booleans/numbers, which loses the space in front ("returnfalse").
-          const t = d.choices?.[0]?.text ?? d.choices?.[0]?.delta?.content;   // .delta = the bigger engines' OpenAI-style chunks
+          const t = d.choices?.[0]?.text ?? d.choices?.[0]?.delta?.content ?? (reasoningIsAnswer ? d.choices?.[0]?.delta?.reasoning_content ?? d.choices?.[0]?.delta?.reasoning : undefined);   // .delta = the bigger engines' OpenAI-style chunks
           const text = typeof t === 'string' ? t
             : d.response === null || d.response === undefined || typeof d.response === 'object' ? '' : String(d.response);
           if (text) {
@@ -249,8 +252,10 @@ export default {
       if (body.think === false) input.chat_template_kwargs = { enable_thinking: false };
       try {
         const result = await env.AI.run(model, input);
-        if (input.stream) return new Response(toOpenAIStream(result), { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' } });
-        const content = stripMarkers(engineText(result));
+        if (body.debug === true) return json({ raw: result });   // exam/debugging: see exactly what the model returned
+        const reasoningIsAnswer = body.think === false && model.includes('qwen3');
+        if (input.stream) return new Response(toOpenAIStream(result, reasoningIsAnswer), { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' } });
+        const content = stripMarkers(engineText(result, reasoningIsAnswer));
         return json({ object: 'chat.completion', model: NAME, choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }], usage: result?.usage || undefined });
       } catch (e) { return aiError(e); }
     }

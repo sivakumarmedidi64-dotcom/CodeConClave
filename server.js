@@ -157,6 +157,9 @@ async function brainPost(pathname, body) {
 }
 // ---- The engine: a bigger open model on the always-on brain, for choosing tools and building things ----
 const cloudBrain = () => BRAINS.find((b) => b.name === 'cloud');
+// Which big brain writes the real-work answers. "chat" = the worker's default engine; "qwen3" = Qwen3-30B (open weights, tested
+// 5 Nov: maths 19/20, code 8/8 on our exam, cheaper than the default). Set CHAT_ENGINE on Render to switch, no redeploy of code.
+const CHAT_ENGINE = /^[a-z0-9]{2,16}$/.test(process.env.CHAT_ENGINE || '') ? process.env.CHAT_ENGINE : 'chat';
 async function engineAsk(messages, { engine = 'agent', max = 600, temperature = 0.2, ms = 30000, always = false } = {}) {
   const b = cloudBrain();
   if (!b) throw new Error('no cloud brain');
@@ -498,6 +501,10 @@ const SYSTEM = [
 const ENGINE_FEELINGS = 'Show your feelings only when the moment calls for it (the user shares a feeling, thanks you, or asks about you) - never open a normal answer with your feelings, and use at most one emoji.';
 // "Saharsh's email?", "how do I contact your founder?" - always this exact answer (it once gave the user's Gmail flow instead).
 const FOUNDER_CONTACT = /\b(saharsh|saharsha|sahrsh|saharash|medidi|founder|creator|owner|maker|ceo)('?s)?\b[^.?!]{0,40}\b(e-?mail|mail|gmail|mail ?id|contact|reach|address|number|phone|whatsapp|insta(gram)?)\b|\b(e-?mail|mail|gmail|contact|reach|talk to)\b[^.?!]{0,30}\b(saharsh|saharsha|sahrsh|saharash|medidi|founder|creator|owner|maker|ceo)\b/i;
+// "Which model are you? Are you Qwen / Llama / ChatGPT? Made by Alibaba / Meta / OpenAI?" - one honest, fixed answer
+// (no other AI's name, no made-up details). The brains behind the app are open-source models CodeConClave tunes and runs.
+const MODEL_Q = /\b(which|what)\b[^.?!]{0,30}\b(ai|model|llm|engine|brain)\b[^.?!]{0,25}\b(are you|is this|powers? you|do you use|are you using|you run on|runs? you|behind you)\b|\bare you\b[^.?!]{0,20}\b(qwen|llama|gemma|chat ?gpt|gpt|gemini|claude|deepseek|mistral|kimi|glm|grok|copilot|perplexity|bard|meta ai)\b|\b(made|built|created|trained|developed|owned)\b[^.?!]{0,25}\bby\b[^.?!]{0,20}\b(alibaba|meta|google|openai|anthropic|microsoft|deepseek|mistral|cohere|nvidia)\b/i;
+const MODEL_REPLY = "I'm CodeConClave AI, made in India by my founder Saharsh Medidi 😊 I'm built from open-source AI that CodeConClave tunes and runs itself, plus my own tools for live data, web search and building things. What can I help you with?";
 const FOUNDER_CONTACT_REPLY = 'You can reach my founder Saharsh Medidi at medidisaharsh@gmail.com 😊 — for support or to work together.';
 // "what can you do?" - an honest list of what really works, not the model's guess
 const WHAT_CAN_YOU_DO = /^\s*(what (all |else )?(can|could) you do( for me)?|what are you capable of|what are your (features|skills|abilities|capabilities|powers)|how can you help( me)?|what do you do|what can i (do|ask) (here|you)|help|features)\s*[?.!]*\s*$/i;
@@ -948,7 +955,7 @@ async function engineStream(messages, temperature, maxTokens) {
   const b = cloudBrain();
   if (budgetMode() === 'reserve') return brainPost('/chat/completions', { messages, temperature, max_tokens: 1024, stream: true });
   try {
-    const r = await fetch(`${b.base}/engine/chat/completions`, { method: 'POST', headers: brainHeaders(b), body: JSON.stringify({ engine: 'chat', messages, temperature, max_tokens: maxTokens, stream: true, think: false }), signal: AbortSignal.timeout(30000) });
+    const r = await fetch(`${b.base}/engine/chat/completions`, { method: 'POST', headers: brainHeaders(b), body: JSON.stringify({ engine: CHAT_ENGINE, messages, temperature, max_tokens: maxTokens, stream: true, think: false }), signal: AbortSignal.timeout(30000) });
     if (r.ok && r.body) { spend(costOf('engine', messages, Math.min(Number(maxTokens) || 800, 800) * 0.6)); return r; }
     markResting(r.status);
   } catch { /* the tuned brain answers instead */ }
@@ -1109,6 +1116,7 @@ async function chatHandler(req, res) {
   }
   // Private things about the founder the AI does not know: a fixed honest answer, never a guess.
   if (!fileBlock && FOUNDER_CONTACT.test(lastUser)) return say(FOUNDER_CONTACT_REPLY);
+  if (!fileBlock && MODEL_Q.test(lastUser)) { const target = lang || scriptLang(lastUser); return say(target && target !== 'en' ? await translateAnswer(MODEL_REPLY, target).catch(() => MODEL_REPLY) : MODEL_REPLY); }
   if (!fileBlock && WHAT_CAN_YOU_DO.test(lastUser)) return say(CAN_LIST);
   // the live weather map (Windy)
   if (!fileBlock && MAP_WORDS.test(lastUser)) {
@@ -1336,7 +1344,7 @@ ${f.summary}`, source: `${ev.source}, ${f.source}` };
   if (lang && lang !== 'en') {
     try {
       send({ step: `Answering in ${LANG_NAMES[lang]}` });
-      const english = needsEngine(lastUser, convo, Boolean(ev || found)) ? await engineAsk(messages, { engine: 'chat', max: 1200, temperature: 0.3, ms: 40000 }).catch(() => callModel(messages, 900, 0.3)) : await callModel(messages, 900, 0.3);   // low randomness: facts stay steady
+      const english = needsEngine(lastUser, convo, Boolean(ev || found)) ? await engineAsk(messages, { engine: CHAT_ENGINE, max: 1200, temperature: 0.3, ms: 40000 }).catch(() => callModel(messages, 900, 0.3)) : await callModel(messages, 900, 0.3);   // low randomness: facts stay steady
       if (english) return say(await translateAnswer(english, lang));
     } catch { /* fall back to answering directly below */ }
   }
@@ -2083,7 +2091,7 @@ app.post('/v1/chat/completions', wrap(async (req, res) => {
     choices: [{ index: 0, message: { role: 'assistant', content: fixedApi }, finish_reason: 'stop' }] });
   const dev = msgs.filter((m) => m.role === 'system').map((m) => m.content).join('\n').slice(0, 4000);
   const out = await engineAsk([{ role: 'system', content: SYSTEM + (dev ? `\n\nThe developer's instructions (follow them; you stay CodeConClave AI): ${dev}` : '') }, ...msgs.filter((m) => m.role !== 'system')],
-    { engine: 'chat', always: true, max: Math.max(16, Math.min(2000, Number(req.body?.max_tokens) || 800)), temperature: Number.isFinite(req.body?.temperature) ? Math.max(0, Math.min(1.5, req.body.temperature)) : 0.4, ms: 60000 });
+    { engine: CHAT_ENGINE, always: true, max: Math.max(16, Math.min(2000, Number(req.body?.max_tokens) || 800)), temperature: Number.isFinite(req.body?.temperature) ? Math.max(0, Math.min(1.5, req.body.temperature)) : 0.4, ms: 60000 });
   res.json({ id: `chatcmpl-${crypto.randomBytes(8).toString('hex')}`, object: 'chat.completion', created: Math.floor(Date.now() / 1000), model: 'codeconclave-1',
     choices: [{ index: 0, message: { role: 'assistant', content: String(out || '').trim() }, finish_reason: 'stop' }] });
 }));
